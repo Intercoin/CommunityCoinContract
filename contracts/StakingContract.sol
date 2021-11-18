@@ -15,21 +15,20 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
 
-import "./erc777/ERC777LayerUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./minimums/upgradeable/MinimumsBase.sol";
 import "./interfaces/IStakingContract.sol";
 
-contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777RecipientUpgradeable, IERC777SenderUpgradeable, MinimumsBase, IStakingContract {
+contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777RecipientUpgradeable, IERC777SenderUpgradeable, MinimumsBase, IStakingContract {
     using SafeMathUpgradeable for uint256;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
-    
     
     address public factory;
     // tradedToken
     address public token0;
     // reserveToken
     address public token1;
-    uint256 public lockupDuration;
+    uint256 public lockupIntervalCount;
     uint256 public token0ClaimFraction;
     uint256 public token1ClaimFraction;
     uint256 public lpClaimFraction;
@@ -63,7 +62,7 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
         address token0_, 
         address token1_,
         uint256 lockupInterval_, //  interval 
-        uint256 lockupDuration_, 
+        uint256 lockupIntervalCount_, 
         uint256 token0ClaimFraction_, 
         uint256 token1ClaimFraction_,
         uint256 lpClaimFraction_
@@ -78,14 +77,14 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
         token0 = token0_;
         token1 = token1_;
         
-        lockupDuration = lockupDuration_;
+        lockupIntervalCount = lockupIntervalCount_;
         token0ClaimFraction = token0ClaimFraction_;
         token1ClaimFraction = token1ClaimFraction_;
         lpClaimFraction = lpClaimFraction_;
         
-    
         __Ownable_init();
-        __ERC777LayerUpgradeable_init("StakingToken","ST",(new address[](0)));
+        __ERC777_init("StakingToken","ST",(new address[](0)));
+        
         MinimumsBase_init(lockupInterval_);
         
         UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
@@ -95,7 +94,6 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
         require(pair != address(0), "Pair could not exist");
         uniswapV2Pair = IUniswapV2Pair(pair);
 
-        
     }
     
     function tokensToSend(
@@ -123,27 +121,9 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
         virtual
         external
     {
-        // a1 = operator;
-        // a2 = from;
-        // a3 = to;
-        
-        // msg.sender here is tokencontract that send from
-        
-        // if (msg.sender == token) {
-            
-        //     _stake(from, amount);
-            
-        // } else if (whitelist.contains(msg.sender)) {
-
-        //     // save dividends
-        //     _disburse(msg.sender, amount);
-        // } else {
-        //     revert("unsupported tokens");
-        // }
         
     }
-   
-   
+    
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -182,20 +162,12 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
     
     function redeemAndRemoveLiquidity(uint256 amount) public {
         
-        uint256 senderBalance = balanceOf(msg.sender);
-        uint256 totalBalance = totalSupply();
+        (uint256 senderSharesBalance, uint256 totalSharesBalance) = _beforeRedeem(amount);
         
-        
-        
-        //IERC20Upgradeable(address(this)).transferFrom(msg.sender, address(this), amount);
-        transferFrom(msg.sender, address(this), amount);
-        
-        // checking minimums while all redeem happens in  _move method (in cases from=sender, to=address(this))
-         
         // make redeem
         _redeemAndRemoveLiquidity(msg.sender, amount);
         
-        grantReward(msg.sender, senderBalance, totalBalance);
+        grantReward(msg.sender, senderSharesBalance, totalSharesBalance);
     }
     
     /**
@@ -203,35 +175,33 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
      */
     function redeem(uint256 amount) public {
         
-        uint256 senderBalance = balanceOf(msg.sender);
-        uint256 totalBalance = totalSupply();
-        
-        transferFrom(msg.sender, address(this), amount);
+        (uint256 senderSharesBalance, uint256 totalSharesBalance) = _beforeRedeem(amount);
         
         uint256 amount2Redeem = _redeem(msg.sender, amount);
         
         uniswapV2Pair.transfer(msg.sender, amount2Redeem);
         
-        grantReward(msg.sender, senderBalance, totalBalance);
+        grantReward(msg.sender, senderSharesBalance, totalSharesBalance);
     }
-    
-    
+
     function addRewardToken(address addr) public onlyOwner() {
         rewardTokensList.add(addr);
     }
+    
     function removeRewardToken(address addr) public onlyOwner() {
         rewardTokensList.remove(addr);
     }
+    
     function viewRewardTokensList() public view returns(address[] memory) {
         return rewardTokensList.values();
     }
     
     // if already added liquidity earlier, goes into same pool    
     function stakeLiquidity(uint256 liquidityTokenAmount) public {
+        require (liquidityTokenAmount > 0, "liquidityTokenAmount need > 0" );
+        
         // checking lp token approve and make transferFrom
         IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(msg.sender, address(this), liquidityTokenAmount);
-        
-        require (liquidityTokenAmount > 0, "liquidityTokenAmount need > 0" );
         
         // stake tokens
         _stake(msg.sender, liquidityTokenAmount);
@@ -241,6 +211,18 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+
+    function _beforeRedeem(uint256 amount) internal returns(uint256 senderBalance, uint256 totalBalance) {
+        senderBalance = balanceOf(msg.sender);
+        totalBalance = totalSupply();
+
+        // !!!!! be carefull.  not transferFrom, but IERC20Upgradeable(address(this)).transferFrom.
+        // because in this case tokens will be allow to this contract and contract must be THIS but not MSG.SENDER
+        //transferFrom(msg.sender, address(this), amount);
+        IERC20Upgradeable(address(this)).transferFrom(msg.sender, address(this), amount);
+        //------
+    }
+    
     
     /**
      * when user redeem token we will additionally grant percent of
@@ -276,11 +258,12 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
     function fractionAmountSend(address token_, uint256 amount_, uint256 fraction_, address fractionAddr_) internal returns(uint256 left) {
         return _fractionAmountSend(token_, amount_, fraction_, fractionAddr_, address(0), true);
     }
+    
     /**
      * method will send `fraction_` of `amount_` of token `token_` to address `fractionAddr_`.
      * if `fractionSendOnly_` == false , all that left will send to address `to`
      */
-    function _fractionAmountSend(address token_, uint256 amount_, uint256 fraction_, address fractionAddr_, address to_, bool fractionSendOnly_) private returns(uint256 leftAfterFractionSend) {
+    function _fractionAmountSend(address token_, uint256 amount_, uint256 fraction_, address fractionAddr_, address to_, bool fractionSendOnly_) internal returns(uint256 leftAfterFractionSend) {
         leftAfterFractionSend = 0;
         if (fraction_ == MULTIPLIER) {
             IERC20Upgradeable(token_).transfer(fractionAddr_, amount_);
@@ -306,52 +289,35 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
     function _stake(address addr, uint256 amount) internal {
         _mint(addr, amount, "", "");
         emit Staked(addr, amount);
-        _minimumsAdd(addr, amount, lockupDuration, false);
-        
+        _minimumsAdd(addr, amount, lockupIntervalCount, false);
     }
     
-    function _move(
-        address operator,
+    function _beforeTokenTransfer(
+        address /*operator*/,
         address from,
         address to,
-        uint256 amount,
-        bytes memory userData,
-        bytes memory operatorData
+        uint256 amount
     ) internal override {
-        
-        
-        
-        if (from == address(0) || to == address(0)) {
-            // todo 0: remove?
-            // from == address(0) - is unreacheble, 
-            // to == address(0) - only if user manually set recipient
+        if (
+            (to == address(0)) ||
+            (from == address(0))/* ||
+            (
+                to == address(this) && msg.sender == address(this)
+            )*/
+        ) {
             
         } else {
-            
-            // balance = 100             
-            // locked 80
-            // amount = 70
-            // leftAmount = balance - amount = 100-70 = 30;
-            // if (locked > leftAmount) {
-            //     transfer is =  locked-leftAmount = 80-30 = 50
-            // }
-            // means that we use use unlocked first (20) and then that left (50). it's 50 we transfer as minimums to other
-
-            uint256 balance = balanceOf(_msgSender());
-            uint256 locked = _getMinimum(_msgSender());
+            uint256 balance = balanceOf(from);
+            uint256 locked = _getMinimum(from);
             
             uint256 leftAmount = balance.sub(amount);
             if (locked > leftAmount) {
-                require(to != address(this), "insufficient amount to redeem");
-                minimumsTransfer(from, to, locked.sub(leftAmount));
+                 require(to != address(this), "insufficient amount to redeem");
+                 minimumsTransfer(from, to, locked.sub(leftAmount));
             }
-            
         }
-        
-        
-        super._move(operator, from, to, amount, userData, operatorData);
-       
     }
+    
     function uniswapExchange(address tokenIn, address tokenOut, uint256 amountIn) internal returns(uint256 amountOut) {
         require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), 'approve failed.');
         // amountOutMin must be retrieved from an oracle of some kind
@@ -399,14 +365,11 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
         // stake tokens
         _stake(from, lpTokens);
         
-
     }
     
     function _redeemAndRemoveLiquidity(address sender, uint256 amount) private {
         
         uint256 amount2Redeem = _redeem(sender, amount);
-        
-        
         
         require(uniswapV2Pair.approve(uniswapRouter, amount2Redeem), 'approve failed.');
         
@@ -422,21 +385,15 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
         
         fractionAmountSend(token0, amountA, token0ClaimFraction, owner(), sender);
         fractionAmountSend(token1, amountB, token1ClaimFraction, owner(), sender);
-        
-        
-        
     }
     
     function _redeem(address sender, uint256 amount) private returns(uint256 amount2Redeem){
         emit Redeemed(sender, amount);
         // transfer to dead address 
-        transfer(deadAddress, amount);
+        IERC20Upgradeable(address(this)).transfer(deadAddress, amount);
 
-        // validate free amount to redeem was moved to method _move
-        
-        // 
+        // validate free amount to redeem was moved to method _beforeTokenTransfer
         amount2Redeem = fractionAmountSend(address(uniswapV2Pair), amount, lpClaimFraction, owner());
-        
     }
     
     

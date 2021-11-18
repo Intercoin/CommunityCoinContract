@@ -79,13 +79,13 @@ locked2 = 40/(100-40)*(100-70) = 20
     *
     * @param addr address which should be restricted
     * @param amount amount.
-    * @param duration duration in count of intervals defined before
+    * @param intervalCount duration in count of intervals defined before
     * @param gradual true if the limitation can gradually decrease
     */
     function _minimumsAdd(
         address addr,
         uint256 amount, 
-        uint256 duration,
+        uint256 intervalCount,
         bool gradual
     ) 
         // public 
@@ -94,7 +94,7 @@ locked2 = 40/(100-40)*(100-70) = 20
         returns (bool)
     {
         uint256 timestampStart = getIndexInterval(block.timestamp);
-        uint256 timestampEnd = timestampStart.add(duration.mul(interval));
+        uint256 timestampEnd = timestampStart.add(intervalCount.mul(interval));
         require(timestampEnd > timestampStart, 'timestamp is less then current block.timestamp');
         
         _minimumsClear(addr, false);

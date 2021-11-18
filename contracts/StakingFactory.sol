@@ -22,7 +22,7 @@ contract StakingFactory is IStakingFactory, Ownable {
     struct Pair {
         address tokenA;
         address tokenB;
-        uint256 lockupDuration;
+        uint256 lockupIntervalCount;
         uint256 tokenAClaimFraction;
         uint256 tokenBClaimFraction;
         uint256 lpClaimFraction;
@@ -35,33 +35,33 @@ contract StakingFactory is IStakingFactory, Ownable {
     }
 
 
-    function produce(address tokenA, address tokenB, uint256 lockupDuration) public returns (address pair) {
+    function produce(address tokenA, address tokenB, uint256 lockupIntervalCount) public returns (address pair) {
          // 1% from LP tokens should move to owner while user try to redeem
-        return _produce(tokenA, tokenB, lockupDuration, 0, 0, 1000);
+        return _produce(tokenA, tokenB, lockupIntervalCount, 0, 0, 1000);
         
     }
     
-    function produce(address tokenA, address tokenB, uint256 lockupDuration, uint256 tokenAClaimFraction, uint256 tokenBClaimFraction, uint256 lpClaimFraction) public onlyOwner() returns (address pair) {
-        return _produce(tokenA, tokenB, lockupDuration, tokenAClaimFraction, tokenBClaimFraction, lpClaimFraction);
+    function produce(address tokenA, address tokenB, uint256 lockupIntervalCount, uint256 tokenAClaimFraction, uint256 tokenBClaimFraction, uint256 lpClaimFraction) public onlyOwner() returns (address pair) {
+        return _produce(tokenA, tokenB, lockupIntervalCount, tokenAClaimFraction, tokenBClaimFraction, lpClaimFraction);
     }
     
-    function getInstance(address tokenA, address tokenB, uint256 lockupDuration) public view returns(Pair memory) {
-        address pair = getPair[tokenA][tokenB][lockupDuration];
+    function getInstance(address tokenA, address tokenB, uint256 lockupIntervalCount) public view returns(Pair memory) {
+        address pair = getPair[tokenA][tokenB][lockupIntervalCount];
         return pairTokens[pair];
     }
     
     
-    function _produce(address tokenA, address tokenB, uint256 lockupDuration, uint256 tokenAClaimFraction, uint256 tokenBClaimFraction, uint256 lpClaimFraction) internal returns (address pair) {
-        pair = _createPairValidate(tokenA, tokenB, lockupDuration, tokenAClaimFraction, tokenBClaimFraction);
+    function _produce(address tokenA, address tokenB, uint256 lockupIntervalCount, uint256 tokenAClaimFraction, uint256 tokenBClaimFraction, uint256 lpClaimFraction) internal returns (address pair) {
+        pair = _createPairValidate(tokenA, tokenB, lockupIntervalCount, tokenAClaimFraction, tokenBClaimFraction);
         
-        address payable pairCreated = _createPair(tokenA, tokenB, lockupDuration, tokenAClaimFraction, tokenBClaimFraction, lpClaimFraction);    
+        address payable pairCreated = _createPair(tokenA, tokenB, lockupIntervalCount, tokenAClaimFraction, tokenBClaimFraction, lpClaimFraction);    
         require(pairCreated != address(0), "StakingFactory: PAIR_CREATION_FAILED");
-        StakingContract(pairCreated).initialize(tokenA, tokenB, lockupInterval, lockupDuration, tokenAClaimFraction, tokenBClaimFraction, lpClaimFraction);
+        StakingContract(pairCreated).initialize(tokenA, tokenB, lockupInterval, lockupIntervalCount, tokenAClaimFraction, tokenBClaimFraction, lpClaimFraction);
         pair = pairCreated;
         
     }
     
-    function _createPairValidate(address tokenA, address tokenB, uint256 lockupDuration, uint256 tradedClaimFraction, uint256 reserveClaimFraction) internal view returns (address pair) {
+    function _createPairValidate(address tokenA, address tokenB, uint256 lockupIntervalCount, uint256 tradedClaimFraction, uint256 reserveClaimFraction) internal view returns (address pair) {
         require(tokenA != tokenB, 'StakingFactory: IDENTICAL_ADDRESSES');
         
         require(tokenA != address(0), 'StakingFactory: ZERO_ADDRESS');
@@ -69,30 +69,30 @@ contract StakingFactory is IStakingFactory, Ownable {
         
         require(tradedClaimFraction <= MULTIPLIER && reserveClaimFraction <= MULTIPLIER, "StakingFactory: WRONG_CLAIM_FRACTION");
 
-        pair = getPair[tokenA][tokenB][lockupDuration];
+        pair = getPair[tokenA][tokenB][lockupIntervalCount];
         
         require(pair == address(0), "StakingFactory: PAIR_ALREADY_EXISTS");
         
     }
         
-    function _createPair(address tokenA, address tokenB, uint256 lockupDuration, uint256 tokenAClaimFraction, uint256 tokenBClaimFraction, uint256 lpClaimFraction) internal returns (address payable pair) {
+    function _createPair(address tokenA, address tokenB, uint256 lockupIntervalCount, uint256 tokenAClaimFraction, uint256 tokenBClaimFraction, uint256 lpClaimFraction) internal returns (address payable pair) {
         
         bytes memory bytecode = type(StakingContract).creationCode;
-        bytes32 salt = keccak256(abi.encodePacked(address(this), tokenA, tokenB, lockupDuration));
+        bytes32 salt = keccak256(abi.encodePacked(address(this), tokenA, tokenB, lockupIntervalCount));
         assembly {
             pair := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
     
         //StakingContract(pair).initialize(token0, token1, lockupInterval, lockupDuration, tradedClaimFraction, reserveClaimFraction);
         
-        getPair[tokenA][tokenB][lockupDuration] = pair;
-        getPair[tokenB][tokenA][lockupDuration] = pair; // populate mapping in the reverse direction
+        getPair[tokenA][tokenB][lockupIntervalCount] = pair;
+        getPair[tokenB][tokenA][lockupIntervalCount] = pair; // populate mapping in the reverse direction
         allPairs.push(pair);
         pairCreator[pair] = msg.sender;
         
         pairTokens[pair].tokenA = tokenA;
         pairTokens[pair].tokenB = tokenB;
-        pairTokens[pair].lockupDuration = lockupDuration;
+        pairTokens[pair].lockupIntervalCount = lockupIntervalCount;
         pairTokens[pair].tokenAClaimFraction = tokenAClaimFraction;
         pairTokens[pair].tokenBClaimFraction = tokenBClaimFraction;
         pairTokens[pair].lpClaimFraction = lpClaimFraction;

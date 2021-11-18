@@ -69,22 +69,43 @@ contract('staking', (accounts) => {
     var name = 'name';
     var symbol = 'symbol';
     var defaultOperators=[];
-    var interval = 7*24*60*60; // * interval: WEEK by default
+    //var interval = 7*24*60*60; // * interval: WEEK by default
     var duration = 52; // * duration: 52 (intervals)
     var multiplier = 100; // 1 mul by 1e2
     var token;
     var whitelist = [];
     
-    var lockupDuration = 365*24*60*60; // year in seconds
+    var interval = 24*60*60; // * interval: WEEK by default
+    var lockupIntervalCount = 365; // year in seconds
 
         
     function getArgs(tr, eventname) {
-        for (var i in tmpTr.logs) {
-            if (eventname == tmpTr.logs[i].event) {
-                return tmpTr.logs[i].args;
+        for (var i in tr.logs) {
+            if (eventname == tr.logs[i].event) {
+                return tr.logs[i].args;
             }
         }
         return '';
+    }
+    
+    function printArgs(tr) {
+        var res;
+        for (var i in tr.logs) {
+            console.log('Event: "',tr.logs[i].event, '"');
+            res = Object.keys(tr.logs[i].args).reduce((acc, elem)=>{
+              acc[elem] = tr.logs[i].args[elem];
+              if (acc[elem] !== null) {
+                acc[elem] = acc[elem].toString();    
+              }
+              
+              return acc;
+            },{});
+            console.log(res);
+            
+            console.log('=========================');
+            
+        }
+        
     }
     
     before(async () => {
@@ -126,11 +147,11 @@ contract('staking', (accounts) => {
             0,
             0,
             accountFive,
-            Math.floor(Date.now()/1000)+(lockupDuration)
+            Math.floor(Date.now()/1000)+(lockupIntervalCount*interval)
             , { from: accountFive }
         );
         
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, lockupDuration)
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, lockupIntervalCount);
         
         StakingContractInstance = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
         
@@ -154,7 +175,7 @@ contract('staking', (accounts) => {
         
         // ERC20MintableInstance = await ERC20Mintable.new("erc20test","erc20test",{ from: accountFive });
     });
-   
+/**/ 
     it('should create by factory', async () => {
         let allPairsLengthBefore = await StakingFactoryInstance.allPairsLength();
         tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 11111);
@@ -188,8 +209,6 @@ contract('staking', (accounts) => {
         );
 
     });
-    
-    //it('should create by factory', async () => {});
     
     it('buyAddLiquidityAndStake test()', async () => {
         
@@ -239,7 +258,7 @@ contract('staking', (accounts) => {
             0,
             0,
             accountFive,
-            Math.floor(Date.now()/1000)+(lockupDuration)
+            Math.floor(Date.now()/1000)+(lockupIntervalCount*interval)
             , { from: accountFive }
         );
         
@@ -255,5 +274,112 @@ contract('staking', (accounts) => {
         assert.equal(BigNumber(lptokens).toString(), BigNumber(shares).toString(), "error");
         
     });    
+
+    it('buyAddLiquidityAndStake (through ETH)', async () => {
+        
+         // revert if uniswap pair(ERC20MintableInstanceToken2 vs WETH) does not exists yet
+        await truffleAssert.reverts(
+            StakingContractInstance.methods['buyLiquidityAndStake()']({ from: accountTwo, value: oneToken })
+        );
+        
+        // create pair Token2 => WETH
+        await ERC20MintableInstanceToken2.mint(accountFive, oneToken07);
+        await ERC20MintableInstanceToken2.approve(UniswapRouterInstance.address, oneToken07, { from: accountFive });
+        
+        await UniswapRouterInstance.addLiquidityETH(
+            ERC20MintableInstanceToken2.address,
+            oneToken07,
+            0,
+            0,
+            accountFive,
+            Math.floor(Date.now()/1000)+(lockupIntervalCount*interval)
+            , { from: accountFive, value: oneToken07}
+        );
     
+        // now it will be fine
+        await StakingContractInstance.methods['buyLiquidityAndStake()']({ from: accountTwo, value: oneToken });
+        
+        let shares = await StakingContractInstance.balanceOf(accountTwo);
+        let lptokens = await pairInstance.balanceOf(StakingContractInstance.address);
+        // console.log('after Adding liquidity        = ',BigNumber(lptokens).toString());
+        // console.log('after Adding liquidity shares = ',BigNumber(shares).toString());
+        
+        // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
+        assert.equal(BigNumber(lptokens).toString(), BigNumber(shares).toString(), "error");
+        
+    });    
+/**/
+    it('redeem (check lockup duration)', async () => {
+        
+        
+        let shares;
+        await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
+        await ERC20MintableInstanceToken2.approve(StakingContractInstance.address, oneToken, { from: accountTwo });
+        
+        await StakingContractInstance.methods['buyLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
+        
+        shares = await StakingContractInstance.balanceOf(accountTwo);
+        assert.equal(shares>0, true, "shares need > 0");
+        
+        
+        await truffleAssert.reverts(
+            StakingContractInstance.redeem(shares, { from: accountTwo}),
+            'insufficient amount to redeem'
+        );
+        
+        // even if approve before
+        await StakingContractInstance.approve(StakingContractInstance.address, shares, { from: accountTwo });
+        await truffleAssert.reverts(
+            StakingContractInstance.redeem(shares, { from: accountTwo}),
+            'insufficient amount to redeem'
+        );
+        
+        
+        // create staking for 2 days
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 2);
+        
+        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        
+        await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
+        await ERC20MintableInstanceToken2.approve(StakingContractInstance2days.address, oneToken, { from: accountTwo });
+        
+        await StakingContractInstance2days.methods['buyLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
+
+        shares = await StakingContractInstance2days.balanceOf(accountTwo);
+        assert.equal(shares>0, true, "shares need > 0");
+  
+//   console.log('lockupDuration=',(await StakingContractInstance2days.lockupDuration()).toString());      
+
+        
+        await truffleAssert.reverts(
+            StakingContractInstance2days.redeem(shares, { from: accountTwo}),
+            'insufficient amount to redeem'
+        );
+        
+        // pass some mtime
+        await helper.advanceTimeAndBlock(2*interval+9);
+
+        await truffleAssert.reverts(
+            StakingContractInstance2days.redeem(shares, { from: accountTwo}),
+            'ERC777: transfer amount exceeds allowance'
+        );
+        
+        await StakingContractInstance2days.approve(StakingContractInstance2days.address, shares, { from: accountTwo });
+
+        await StakingContractInstance2days.redeem(shares, { from: accountTwo});
+        
+        
+        await truffleAssert.reverts(
+            StakingContractInstance2days.redeem(shares, { from: accountTwo})
+        );
+        
+        
+    });    
+
+
+
+    // it('buyAddLiquidityAndStake (through ETH)', async () => {});    
+    // it('buyAddLiquidityAndStake (through ETH)', async () => {});    
+    // it('buyAddLiquidityAndStake (through ETH)', async () => {});    
+    // it('buyAddLiquidityAndStake (through ETH)', async () => {});    
 });
