@@ -200,7 +200,7 @@ contract('staking', (accounts) => {
         // console.log('before Adding liquidity = ',BigNumber(await pairInstance.balanceOf(StakingContractInstance.address)).toString());
         
         //await LiquidityMiningRouterInstance.addLiquidityAndStake(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, oneToken, { from: accountTwo });
-        await StakingContractInstance.methods['buyAddLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
+        await StakingContractInstance.methods['buyLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
         
         let shares = await StakingContractInstance.balanceOf(accountTwo);
         let lptokens = await pairInstance.balanceOf(StakingContractInstance.address);
@@ -218,10 +218,10 @@ contract('staking', (accounts) => {
         
         await ERC20MintableInstanceToken3.approve(StakingContractInstance.address, oneToken, { from: accountTwo });
         
-        //await StakingContractInstance.methods['buyAddLiquidityAndStake(address,uint256)'](ERC20MintableInstanceToken3.address, oneToken, { from: accountTwo });
+        //await StakingContractInstance.methods['buyLiquidityAndStake(address,uint256)'](ERC20MintableInstanceToken3.address, oneToken, { from: accountTwo });
         // revert if uniswap pair does not exists yet
         await truffleAssert.reverts(
-            StakingContractInstance.methods['buyAddLiquidityAndStake(address,uint256)'](ERC20MintableInstanceToken3.address, oneToken, { from: accountTwo })
+            StakingContractInstance.methods['buyLiquidityAndStake(address,uint256)'](ERC20MintableInstanceToken3.address, oneToken, { from: accountTwo })
         );
         
         // create pair Token2 => Token3
@@ -244,7 +244,7 @@ contract('staking', (accounts) => {
         );
         
         // now addinig liquidity through paying token will be successful
-        await StakingContractInstance.methods['buyAddLiquidityAndStake(address,uint256)'](ERC20MintableInstanceToken3.address, oneToken, { from: accountTwo });
+        await StakingContractInstance.methods['buyLiquidityAndStake(address,uint256)'](ERC20MintableInstanceToken3.address, oneToken, { from: accountTwo });
         
         let shares = await StakingContractInstance.balanceOf(accountTwo);
         let lptokens = await pairInstance.balanceOf(StakingContractInstance.address);

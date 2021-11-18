@@ -147,7 +147,7 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    function buyAddLiquidityAndStake() public payable {
+    function buyLiquidityAndStake() public payable {
         
         require(msg.value>0, "insufficient balance");
         
@@ -156,17 +156,17 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
         
         uint256 amountReverveToken = uniswapExchange(WETH, token1, amountETH);
                            // msg.sender, amountReverveToken
-        _buyAddLiquidityAndStake(msg.sender, amountReverveToken);
+        _buyLiquidityAndStake(msg.sender, amountReverveToken);
         
     }
     
-    function buyAddLiquidityAndStake(address payingToken, uint256 amount) public {
+    function buyLiquidityAndStake(address payingToken, uint256 amount) public {
         
         IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
         
         uint256 amountReverveToken = uniswapExchange(payingToken, token1, amount);
             
-        _buyAddLiquidityAndStake(msg.sender, amountReverveToken);
+        _buyLiquidityAndStake(msg.sender, amountReverveToken);
     }
     
     /**
@@ -174,10 +174,10 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
      * another wat is send directly to contract
      */
     // default, called when own shares are sent back to contract using transfer(), otherwise does _transfer() if called manually
-    function buyAddLiquidityAndStake(uint256 tokenBAmount) public {
+    function buyLiquidityAndStake(uint256 tokenBAmount) public {
         
         IERC20Upgradeable(token1).transferFrom(msg.sender, address(this), tokenBAmount);
-        _buyAddLiquidityAndStake(msg.sender, tokenBAmount);
+        _buyLiquidityAndStake(msg.sender, tokenBAmount);
     }
     
     function redeemAndRemoveLiquidity(uint256 amount) public {
@@ -198,7 +198,6 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
         grantReward(msg.sender, senderBalance, totalBalance);
     }
     
-    //function 
     /**
      * // removes liquidity and sends LP tokens, removeLiquidity yourself
      */
@@ -363,7 +362,7 @@ contract StakingContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777R
         amountOut = outputAmounts[1];
     }
     
-    function _buyAddLiquidityAndStake(address from, uint256 incomeToken1) internal {
+    function _buyLiquidityAndStake(address from, uint256 incomeToken1) internal {
 
         (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
         require (reserve0 != 0 && reserve1 != 0, "empty reserves");
