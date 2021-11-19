@@ -298,23 +298,37 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         address to,
         uint256 amount
     ) internal override {
-        if (
-            (to == address(0)) ||
-            (from == address(0))/* ||
-            (
-                to == address(this) && msg.sender == address(this)
-            )*/
-        ) {
-            
+        if (from == address(0)){
+           // minting
         } else {
-            uint256 balance = balanceOf(from);
-            uint256 locked = _getMinimum(from);
+
+            // main goals are
+            // - prevent transfer amount if locked more then available FOR REDEEM only (then to == address(this))
+            // - transfer minimums applicable only for minimums. 
+            // - also prevent burn locked token
+            // so example
+            //  total=100; locked=40;(for 1 year) amount2send=70
+            //  if it's redeem - revert
+            //  if usual transfer from user1 to user2 - we will tranfer 70 and 10 will lockup
+            //  so tokens balance 
+            //          was                         will be
+            //  user1(total=100;locked=40)      user1(total=30;locked=30)
+            //  user2(total=0;locked=0)         user2(total=70;locked=10)
             
-            uint256 leftAmount = balance.sub(amount);
-            if (locked > leftAmount) {
-                 require(to != address(this), "insufficient amount to redeem");
-                 minimumsTransfer(from, to, locked.sub(leftAmount));
+            
+            uint256 balance = balanceOf(from);
+            if (balance >= amount) {
+                uint256 locked = _getMinimum(from);
+                uint256 leftAmount = balance.sub(amount);
+                if (locked > leftAmount) {
+                     require(to != address(this), "insufficient amount to redeem");
+                     minimumsTransfer(from, to, locked.sub(leftAmount));
+                }
+            } else {
+                // insufficient balance error would be in {ERC777::_move}
             }
+
+
         }
     }
     

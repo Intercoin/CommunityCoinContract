@@ -114,16 +114,9 @@ contract('staking', (accounts) => {
         //create factory
         StakingFactoryInstance = await StakingFactory.new({ from: accountFive });
         
-        
-        //create router
-        //LiquidityMiningRouterInstance = await LiquidityMiningRouter.new(LiquidityMiningFactoryInstance.address, emptyReserveClaimFraction, emptyReserveClaimFraction, { from: accountFive });
-        
-        //emit PairCreated(tokenA, tokenB, pair, allPairs.length);
-        
         ERC20MintableInstanceToken1 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
         ERC20MintableInstanceToken2 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
         ERC20MintableInstanceToken3 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
-        
         
         UniswapRouterFactoryInstance = await IUniswapV2Factory.at(uniswapRouterFactory);
         UniswapRouterInstance = await IUniswapRouter.at(uniswapRouter);
@@ -155,27 +148,12 @@ contract('staking', (accounts) => {
         
         StakingContractInstance = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
         
-        // // initialize factories
-        // await DividendsFactoryInstance.init(DividendsContractInstance2Clone.address);
-        // await DividendsGroupFactoryInstance.init(DividendsGroupContractInstance2Clone.address);
-        
-        // ERC20MintableInstanceToken = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
-        // ERC777MintableInstanceToken = await ERC777Mintable.new("erc777testToken","erc777testToken", [],  { from: accountFive });
-        
-        // ERC20MintableInstanceDividend = await ERC20Mintable.new("erc20testDividend","erc20testDividend", { from: accountFive });
-        // ERC777MintableInstanceDividend = await ERC777Mintable.new("erc777testDividend","erc777testDividend", [],  { from: accountFive });
-        
-        
     });
     
     beforeEach(async () => {
-        // DividendsContractInstance = await DividendsContract.new({ from: accountFive });
         
-        // await DividendsContractInstance.initialize('NFT-title', 'NFT-symbol', [CommunityMockInstance.address, "members"], { from: accountFive });
-        
-        // ERC20MintableInstance = await ERC20Mintable.new("erc20test","erc20test",{ from: accountFive });
     });
-/**/ 
+
     it('should create by factory', async () => {
         let allPairsLengthBefore = await StakingFactoryInstance.allPairsLength();
         tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 11111);
@@ -308,7 +286,7 @@ contract('staking', (accounts) => {
         assert.equal(BigNumber(lptokens).toString(), BigNumber(shares).toString(), "error");
         
     });    
-/**/
+
     it('redeem (check lockup duration)', async () => {
         
         
@@ -367,7 +345,6 @@ contract('staking', (accounts) => {
         await StakingContractInstance2days.approve(StakingContractInstance2days.address, shares, { from: accountTwo });
 
         await StakingContractInstance2days.redeem(shares, { from: accountTwo});
-        
         
         await truffleAssert.reverts(
             StakingContractInstance2days.redeem(shares, { from: accountTwo})
