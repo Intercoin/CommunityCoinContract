@@ -275,11 +275,14 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
                 IERC20Upgradeable(token_).transfer(to_, amount_);
             }
         } else {
+            
             uint256 adjusted = amount_.mul(fraction_).div(MULTIPLIER);
             IERC20Upgradeable(token_).transfer(fractionAddr_, adjusted);
             leftAfterFractionSend = amount_.sub(adjusted);
             if (fractionSendOnly_) {
+                
             } else {
+                
                 IERC20Upgradeable(token_).transfer(to_, leftAfterFractionSend);
                 leftAfterFractionSend = 0;
             }
@@ -399,6 +402,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         
         fractionAmountSend(token0, amountA, token0ClaimFraction, owner(), sender);
         fractionAmountSend(token1, amountB, token1ClaimFraction, owner(), sender);
+        // _fractionAmountSend(token0, amountA, token0ClaimFraction, owner(), sender, false);
+        // _fractionAmountSend(token1, amountB, token1ClaimFraction, owner(), sender, false);
     }
     
     function _redeem(address sender, uint256 amount) private returns(uint256 amount2Redeem){

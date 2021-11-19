@@ -57,6 +57,7 @@ contract StakingFactory is IStakingFactory, Ownable {
         address payable pairCreated = _createPair(tokenA, tokenB, lockupIntervalCount, tokenAClaimFraction, tokenBClaimFraction, lpClaimFraction);    
         require(pairCreated != address(0), "StakingFactory: PAIR_CREATION_FAILED");
         StakingContract(pairCreated).initialize(tokenA, tokenB, lockupInterval, lockupIntervalCount, tokenAClaimFraction, tokenBClaimFraction, lpClaimFraction);
+        StakingContract(pairCreated).transferOwnership(_msgSender());
         pair = pairCreated;
         
     }

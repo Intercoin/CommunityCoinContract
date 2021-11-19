@@ -58,6 +58,7 @@ contract('staking', (accounts) => {
         ERC20MintableInstanceToken1,
         ERC20MintableInstanceToken2,
         ERC20MintableInstanceToken3,
+        ERC20MintableInstanceTokenReward1,
         UniswapRouterFactoryInstance,
         UniswapRouterInstance,
         pairInstance
@@ -117,6 +118,10 @@ contract('staking', (accounts) => {
         ERC20MintableInstanceToken1 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
         ERC20MintableInstanceToken2 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
         ERC20MintableInstanceToken3 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
+        ERC20MintableInstanceToken4 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
+        ERC20MintableInstanceToken5 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
+        ERC20MintableInstanceTokenReward1 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
+        
         
         UniswapRouterFactoryInstance = await IUniswapV2Factory.at(uniswapRouterFactory);
         UniswapRouterInstance = await IUniswapRouter.at(uniswapRouter);
@@ -144,7 +149,9 @@ contract('staking', (accounts) => {
             , { from: accountFive }
         );
         
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, lockupIntervalCount);
+        //tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, lockupIntervalCount, {from: accountFive });
+        tmpTr = await StakingFactoryInstance.methods['produce(address,address,uint256)'](ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, lockupIntervalCount, {from: accountFive });
+        
         
         StakingContractInstance = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
         
@@ -314,7 +321,7 @@ contract('staking', (accounts) => {
         
         
         // create staking for 2 days
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 2);
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 4);
         
         let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
         
@@ -335,7 +342,7 @@ contract('staking', (accounts) => {
         );
         
         // pass some mtime
-        await helper.advanceTimeAndBlock(2*interval+9);
+        await helper.advanceTimeAndBlock(4*interval+9);
 
         await truffleAssert.reverts(
             StakingContractInstance2days.redeem(shares, { from: accountTwo}),
@@ -347,16 +354,184 @@ contract('staking', (accounts) => {
         await StakingContractInstance2days.redeem(shares, { from: accountTwo});
         
         await truffleAssert.reverts(
-            StakingContractInstance2days.redeem(shares, { from: accountTwo})
+            StakingContractInstance2days.redeem(shares, { from: accountTwo}),
+            'ERC777: transfer amount exceeds balance'
         );
         
         
     });    
+    
+    it('redeem and remove liquidity', async () => {
+        // create staking for 2 days
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 2);
+        
+        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        
+        await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
+        await ERC20MintableInstanceToken2.approve(StakingContractInstance2days.address, oneToken, { from: accountTwo });
+        
+        await StakingContractInstance2days.methods['buyLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
 
+        shares = await StakingContractInstance2days.balanceOf(accountTwo);
+        assert.equal(shares>0, true, "shares need > 0");
+  
+//   console.log('lockupDuration=',(await StakingContractInstance2days.lockupDuration()).toString());      
 
+        
+        await truffleAssert.reverts(
+            StakingContractInstance2days.redeemAndRemoveLiquidity(shares, { from: accountTwo}),
+            'insufficient amount to redeem'
+        );
+        
+        // pass some mtime
+        await helper.advanceTimeAndBlock(2*interval+9);
 
-    // it('buyAddLiquidityAndStake (through ETH)', async () => {});    
-    // it('buyAddLiquidityAndStake (through ETH)', async () => {});    
-    // it('buyAddLiquidityAndStake (through ETH)', async () => {});    
-    // it('buyAddLiquidityAndStake (through ETH)', async () => {});    
+        await truffleAssert.reverts(
+            StakingContractInstance2days.redeemAndRemoveLiquidity(shares, { from: accountTwo}),
+            'ERC777: transfer amount exceeds allowance'
+        );
+        
+        await StakingContractInstance2days.approve(StakingContractInstance2days.address, shares, { from: accountTwo });
+
+        let balanceT1Before = await ERC20MintableInstanceToken1.balanceOf(accountTwo);
+        let balanceT2Before = await ERC20MintableInstanceToken2.balanceOf(accountTwo);
+        await StakingContractInstance2days.redeemAndRemoveLiquidity(shares, { from: accountTwo});
+        
+        let balanceT1After = await ERC20MintableInstanceToken1.balanceOf(accountTwo);
+        let balanceT2After = await ERC20MintableInstanceToken2.balanceOf(accountTwo);
+
+        assert.equal(balanceT1After>balanceT1Before, true, "t1 must increase");
+        assert.equal(balanceT2After>balanceT2Before, true, "t2 must increase");
+        
+        // await truffleAssert.reverts(
+        //     StakingContractInstance2days.redeemAndRemoveLiquidity(shares, { from: accountTwo}),
+        //     'insufficient amount to redeem'
+        // );
+        
+    });    
+    
+    it('should consume all tokens when buying liquidity', async () => {
+        
+        await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
+        
+        await ERC20MintableInstanceToken2.approve(StakingContractInstance.address, oneToken, { from: accountTwo });
+        
+        // console.log('before Adding liquidity = ',BigNumber(await pairInstance.balanceOf(StakingContractInstance.address)).toString());
+        
+        //await LiquidityMiningRouterInstance.addLiquidityAndStake(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, oneToken, { from: accountTwo });
+        
+        
+        let stakingBalanceToken1Before = await ERC20MintableInstanceToken1.balanceOf(StakingContractInstance.address);
+        let stakingBalanceToken2Before = await ERC20MintableInstanceToken2.balanceOf(StakingContractInstance.address);
+        await StakingContractInstance.methods['buyLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
+        
+        let stakingBalanceToken1After = await ERC20MintableInstanceToken1.balanceOf(StakingContractInstance.address);
+        let stakingBalanceToken2After = await ERC20MintableInstanceToken2.balanceOf(StakingContractInstance.address);
+        
+        // console.log('token1::',stakingBalanceToken1Before.toString(), stakingBalanceToken1After.toString());
+        // console.log('token2::',stakingBalanceToken2Before.toString(), stakingBalanceToken2After.toString());
+        
+        let shares = await StakingContractInstance.balanceOf(accountTwo);
+        let lptokens = await pairInstance.balanceOf(StakingContractInstance.address);
+        // console.log('after Adding liquidity        = ',BigNumber(lptokens).toString());
+        // console.log('after Adding liquidity shares = ',BigNumber(shares).toString());
+        
+        // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
+        assert.equal(BigNumber(lptokens).toString(), BigNumber(shares).toString(), "error");
+
+    });
+
+    it('add reward token', async () => {
+        let arr;
+        await truffleAssert.reverts(
+            StakingContractInstance.addRewardToken(ERC20MintableInstanceToken3.address, { from: accountTwo}),
+            'Ownable: caller is not the owner'
+        );
+        await StakingContractInstance.addRewardToken(ERC20MintableInstanceToken3.address, { from: accountFive });
+        
+        arr = await StakingContractInstance.viewRewardTokensList();
+        assert.notEqual(arr.indexOf(ERC20MintableInstanceToken3.address.toString()), -1, "can not add token reward");
+        
+        await truffleAssert.reverts(
+            StakingContractInstance.removeRewardToken(ERC20MintableInstanceToken3.address, { from: accountTwo}),
+            'Ownable: caller is not the owner'
+        );
+        await StakingContractInstance.removeRewardToken(ERC20MintableInstanceToken3.address, { from: accountFive });
+        
+        arr = await StakingContractInstance.viewRewardTokensList();
+        assert.equal(arr.indexOf(ERC20MintableInstanceToken3.address.toString()), -1, "can not remove token reward");
+    });    
+       
+    it('check reward after redeem with empty reward balance', async () => {
+        
+        
+        
+        // create staking for 2 days
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 3);
+        
+        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        
+        // add reward token
+        await StakingContractInstance2days.addRewardToken(ERC20MintableInstanceToken3.address);    
+        let balanceBefore = await ERC20MintableInstanceToken3.balanceOf(accountTwo);
+        
+        await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
+        await ERC20MintableInstanceToken2.approve(StakingContractInstance2days.address, oneToken, { from: accountTwo });
+        
+        await StakingContractInstance2days.methods['buyLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
+
+        shares = await StakingContractInstance2days.balanceOf(accountTwo);
+        assert.equal(shares>0, true, "shares need > 0");
+  
+        // pass some mtime
+        await helper.advanceTimeAndBlock(3*interval+9);
+
+        
+        await StakingContractInstance2days.approve(StakingContractInstance2days.address, shares, { from: accountTwo });
+
+        await StakingContractInstance2days.redeem(shares, { from: accountTwo});
+        let balanceAfter = await ERC20MintableInstanceToken3.balanceOf(accountTwo);
+        assert.equal(balanceBefore.toString(), balanceAfter.toString(), "reward wrong");
+        // console.log('balanceBefore=', balanceBefore.toString());
+        // console.log('balanceAfter=', balanceAfter.toString());
+        
+        
+    });    
+    
+    it('check reward after redeem with none-empty reward balance', async () => {
+        
+        
+        
+        // create staking for 2 days
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 5);
+        
+        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        
+        // add reward token
+        await StakingContractInstance2days.addRewardToken(ERC20MintableInstanceToken3.address);    
+        await ERC20MintableInstanceToken3.mint(StakingContractInstance2days.address, oneToken);
+        let balanceBefore = await ERC20MintableInstanceToken3.balanceOf(accountTwo);
+        
+        await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
+        await ERC20MintableInstanceToken2.approve(StakingContractInstance2days.address, oneToken, { from: accountTwo });
+        
+        await StakingContractInstance2days.methods['buyLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
+
+        shares = await StakingContractInstance2days.balanceOf(accountTwo);
+        assert.equal(shares>0, true, "shares need > 0");
+  
+        // pass some mtime
+        await helper.advanceTimeAndBlock(5*interval+9);
+
+        
+        await StakingContractInstance2days.approve(StakingContractInstance2days.address, shares, { from: accountTwo });
+
+        await StakingContractInstance2days.redeem(shares, { from: accountTwo});
+        let balanceAfter = await ERC20MintableInstanceToken3.balanceOf(accountTwo);
+        // here accountTwo get all reward as the one participant
+        assert.equal(oneToken.toString(), balanceAfter.toString(), "reward wrong");
+        
+        
+    });    
+    
 });
