@@ -9,8 +9,7 @@ var IUniswapRouter = artifacts.require("IUniswapRouter");
 
 
 const ERC20Mintable = artifacts.require("ERC20Mintable");
-
-// const ERC777Mintable = artifacts.require("ERC777Mintable");
+const ERC777Mintable = artifacts.require("ERC777Mintable");
 
 const helper = require("../helpers/truffleTestHelper");
 
@@ -62,6 +61,7 @@ contract('staking', (accounts) => {
         ERC20MintableInstanceToken2,
         ERC20MintableInstanceToken3,
         ERC20MintableInstanceTokenReward1,
+        ERC777MintableInstanceToken1,
         UniswapRouterFactoryInstance,
         UniswapRouterInstance,
         pairInstance
@@ -125,6 +125,7 @@ contract('staking', (accounts) => {
         ERC20MintableInstanceToken5 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
         ERC20MintableInstanceTokenReward1 = await ERC20Mintable.new("erc20testToken","erc20testToken", { from: accountFive });
         
+        ERC777MintableInstanceToken1 = await ERC777Mintable.new("erc777testToken","erc777testToken", { from: accountFive });
         
         UniswapRouterFactoryInstance = await IUniswapV2Factory.at(uniswapRouterFactory);
         UniswapRouterInstance = await IUniswapRouter.at(uniswapRouter);
@@ -160,9 +161,8 @@ contract('staking', (accounts) => {
         
     });
     
-    beforeEach(async () => {
+    
         
-    });
 
     it('should create by factory', async () => {
         let allPairsLengthBefore = await StakingFactoryInstance.allPairsLength();
@@ -197,7 +197,7 @@ contract('staking', (accounts) => {
         );
 
     });
-    
+
     it('buyAddLiquidityAndStake test()', async () => {
         
         await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
@@ -215,10 +215,11 @@ contract('staking', (accounts) => {
         // console.log('after Adding liquidity shares = ',BigNumber(shares).toString());
         
         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
+        assert.notEqual(BigNumber(lptokens).toString(), BigNumber(0).toString(), "error");
         assert.equal(BigNumber(lptokens).toString(), BigNumber(shares).toString(), "error");
         
     });    
-    
+  
     it('buyAddLiquidityAndStake (through paying token)', async () => {
         
         await ERC20MintableInstanceToken3.mint(accountTwo, oneToken);
@@ -588,4 +589,60 @@ contract('staking', (accounts) => {
         
     });    
 
+    // left for erc777
+    // it('buyAddLiquidityAndStake ERC777 tokensReceived', async () => {
+        
+    //     await UniswapRouterFactoryInstance.createPair(ERC20MintableInstanceToken1.address, ERC777MintableInstanceToken1.address);
+        
+    //     let pairAddress = await UniswapRouterFactoryInstance.getPair(ERC20MintableInstanceToken1.address, ERC777MintableInstanceToken1.address);
+        
+    //     pairInstance = await ERC20Mintable.at(pairAddress);
+        
+    //     await ERC20MintableInstanceToken1.mint(accountFive, oneToken07);
+    //     await ERC777MintableInstanceToken1.mint(accountFive, oneToken07);
+    //     await ERC20MintableInstanceToken1.approve(UniswapRouterInstance.address, oneToken07, { from: accountFive });
+    //     await ERC777MintableInstanceToken1.approve(UniswapRouterInstance.address, oneToken07, { from: accountFive });
+        
+    //     await UniswapRouterInstance.addLiquidity(
+    //         ERC20MintableInstanceToken1.address,
+    //         ERC777MintableInstanceToken1.address,
+    //         oneToken07,
+    //         oneToken07,
+    //         0,
+    //         0,
+    //         accountFive,
+    //         Math.floor(Date.now()/1000)+(lockupIntervalCount*interval)
+    //         , { from: accountFive }
+    //     );
+        
+    //     //tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, lockupIntervalCount, {from: accountFive });
+    //     tmpTr = await StakingFactoryInstance.methods['produce(address,address,uint256)'](ERC20MintableInstanceToken1.address, ERC777MintableInstanceToken1.address, lockupIntervalCount, {from: accountFive });
+        
+        
+    //     let StakingContractInstance_ERC20_777 = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        
+    //     await ERC777MintableInstanceToken1.mint(accountTwo, oneToken);
+        
+    //     // approve and buyLiquidityAndStake
+    //     await ERC777MintableInstanceToken1.transfer(StakingContractInstance_ERC20_777.address, oneToken, { from: accountTwo });
+        
+    //     let shares = await StakingContractInstance_ERC20_777.balanceOf(accountTwo);
+    //     let lptokens = await pairInstance.balanceOf(StakingContractInstance_ERC20_777.address);
+    //     // console.log('after Adding liquidity        = ',BigNumber(lptokens).toString());
+    //     // console.log('after Adding liquidity shares = ',BigNumber(shares).toString());
+        
+    //     // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
+    //     assert.equal(BigNumber(lptokens).toString(), BigNumber(shares).toString(), "error");
+        
+    //     //----------
+    //     await ERC777MintableInstanceToken1.mint(accountTwo, oneToken);
+    //     await ERC777MintableInstanceToken1.approve(StakingContractInstance_ERC20_777.address, oneToken, { from: accountTwo });
+    //     await StakingContractInstance_ERC20_777.methods['buyLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
+        
+    //     let shares2 = await StakingContractInstance_ERC20_777.balanceOf(accountTwo);
+        
+    //     console.log('shares=',shares.toString());
+    //     console.log('shares2=',shares2.toString());
+    // });    
+     
 });

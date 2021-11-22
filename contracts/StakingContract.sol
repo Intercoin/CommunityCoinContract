@@ -51,6 +51,10 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
    
     constructor() {
         factory = msg.sender;
+        
+        // ERC777TokensRecipient interface left then we bu sure then token1_ can be impemetn erc777 interface!!!!
+        //_ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777TokensRecipient"), address(this));
+        
     }
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
@@ -112,7 +116,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
     function tokensReceived(
         address /*operator*/,
         address from,
-        address /*to*/,
+        address to,
         uint256 amount,
         bytes calldata /*userData*/,
         bytes calldata /*operatorData*/
@@ -121,6 +125,18 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         virtual
         external
     {
+        // ERC777TokensRecipient interface left then we will be sure then token1_ can be impemetn erc777 interface!!!!
+        
+        // if (msg.sender == token1 && to == address(this)) {
+        //     uint256 amountReverveToken;
+        //     if (msg.sender == token1) {
+        //         amountReverveToken = amount;
+        //     } else {
+        //         amountReverveToken = uniswapExchange(msg.sender, token1, amount);
+        //     }
+            
+        //     _buyLiquidityAndStake(from, amountReverveToken);
+        // }
         
     }
     
@@ -153,7 +169,6 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
      * way to redeem via approve/transferFrom.
      * another wat is send directly to contract
      */
-    // default, called when own shares are sent back to contract using transfer(), otherwise does _transfer() if called manually
     function buyLiquidityAndStake(uint256 tokenBAmount) public {
         
         IERC20Upgradeable(token1).transferFrom(msg.sender, address(this), tokenBAmount);
