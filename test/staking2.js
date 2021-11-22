@@ -207,7 +207,7 @@ contract('staking::test reward', (accounts) => {
         await StakingContractInstance2.redeemAndRemoveLiquidity(shares2, { from: accountThree});
         // checking the same custom situation with the same amount LP tokens but diffrent different (50%) claimFraction
         assert.equal(
-            BigNumber(await ERC20MintableInstanceToken1.balanceOf(accountTwo)).div(2).toString(),
+            BigNumber(await ERC20MintableInstanceToken1.balanceOf(accountTwo)).div(BigNumber(2)).decimalPlaces(0).toString(),
             BigNumber(await ERC20MintableInstanceToken3.balanceOf(accountThree)).toString(),
             "wrong claimFraction reward"
         );

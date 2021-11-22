@@ -47,11 +47,14 @@ contract('staking', (accounts) => {
     const oneToken05 = "500000000000000000";    
     const oneToken03 = "300000000000000000";
     
+    
     const reserveClaimFraction = 50000;
     const tradedClaimFraction = 50000;
     
     const emptyReserveClaimFraction = 0;
     const emptyTradedClaimFraction = 0;
+    
+    const percentLimitLeftTokenB = 0.001;
     
     var StakingFactoryInstance, 
         StakingContractInstance, 
@@ -409,7 +412,7 @@ contract('staking', (accounts) => {
         // );
         
     });    
-    
+ 
     it('should consume all tokens when buying liquidity', async () => {
         
         await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
@@ -430,17 +433,68 @@ contract('staking', (accounts) => {
         
         // console.log('token1::',stakingBalanceToken1Before.toString(), stakingBalanceToken1After.toString());
         // console.log('token2::',stakingBalanceToken2Before.toString(), stakingBalanceToken2After.toString());
+
+        assert.equal(
+            (
+                (BigNumber(stakingBalanceToken2After).minus(BigNumber(stakingBalanceToken2Before))).div(BigNumber(oneToken))
+            ).lt(BigNumber(percentLimitLeftTokenB).times(BigNumber(1e18)))
+            , 
+            true
+            , 
+            "error"
+        );
         
         let shares = await StakingContractInstance.balanceOf(accountTwo);
         let lptokens = await pairInstance.balanceOf(StakingContractInstance.address);
+        
         // console.log('after Adding liquidity        = ',BigNumber(lptokens).toString());
         // console.log('after Adding liquidity shares = ',BigNumber(shares).toString());
         
         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
         assert.equal(BigNumber(lptokens).toString(), BigNumber(shares).toString(), "error");
 
-    });
 
+
+        await ERC20MintableInstanceToken1.mint(accountFive, "0x"+BigNumber(10000e18).toString(16));
+        await ERC20MintableInstanceToken2.mint(accountFive, "0x"+BigNumber(40000e18).toString(16));
+        await ERC20MintableInstanceToken1.approve(UniswapRouterInstance.address, "0x"+BigNumber(10000e18).toString(16), { from: accountFive });
+        await ERC20MintableInstanceToken2.approve(UniswapRouterInstance.address, "0x"+BigNumber(40000e18).toString(16), { from: accountFive });
+        
+        await UniswapRouterInstance.addLiquidity(
+            ERC20MintableInstanceToken1.address,
+            ERC20MintableInstanceToken2.address,
+            "0x"+BigNumber(10000e18).toString(16),
+            "0x"+BigNumber(40000e18).toString(16),
+            0,
+            0,
+            accountFive,
+            Math.floor(Date.now()/1000)+(lockupIntervalCount*interval)
+            , { from: accountFive }
+        );
+        await ERC20MintableInstanceToken2.mint(accountTwo, "0x"+BigNumber(50000e18).toString(16));
+        await ERC20MintableInstanceToken2.approve(StakingContractInstance.address, "0x"+BigNumber(50000e18).toString(16), { from: accountTwo });
+        
+        stakingBalanceToken1Before = await ERC20MintableInstanceToken1.balanceOf(StakingContractInstance.address);
+        stakingBalanceToken2Before = await ERC20MintableInstanceToken2.balanceOf(StakingContractInstance.address);
+        await StakingContractInstance.methods['buyLiquidityAndStake(uint256)']("0x"+BigNumber(50000e18).toString(16), { from: accountTwo });
+        stakingBalanceToken1After = await ERC20MintableInstanceToken1.balanceOf(StakingContractInstance.address);
+        stakingBalanceToken2After = await ERC20MintableInstanceToken2.balanceOf(StakingContractInstance.address);
+        
+        assert.equal(
+            (
+                (BigNumber(stakingBalanceToken2After).minus(BigNumber(stakingBalanceToken2Before))).div(BigNumber(oneToken))
+            ).lt(BigNumber(percentLimitLeftTokenB).times(BigNumber(1e18)))
+            , 
+            true
+            , 
+            "error"
+        );
+        
+        
+        // console.log('token1::',stakingBalanceToken1Before.toString(), stakingBalanceToken1After.toString());
+        // console.log('token2::',stakingBalanceToken2Before.toString(), stakingBalanceToken2After.toString());
+    });
+    
     it('add reward token', async () => {
         let arr;
         await truffleAssert.reverts(
@@ -461,7 +515,7 @@ contract('staking', (accounts) => {
         arr = await StakingContractInstance.viewRewardTokensList();
         assert.equal(arr.indexOf(ERC20MintableInstanceToken3.address.toString()), -1, "can not remove token reward");
     });    
-       
+ 
     it('check reward after redeem with empty reward balance', async () => {
         
         
@@ -533,5 +587,5 @@ contract('staking', (accounts) => {
         
         
     });    
-    
+
 });

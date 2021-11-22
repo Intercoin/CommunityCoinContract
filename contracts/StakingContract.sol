@@ -361,16 +361,18 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         
         // left (incomeToken1-r3) we will exchange at uniswap to traded token
         
-        uint256 amountToken0 = uniswapExchange(token1, token0, incomeToken1.sub(r3));
-
-        require(IERC20Upgradeable(token1).approve(uniswapRouter, r3), 'approve failed.');
+        //uint256 amountToken0 = uniswapExchange(token1, token0, incomeToken1.sub(r3));
+        uint256 amountToken0 = uniswapExchange(token1, token0, r3);
+        uint256 amountToken1 = incomeToken1.sub(r3);
+        
         require(IERC20Upgradeable(token0).approve(uniswapRouter, amountToken0), 'approve failed.');
+        require(IERC20Upgradeable(token1).approve(uniswapRouter, amountToken1), 'approve failed.');
 
         (,, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
             token0,
             token1,
             amountToken0,
-            r3,
+            amountToken1,
             0, // slippage is unavoidable
             0, // slippage is unavoidable
             address(this),
