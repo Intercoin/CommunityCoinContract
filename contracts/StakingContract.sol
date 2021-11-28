@@ -22,6 +22,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     address public factory;
     address public tradedToken;
     address public reserveToken;
+    address private _token0;
+    address private _token1;
     uint256 public duration;
     uint256 public tradedTokenClaimFraction;
     uint256 public reserveTokenClaimFraction;
@@ -40,7 +42,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     EnumerableSetUpgradeable.AddressSet private rewardTokensList;
     
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
-    event Staked(address indexed account, uint256 amount);
+    event Staked(address indexed account, uint256 amount, uint priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
    
     constructor() {
@@ -90,6 +92,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         address pair =  IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
         require(pair != address(0), "UniSwap v2 pair does not exist");
         uniswapV2Pair = IUniswapV2Pair(pair);
+        _token0 = uniswapV2Pair.token0();
+        _token1 = uniswapV2Pair.token1();
     }
     
     function tokensToSend(
@@ -112,9 +116,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         require(msg.value>0, "insufficient balance");
         uint256 amountETH = msg.value;
         IWETH(WETH).deposit{value: amountETH}();
-        uint256 amountReserveToken = uniswapExchange(WETH, reserveToken, amountETH);
+        uint256 amountReserveToken = doSwapOnUniswap(WETH, reserveToken, amountETH);
         _buyLiquidityAndStake(msg.sender, amountReserveToken);
-        
     }
     
     function buyLiquidityAndStake(
@@ -122,7 +125,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 amount
     ) public {
         IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
-        uint256 amountReserveToken = uniswapExchange(payingToken, reserveToken, amount);
+        uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
         _buyLiquidityAndStake(msg.sender, amountReserveToken);
     }
     
@@ -140,18 +143,18 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     function redeem(
         uint256 amount
     ) public {  
-        (uint256 senderSharesBalance, uint256 totalSharesBalance) = _beforeRedeem(amount);
+        (, uint256 totalSharesBalance) = _beforeRedeem(amount);
         uint256 amount2Redeem = _redeem(msg.sender, amount);
         uniswapV2Pair.transfer(msg.sender, amount2Redeem);
-        _grantReward(msg.sender, senderSharesBalance, totalSharesBalance);
+        _grantReward(msg.sender, amount, totalSharesBalance);
     }
 
     function redeemAndRemoveLiquidity(
         uint256 amount
     ) public {
-        (uint256 senderSharesBalance, uint256 totalSharesBalance) = _beforeRedeem(amount);
+        (, uint256 totalSharesBalance) = _beforeRedeem(amount);
         _redeemAndRemoveLiquidity(msg.sender, amount);
-        _grantReward(msg.sender, senderSharesBalance, totalSharesBalance);
+        _grantReward(msg.sender, amount, totalSharesBalance);
     }
 
     function addRewardToken(
@@ -178,7 +181,13 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(
             msg.sender, address(this), liquidityTokenAmount
         );
-        _stake(msg.sender, liquidityTokenAmount);
+        (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
+        uint256 priceBeforeStake = (
+            _token0 == reserveToken
+                ? MULTIPLIER.mul(reserve0).div(reserve1)
+                : MULTIPLIER.mul(reserve1).div(reserve0)
+        );
+        _stake(msg.sender, liquidityTokenAmount, priceBeforeStake);
     }
 
 
@@ -195,7 +204,9 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         // !!!!! be carefull.  not transferFrom, but IERC20Upgradeable(address(this)).transferFrom.
         // because in this case tokens will be allow to this contract and contract must be THIS but not MSG.SENDER
         //transferFrom(msg.sender, address(this), amount);
-        IERC20Upgradeable(address(this)).transferFrom(msg.sender, address(this), amount);
+        IERC20Upgradeable(address(this)).transferFrom(
+            msg.sender, address(this), amount
+        );
         //------
     }
     
@@ -207,16 +218,23 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     */
     function _grantReward(
         address to, 
-        uint256 balance, 
+        uint256 amount, 
         uint256 total
     ) internal {
-        uint256 ratio = MULTIPLIER.mul(balance).div(total);
+        uint256 ratio = MULTIPLIER.mul(amount).div(total);
         if (ratio > 0) {
             uint256 reward2Send;
             for (uint256 i=0; i<rewardTokensList.length(); i++) {
-                reward2Send = IERC20Upgradeable(rewardTokensList.at(i))
+                address rewardToken = rewardTokensList.at(i);
+                reward2Send = IERC20Upgradeable(rewardToken)
                     .balanceOf(address(this))
                     .mul(ratio).div(MULTIPLIER);
+                // if (_rewardRatio[rewardToken]) {
+                //     reward2Send = Math.min(
+                //         reward2Send,
+
+                //     );
+                // }
                 if (reward2Send > 0) {
                     IERC20Upgradeable(rewardTokensList.at(i)).transfer(to, reward2Send);
                     emit RewardGranted(rewardTokensList.at(i), to, reward2Send);
@@ -286,9 +304,13 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         }
     }
     
-    function _stake(address addr, uint256 amount) internal {
+    function _stake(
+        address addr, 
+        uint256 amount, 
+        uint priceBeforeStake
+    ) internal {
         _mint(addr, amount, "", "");
-        emit Staked(addr, amount);
+        emit Staked(addr, amount, priceBeforeStake);
         _minimumsAdd(addr, amount, duration, false);
     }
     
@@ -325,7 +347,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         }
     }
     
-    function uniswapExchange(
+    function doSwapOnUniswap(
         address tokenIn, 
         address tokenOut, 
         uint256 amountIn
@@ -347,15 +369,22 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     ) internal {
         (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
         require (reserve0 != 0 && reserve1 != 0, "empty reserves");
+        uint256 priceBeforeStake = (
+            _token0 == reserveToken
+                ? MULTIPLIER.mul(reserve0).div(reserve1)
+                : MULTIPLIER.mul(reserve1).div(reserve0)
+        );
         //Then the amount they would want to swap is
         // r3 = sqrt( (r1 + r2) * r1 ) - r1
         // where 
         //  r1 - reserve at uniswap(reserve1)
         //  r2 - incoming amount of reserve token
-        uint256 r3 = sqrt( (reserve1.add(incomingReserveToken)).mul(reserve1)).sub(reserve1); //    
+        uint256 r3 = sqrt((reserve1.add(incomingReserveToken))
+            .mul(reserve1))
+            .sub(reserve1); //    
         require(r3 > 0 && incomingReserveToken > r3, "wrong calculation");
         // remaining (r2-r3) we will exchange at uniswap to traded token
-        uint256 amountTradedToken = uniswapExchange(reserveToken, tradedToken, r3);
+        uint256 amountTradedToken = doSwapOnUniswap(reserveToken, tradedToken, r3);
         uint256 amountReserveToken = incomingReserveToken.sub(r3);
         require(IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken), 'approve failed.');
         require(IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken), 'approve failed.');
@@ -370,8 +399,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
             block.timestamp
         );
         require (lpTokens > 0, "lpTokens need > 0" );
-        _stake(from, lpTokens);
-        
+        _stake(from, lpTokens, priceBeforeStake);
     }
     
     function _redeemAndRemoveLiquidity(
