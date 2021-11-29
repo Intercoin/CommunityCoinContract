@@ -154,10 +154,9 @@ contract('staking', (accounts) => {
         );
         
         //tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, lockupIntervalCount, {from: accountFive });
-        tmpTr = await StakingFactoryInstance.methods['produce(address,address,uint256)'](ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, lockupIntervalCount, {from: accountFive });
+        tmpTr = await StakingFactoryInstance.methods['produce(address,address,uint256)'](ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, lockupIntervalCount, {from: accountFive });
         
-        
-        StakingContractInstance = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        StakingContractInstance = await StakingContract.at(getArgs(tmpTr, "InstanceCreated").instance);
         
     });
     
@@ -165,20 +164,20 @@ contract('staking', (accounts) => {
         
 
     it('should create by factory', async () => {
-        let allPairsLengthBefore = await StakingFactoryInstance.allPairsLength();
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 11111);
-        let allPairsLengthAfter = await StakingFactoryInstance.allPairsLength();
-        let address1 = getArgs(tmpTr, "PairCreated").pair;
+        let instancesCountBefore = await StakingFactoryInstance.instancesCount();
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, 11111);
+        let instancesCountAfter = await StakingFactoryInstance.instancesCount();
+        let address1 = getArgs(tmpTr, "InstanceCreated").instance;
         
-        assert.equal(BigNumber(parseInt(allPairsLengthBefore)+1).toString(), BigNumber(allPairsLengthAfter).toString(), "allPairsLength error");
+        assert.equal(BigNumber(parseInt(instancesCountBefore)+1).toString(), BigNumber(instancesCountAfter).toString(), "instancesCount error");
         assert.notEqual(address1, zeroAddress, "can not be zero address");
         
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 11112);
-        let address2 = getArgs(tmpTr, "PairCreated").pair;
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, 11112);
+        let address2 = getArgs(tmpTr, "InstanceCreated").instance;
         assert.notEqual(address1, address2, "can not be equal with previous");
         
         await truffleAssert.reverts(
-            StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 11111),
+            StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, 11111),
             "StakingFactory: PAIR_ALREADY_EXISTS"
         );
         
@@ -188,11 +187,11 @@ contract('staking', (accounts) => {
         );
         
         await truffleAssert.reverts(
-            StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, zeroAddress, 12345),
+            StakingFactoryInstance.produce(zeroAddress, ERC20MintableInstanceToken1.address, 12345),
             "StakingFactory: ZERO_ADDRESS"
         );
         await truffleAssert.reverts(
-            StakingFactoryInstance.produce(zeroAddress, ERC20MintableInstanceToken1.address, 12345),
+            StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, zeroAddress, 12345),
             "StakingFactory: ZERO_ADDRESS"
         );
 
@@ -313,21 +312,21 @@ contract('staking', (accounts) => {
         
         await truffleAssert.reverts(
             StakingContractInstance.redeem(shares, { from: accountTwo}),
-            'insufficient amount to redeem'
+            'Redeeming stake that is not yet unlocked'
         );
         
         // even if approve before
         await StakingContractInstance.approve(StakingContractInstance.address, shares, { from: accountTwo });
         await truffleAssert.reverts(
             StakingContractInstance.redeem(shares, { from: accountTwo}),
-            'insufficient amount to redeem'
+            'Redeeming stake that is not yet unlocked'
         );
         
         
         // create staking for 2 days
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 4);
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, 4);
         
-        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "InstanceCreated").instance);
         
         await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
         await ERC20MintableInstanceToken2.approve(StakingContractInstance2days.address, oneToken, { from: accountTwo });
@@ -337,12 +336,12 @@ contract('staking', (accounts) => {
         shares = await StakingContractInstance2days.balanceOf(accountTwo);
         assert.equal(shares>0, true, "shares need > 0");
   
-//   console.log('lockupDuration=',(await StakingContractInstance2days.lockupDuration()).toString());      
+        //   console.log('lockupDuration=',(await StakingContractInstance2days.lockupDuration()).toString());      
 
         
         await truffleAssert.reverts(
             StakingContractInstance2days.redeem(shares, { from: accountTwo}),
-            'insufficient amount to redeem'
+            'Redeeming stake that is not yet unlocked'
         );
         
         // pass some mtime
@@ -367,9 +366,9 @@ contract('staking', (accounts) => {
     
     it('redeem and remove liquidity', async () => {
         // create staking for 2 days
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 2);
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, 2);
         
-        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "InstanceCreated").instance);
         
         await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
         await ERC20MintableInstanceToken2.approve(StakingContractInstance2days.address, oneToken, { from: accountTwo });
@@ -379,12 +378,12 @@ contract('staking', (accounts) => {
         shares = await StakingContractInstance2days.balanceOf(accountTwo);
         assert.equal(shares>0, true, "shares need > 0");
   
-//   console.log('lockupDuration=',(await StakingContractInstance2days.lockupDuration()).toString());      
+        //   console.log('lockupDuration=',(await StakingContractInstance2days.lockupDuration()).toString());      
 
         
         await truffleAssert.reverts(
             StakingContractInstance2days.redeemAndRemoveLiquidity(shares, { from: accountTwo}),
-            'insufficient amount to redeem'
+            'Redeeming stake that is not yet unlocked'
         );
         
         // pass some mtime
@@ -409,7 +408,7 @@ contract('staking', (accounts) => {
         
         // await truffleAssert.reverts(
         //     StakingContractInstance2days.redeemAndRemoveLiquidity(shares, { from: accountTwo}),
-        //     'insufficient amount to redeem'
+        //     'Redeeming stake that is not yet unlocked'
         // );
         
     });    
@@ -522,9 +521,9 @@ contract('staking', (accounts) => {
         
         
         // create staking for 2 days
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 3);
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, 3);
         
-        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "InstanceCreated").instance);
         
         // add reward token
         await StakingContractInstance2days.addRewardToken(ERC20MintableInstanceToken3.address);    
@@ -558,9 +557,9 @@ contract('staking', (accounts) => {
         
         
         // create staking for 2 days
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 5);
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, 5);
         
-        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        let StakingContractInstance2days = await StakingContract.at(getArgs(tmpTr, "InstanceCreated").instance);
         
         // add reward token
         await StakingContractInstance2days.addRewardToken(ERC20MintableInstanceToken3.address);    
@@ -615,11 +614,11 @@ contract('staking', (accounts) => {
     //         , { from: accountFive }
     //     );
         
-    //     //tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, lockupIntervalCount, {from: accountFive });
-    //     tmpTr = await StakingFactoryInstance.methods['produce(address,address,uint256)'](ERC20MintableInstanceToken1.address, ERC777MintableInstanceToken1.address, lockupIntervalCount, {from: accountFive });
+    //     //tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, lockupIntervalCount, {from: accountFive });
+    //     tmpTr = await StakingFactoryInstance.methods['produce(address,address,uint256)'](ERC777MintableInstanceToken1.address, ERC20MintableInstanceToken1.address, lockupIntervalCount, {from: accountFive });
         
         
-    //     let StakingContractInstance_ERC20_777 = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+    //     let StakingContractInstance_ERC20_777 = await StakingContract.at(getArgs(tmpTr, "InstanceCreated").instance);
         
     //     await ERC777MintableInstanceToken1.mint(accountTwo, oneToken);
         

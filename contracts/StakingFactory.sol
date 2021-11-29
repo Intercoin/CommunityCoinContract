@@ -94,8 +94,8 @@ contract StakingFactory is IStakingFactory, Ownable {
         uint256 tradedClaimFraction, 
         uint256 reserveClaimFraction
     ) internal view returns (address instance) {
-        require(reserveToken != tradedToken, 'StakingFactory: IDENTICAL_ADDRESSES');
-        require(reserveToken != address(0) && tradedToken != address(0), 'StakingFactory: ZERO_ADDRESS');
+        require(reserveToken != tradedToken, "StakingFactory: IDENTICAL_ADDRESSES");
+        require(reserveToken != address(0) && tradedToken != address(0), "StakingFactory: ZERO_ADDRESS");
         require(tradedClaimFraction <= MULTIPLIER && reserveClaimFraction <= MULTIPLIER, "StakingFactory: WRONG_CLAIM_FRACTION");
         instance = getInstance[reserveToken][tradedToken][duration];
         require(instance == address(0), "StakingFactory: PAIR_ALREADY_EXISTS");

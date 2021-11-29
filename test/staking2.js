@@ -176,11 +176,11 @@ contract('staking::test reward', (accounts) => {
     
     it('check claim Percents', async () => {
         // create staking for 2 days
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken1.address, ERC20MintableInstanceToken2.address, 2);
-        StakingContractInstance = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, 2);
+        StakingContractInstance = await StakingContract.at(getArgs(tmpTr, "InstanceCreated").instance);
         
-        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken3.address, ERC20MintableInstanceToken4.address, 2, 50000,50000,1000,{ from: accountFive });
-        StakingContractInstance2 = await StakingContract.at(getArgs(tmpTr, "PairCreated").pair);
+        tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken4.address, ERC20MintableInstanceToken3.address, 2, 50000,50000,1000,{ from: accountFive });
+        StakingContractInstance2 = await StakingContract.at(getArgs(tmpTr, "InstanceCreated").instance);
         
         
         await ERC20MintableInstanceToken2.mint(accountTwo, oneToken);
