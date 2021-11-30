@@ -248,8 +248,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     }
     
     /**
-     * transfer `fraction_` of `amount_` to `fractionAddr_`,
-     * all the remaining transfer to address`to_`. return `remaining` as remaining. usual is zero
+     * method will send `fraction_` of `amount_` of token `token_` to address `fractionAddr_`.
+     * if `fractionSendOnly_` == false , all that remaining will send to address `to`
      */
     function _fractionAmountSend(
         address token_, 
@@ -257,35 +257,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 fraction_, 
         address fractionAddr_, 
         address to_
-    ) internal returns(uint256 remaining) {
-        return __fractionAmountSend(token_, amount_, fraction_, fractionAddr_, to_, false);
-    }
-    
-    /**
-     * transfer `fraction_` of `amount_` to `fractionAddr_`,
-     * all the remaining transfer to address`to_`. return `remaining` as `amount_` without `fraction_` part
-     */
-    function _fractionAmountSend(
-        address token_, 
-        uint256 amount_, 
-        uint256 fraction_, 
-        address fractionAddr_
-    ) internal returns(uint256 remaining) {
-        return __fractionAmountSend(token_, amount_, fraction_, fractionAddr_, address(0), true);
-    }
-    
-    /**
-     * method will send `fraction_` of `amount_` of token `token_` to address `fractionAddr_`.
-     * if `fractionSendOnly_` == false , all that remaining will send to address `to`
-     */
-    function __fractionAmountSend(
-        address token_, 
-        uint256 amount_, 
-        uint256 fraction_, 
-        address fractionAddr_, 
-        address to_, 
-        bool fractionSendOnly_
     ) internal returns(uint256 remainingAfterFractionSend) {
+        bool fractionSendOnly_ = (to_ == address(0));
         remainingAfterFractionSend = 0;
         if (fraction_ == MULTIPLIER) {
             IERC20Upgradeable(token_).transfer(fractionAddr_, amount_);
@@ -444,7 +417,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         IERC20Upgradeable(address(this)).transfer(deadAddress, amount);
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
-        amount2Redeem = _fractionAmountSend(address(uniswapV2Pair), amount, lpClaimFraction, owner());
+        amount2Redeem = _fractionAmountSend(address(uniswapV2Pair), amount, lpClaimFraction, owner(), address(0));
     }
     
     function sqrt(uint256 x) private pure returns (uint256 result) {
