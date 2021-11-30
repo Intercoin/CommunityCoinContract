@@ -40,6 +40,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     IUniswapV2Router02 internal UniswapV2Router02;
     IUniswapV2Pair internal uniswapV2Pair;
     EnumerableSetUpgradeable.AddressSet private rewardTokensList;
+    mapping(address => uint256) public rewardTokenRatios;
     
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint priceBeforeStake);
@@ -158,15 +159,18 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     }
 
     function addRewardToken(
-        address addr
+        address addr,
+        uint256 ratioToLP
     ) public onlyOwner() {
         rewardTokensList.add(addr);
+        rewardTokenRatios[addr] = ratioToLP;
     }
     
     function removeRewardToken(
         address addr
     ) public onlyOwner() {
         rewardTokensList.remove(addr);
+        delete rewardTokenRatios[addr];
     }
     
     function viewRewardTokensList() public view returns(address[] memory) {
@@ -177,7 +181,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     function stakeLiquidity(
         uint256 liquidityTokenAmount
     ) public {
-        require (liquidityTokenAmount > 0, "liquidityTokenAmount need > 0" );
+        require (liquidityTokenAmount > 0, "liquidityTokenAmount needs to be > 0" );
         IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(
             msg.sender, address(this), liquidityTokenAmount
         );
@@ -293,7 +297,6 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
                 IERC20Upgradeable(token_).transfer(to_, amount_);
             }
         } else {
-            
             uint256 adjusted = amount_.mul(fraction_).div(MULTIPLIER);
             IERC20Upgradeable(token_).transfer(fractionAddr_, adjusted);
             remainingAfterFractionSend = amount_.sub(adjusted);
@@ -309,6 +312,18 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 amount, 
         uint priceBeforeStake
     ) internal {
+        for (uint256 i=0; i<rewardTokensList.length(); i++) {
+            address rewardToken = rewardTokensList.at(i);
+            uint256 ratio = rewardTokenRatios[rewardToken];
+            if (ratio > 0) {
+                uint256 limit = IERC20(rewardToken).balanceOf(address(this))
+                    .mul(ratio).div(MULTIPLIER);
+                require (
+                    totalSupply() + amount <= limit, 
+                    "Not accepting more stakes until more rewards are added."
+                );
+            }
+        }
         _mint(addr, amount, "", "");
         emit Staked(addr, amount, priceBeforeStake);
         _minimumsAdd(addr, amount, duration, false);
