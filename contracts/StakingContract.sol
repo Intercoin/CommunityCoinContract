@@ -292,7 +292,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
                 uint256 limit = IERC20(rewardToken).balanceOf(address(this))
                     .mul(ratio).div(MULTIPLIER);
                 require (
-                    totalSupply() + amount <= limit, 
+                    totalSupply().add(amount) <= limit, 
                     "Not accepting more stakes until more rewards are added."
                 );
             }
