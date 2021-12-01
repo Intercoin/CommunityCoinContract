@@ -27,7 +27,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     uint256 public tradedTokenClaimFraction;
     uint256 public reserveTokenClaimFraction;
     uint256 public lpClaimFraction;
-    uint256 internal constant MULTIPLIER = 100000;
+    uint256 internal constant FRACTION = 100000;
     
     address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
     
@@ -187,8 +187,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
         uint256 priceBeforeStake = (
             _token0 == reserveToken
-                ? MULTIPLIER.mul(reserve0).div(reserve1)
-                : MULTIPLIER.mul(reserve1).div(reserve0)
+                ? FRACTION.mul(reserve0).div(reserve1)
+                : FRACTION.mul(reserve1).div(reserve0)
         );
         _stake(msg.sender, liquidityTokenAmount, priceBeforeStake);
     }
@@ -224,14 +224,14 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 amount, 
         uint256 total
     ) internal {
-        uint256 ratio = MULTIPLIER.mul(amount).div(total);
+        uint256 ratio = FRACTION.mul(amount).div(total);
         if (ratio > 0) {
             uint256 reward2Send;
             for (uint256 i=0; i<rewardTokensList.length(); i++) {
                 address rewardToken = rewardTokensList.at(i);
                 reward2Send = IERC20Upgradeable(rewardToken)
                     .balanceOf(address(this))
-                    .mul(ratio).div(MULTIPLIER);
+                    .mul(ratio).div(FRACTION);
                 // if (_rewardRatio[rewardToken]) {
                 //     reward2Send = Math.min(
                 //         reward2Send,
@@ -259,7 +259,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     ) internal returns(uint256 remainingAfterFractionSend) {
         bool fractionSendOnly_ = (to_ == address(0));
         remainingAfterFractionSend = 0;
-        if (fraction_ == MULTIPLIER) {
+        if (fraction_ == FRACTION) {
             IERC20Upgradeable(token_).transfer(fractionAddr_, amount_);
             // if (fractionSendOnly_) {} else {}
         } else if (fraction_ == 0) {
@@ -269,7 +269,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
                 IERC20Upgradeable(token_).transfer(to_, amount_);
             }
         } else {
-            uint256 adjusted = amount_.mul(fraction_).div(MULTIPLIER);
+            uint256 adjusted = amount_.mul(fraction_).div(FRACTION);
             IERC20Upgradeable(token_).transfer(fractionAddr_, adjusted);
             remainingAfterFractionSend = amount_.sub(adjusted);
             if (!fractionSendOnly_) {
@@ -289,10 +289,11 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
             uint256 ratio = rewardTokenRatios[rewardToken];
             if (ratio > 0) {
                 uint256 limit = IERC20(rewardToken).balanceOf(address(this))
-                    .mul(ratio).div(MULTIPLIER);
+                    .mul(ratio).div(FRACTION);
                 require (
-                    totalSupply() + amount <= limit, 
-                    "NO_MORE_STAKES_UNTIL_REWARDS_ADDED"
+                    totalSupply().add(amount) <= limit, 
+                    "NO_MORE_STAKES_UNTIL_MORE_REWARDS_ADDED"
+                    totalSupply().add(amount) <= limit
                 );
             }
         }
@@ -358,8 +359,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         require (reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
         uint256 priceBeforeStake = (
             _token0 == reserveToken
-                ? MULTIPLIER.mul(reserve0).div(reserve1)
-                : MULTIPLIER.mul(reserve1).div(reserve0)
+                ? FRACTION.mul(reserve0).div(reserve1)
+                : FRACTION.mul(reserve1).div(reserve0)
         );
         //Then the amount they would want to swap is
         // r3 = sqrt( (r1 + r2) * r1 ) - r1
