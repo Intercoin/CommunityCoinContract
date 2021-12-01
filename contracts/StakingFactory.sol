@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract StakingFactory is IStakingFactory, Ownable {
     
     uint256 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
-    uint256 internal constant MULTIPLIER = 100000; // fractions are expressed as portions of this
+    uint256 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
     mapping(address => mapping(
         address => mapping(
@@ -96,7 +96,7 @@ contract StakingFactory is IStakingFactory, Ownable {
     ) internal view returns (address instance) {
         require(reserveToken != tradedToken, "StakingFactory: IDENTICAL_ADDRESSES");
         require(reserveToken != address(0) && tradedToken != address(0), "StakingFactory: ZERO_ADDRESS");
-        require(tradedClaimFraction <= MULTIPLIER && reserveClaimFraction <= MULTIPLIER, "StakingFactory: WRONG_CLAIM_FRACTION");
+        require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "StakingFactory: WRONG_CLAIM_FRACTION");
         instance = getInstance[reserveToken][tradedToken][duration];
         require(instance == address(0), "StakingFactory: PAIR_ALREADY_EXISTS");
     }
