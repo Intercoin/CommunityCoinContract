@@ -7,7 +7,6 @@ import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 import '@uniswap/lib/contracts/libraries/TransferHelper.sol';
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -66,7 +65,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 reserveTokenClaimFraction_,
         uint256 lpClaimFraction_
     ) initializer external  {
-        require(msg.sender == factory, 'StakingContract: MUST_USE_FACTORY'); // sufficient check
+        require(msg.sender == factory, 'MUST_USE_FACTORY'); // sufficient check
 
         (, bytes memory otherName) = tradedToken_.call(
             abi.encodeWithSignature("name()")
@@ -91,7 +90,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         WETH = UniswapV2Router02.WETH();
         
         address pair =  IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
-        require(pair != address(0), "UniSwap v2 pair does not exist");
+        require(pair != address(0), "NO_UNISWAP_V2_PAIR");
         uniswapV2Pair = IUniswapV2Pair(pair);
         _token0 = uniswapV2Pair.token0();
         _token1 = uniswapV2Pair.token1();
@@ -114,7 +113,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
     function buyLiquidityAndStake() public payable {
-        require(msg.value>0, "insufficient balance");
+        require(msg.value>0, "INSUFFICIENT_BALANCE");
         uint256 amountETH = msg.value;
         IWETH(WETH).deposit{value: amountETH}();
         uint256 amountReserveToken = doSwapOnUniswap(WETH, reserveToken, amountETH);
@@ -181,7 +180,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     function stakeLiquidity(
         uint256 liquidityTokenAmount
     ) public {
-        require (liquidityTokenAmount > 0, "liquidityTokenAmount needs to be > 0" );
+        require (liquidityTokenAmount > 0, "AMOUNT_EMPTY" );
         IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(
             msg.sender, address(this), liquidityTokenAmount
         );
@@ -293,7 +292,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
                     .mul(ratio).div(MULTIPLIER);
                 require (
                     totalSupply() + amount <= limit, 
-                    "Not accepting more stakes until more rewards are added."
+                    "NO_MORE_STAKES_UNTIL_REWARDS_ADDED"
                 );
             }
         }
@@ -326,7 +325,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
                 uint256 locked = _getMinimum(from);
                 uint256 remainingAmount = balance.sub(amount);
                 if (locked > remainingAmount) {
-                     require(to != address(this), "Redeeming stake that is not yet unlocked");
+                     require(to != address(this), "STAKE_NOT_UNLOCKED_YET");
                      minimumsTransfer(from, to, locked.sub(remainingAmount));
                 }
             } else {
@@ -356,7 +355,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 incomingReserveToken
     ) internal {
         (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
-        require (reserve0 != 0 && reserve1 != 0, "empty reserves");
+        require (reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
         uint256 priceBeforeStake = (
             _token0 == reserveToken
                 ? MULTIPLIER.mul(reserve0).div(reserve1)
@@ -370,12 +369,15 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 r3 = sqrt((reserve1.add(incomingReserveToken))
             .mul(reserve1))
             .sub(reserve1); //    
-        require(r3 > 0 && incomingReserveToken > r3, "wrong calculation");
+        require(r3 > 0 && incomingReserveToken > r3, "BAD_AMOUNT");
         // remaining (r2-r3) we will exchange at uniswap to traded token
         uint256 amountTradedToken = doSwapOnUniswap(reserveToken, tradedToken, r3);
         uint256 amountReserveToken = incomingReserveToken.sub(r3);
-        require(IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken), 'approve failed.');
-        require(IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken), 'approve failed.');
+        require(
+            IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken)
+            && IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken),
+            'APPROVE_FAILED'
+        );
         (,, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
             tradedToken,
             reserveToken,
@@ -386,7 +388,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
             address(this),
             block.timestamp
         );
-        require (lpTokens > 0, "lpTokens need > 0" );
+        require (lpTokens > 0, "NO_LIQUIDITY");
         _stake(from, lpTokens, priceBeforeStake);
     }
     
@@ -395,7 +397,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 amount
     ) private {
         uint256 amount2Redeem = _redeem(sender, amount);
-        require(uniswapV2Pair.approve(uniswapRouter, amount2Redeem), 'approve failed.');
+        require(uniswapV2Pair.approve(uniswapRouter, amount2Redeem), "APPROVE_FAILED");
         (uint amountA, uint amountB) = UniswapV2Router02.removeLiquidity(
             tradedToken,//address tokenA,
             reserveToken,//address tokenB,
