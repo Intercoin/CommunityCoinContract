@@ -6,3 +6,10 @@ artifacts
 .deps
 secret.*.json
 TODO.txt
+/cache
+/docs
+/metadata
+/.deps
+/.debugger
+remix-compiler.config.js
+.DS_Store
