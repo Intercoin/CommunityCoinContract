@@ -14,7 +14,6 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeabl
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./minimums/upgradeable/MinimumsBase.sol";
 import "./interfaces/IStakingContract.sol";
-import "hardhat/console.sol";
 
 contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777SenderUpgradeable, MinimumsBase, IStakingContract {
 

@@ -7,7 +7,6 @@ import "./interfaces/IStakingFactory.sol";
 import "./interfaces/IStakingContract.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "hardhat/console.sol";
 
 contract StakingFactory is IStakingFactory, Ownable {
     using Clones for address;
