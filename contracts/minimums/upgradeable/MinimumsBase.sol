@@ -62,9 +62,9 @@ locked2 = 40/(100-40)*(100-70) = 20
         uint256 interval_
     ) 
         internal
-        initializer 
+        onlyInitializing 
     {
-        __Context_init_unchained();
+        __Context_init();
         if (interval_ == 0) {
             // set default via dayInSeconds
             interval = 86400;

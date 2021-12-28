@@ -14,11 +14,12 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeabl
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./minimums/upgradeable/MinimumsBase.sol";
 import "./interfaces/IStakingContract.sol";
+import "hardhat/console.sol";
 
 contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777SenderUpgradeable, MinimumsBase, IStakingContract {
     using SafeMathUpgradeable for uint256;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
-    address public factory;
+    
     address public tradedToken;
     address public reserveToken;
     address private _token0;
@@ -45,10 +46,6 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
     event Staked(address indexed account, uint256 amount, uint priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
    
-    constructor() {
-        factory = msg.sender;        
-    }
-
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -64,27 +61,22 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 tradedTokenClaimFraction_, 
         uint256 reserveTokenClaimFraction_,
         uint256 lpClaimFraction_
-    ) initializer external  {
-        require(msg.sender == factory, 'MUST_USE_FACTORY'); // sufficient check
+    ) initializer external override {
 
-        (, bytes memory otherName) = tradedToken_.call(
-            abi.encodeWithSignature("name()")
-        );
-        string memory name = string(abi.encodePacked(string(otherName), " Staking Token"));
-        (, bytes memory otherSymbol) = tradedToken_.call(
-            abi.encodeWithSignature("symbol()")
-        );
-        string memory symbol = string(abi.encodePacked(string(otherSymbol), ".STAKE"));
+        string memory otherName = ERC777Upgradeable(tradedToken_).name();
+        string memory otherSymbol = ERC777Upgradeable(tradedToken_).symbol();
+
+        string memory name = string(abi.encodePacked(otherName, " Staking Token"));
+        string memory symbol = string(abi.encodePacked(otherSymbol, ".STAKE"));
 
         __Ownable_init();
+        MinimumsBase_init(lockupInterval_);
         __ERC777_init(name, symbol, (new address[](0)));
 
         (tradedToken, reserveToken, duration,
         tradedTokenClaimFraction, reserveTokenClaimFraction, lpClaimFraction)
         = (tradedToken_, reserveToken_, duration_,
         tradedTokenClaimFraction_, reserveTokenClaimFraction_, lpClaimFraction_);
-        
-        MinimumsBase_init(lockupInterval_);
         
         UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
         WETH = UniswapV2Router02.WETH();

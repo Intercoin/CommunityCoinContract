@@ -123,9 +123,12 @@ module.exports = {
   namedAccounts: {
     deployer: 0
     },
-
+// "./node_modules/@unuswap/v2-core/contracts", 
+// "./node_modules/@unuswap/v2-periphery/contracts"
   paths: {
-    sources: "contracts",
+    
+    sources: "./contracts"
+    
   },
   gasReporter: {
     currency: 'USD',

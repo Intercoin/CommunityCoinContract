@@ -4,19 +4,24 @@ pragma solidity ^0.8.0;
 
 //import "./erc777/ERC777Layer.sol";
 import "./interfaces/IStakingFactory.sol";
-import "./StakingContract.sol";
+import "./interfaces/IStakingContract.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
+import "hardhat/console.sol";
 
 contract StakingFactory is IStakingFactory, Ownable {
-    
+    using Clones for address;
     uint256 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint256 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+
+    address internal implementation;
 
     mapping(address => mapping(
         address => mapping(
             uint256 => address
         )
     )) public override getInstance;
+
     address[] public override instances;
     
     mapping(address => address) private _instanceCreators;
@@ -32,8 +37,16 @@ contract StakingFactory is IStakingFactory, Ownable {
     mapping(address => InstanceInfo) private _instanceInfos;
     
     function instancesCount()
-    external override view returns (uint) {
+        external 
+        override 
+        view 
+        returns (uint) 
+    {
         return instances.length;
+    }
+
+    constructor(address impl) {
+        implementation = impl;
     }
 
     function produce(
@@ -73,17 +86,19 @@ contract StakingFactory is IStakingFactory, Ownable {
         uint256 tradedTokenClaimFraction,
         uint256 lpClaimFraction
     ) internal returns (address instance) {
-        instance = _createInstanceValidate(
+        _createInstanceValidate(
             reserveToken, tradedToken, duration, 
             reserveTokenClaimFraction, tradedTokenClaimFraction
         );
-        address payable instanceCreated = _createInstance(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);    
+
+        address instanceCreated = _createInstance(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);    
+
         require(instanceCreated != address(0), "StakingFactory: INSTANCE_CREATION_FAILED");
-        StakingContract(instanceCreated).initialize(
+        IStakingContract(instanceCreated).initialize(
             reserveToken,  tradedToken,  LOCKUP_INTERVAL, duration, 
             reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
         );
-        StakingContract(instanceCreated).transferOwnership(_msgSender());
+        Ownable(instanceCreated).transferOwnership(_msgSender());
         instance = instanceCreated;        
     }
     
@@ -93,11 +108,11 @@ contract StakingFactory is IStakingFactory, Ownable {
         uint256 duration, 
         uint256 tradedClaimFraction, 
         uint256 reserveClaimFraction
-    ) internal view returns (address instance) {
+    ) internal view {
         require(reserveToken != tradedToken, "StakingFactory: IDENTICAL_ADDRESSES");
         require(reserveToken != address(0) && tradedToken != address(0), "StakingFactory: ZERO_ADDRESS");
         require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "StakingFactory: WRONG_CLAIM_FRACTION");
-        instance = getInstance[reserveToken][tradedToken][duration];
+        address instance = getInstance[reserveToken][tradedToken][duration];
         require(instance == address(0), "StakingFactory: PAIR_ALREADY_EXISTS");
     }
         
@@ -108,12 +123,9 @@ contract StakingFactory is IStakingFactory, Ownable {
         uint256 reserveTokenClaimFraction, 
         uint256 tradedTokenClaimFraction, 
         uint256 lpClaimFraction
-    ) internal returns (address payable instance) {
-        bytes memory bytecode = type(StakingContract).creationCode;
-        bytes32 salt = keccak256(abi.encodePacked(address(this), reserveToken, tradedToken, duration));
-        assembly {
-            instance := create2(0, add(bytecode, 32), mload(bytecode), salt)
-        }
+    ) internal returns (address instance) {
+        instance = implementation.clone();
+        
         getInstance[reserveToken][tradedToken][duration] = instance;
         instances.push(instance);
         _instanceCreators[instance] = msg.sender;
@@ -127,5 +139,7 @@ contract StakingFactory is IStakingFactory, Ownable {
         );
         emit InstanceCreated(reserveToken, tradedToken, instance, instances.length);
     }
+
+    
 
 }

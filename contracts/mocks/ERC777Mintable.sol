@@ -18,8 +18,7 @@ contract ERC777Mintable is ERC777 {
     constructor (
         string memory name, 
         string memory symbol
-    ) 
-        ERC777("name", "symbol", new address[](0))
+    ) ERC777("name", "symbol", new address[](0))
     {
 
     }
