@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
@@ -11,8 +9,6 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
  */
 abstract contract MinimumsBase {
     
-    using SafeMath for uint256;
-	using Math for uint256;
 	using EnumerableSet for EnumerableSet.UintSet;
 	
 	struct Lockup {
@@ -88,7 +84,7 @@ locked2 = 40/(100-40)*(100-70) = 20
         returns (bool)
     {
         uint256 timestampStart = getIndexInterval(block.timestamp);
-        uint256 timestampEnd = timestampStart.add(intervalCount.mul(interval));
+        uint256 timestampEnd = timestampStart+(intervalCount * interval);
         require(timestampEnd > timestampStart, 'timestamp is less then current block.timestamp');
         
         _minimumsClear(addr, false);
@@ -123,7 +119,7 @@ locked2 = 40/(100-40)*(100-70) = 20
     )
         internal
     {
-        users[from].lockup.duration = duration.mul(interval);
+        users[from].lockup.duration = duration * interval;
         users[from].lockup.exists = true;
     }
     
@@ -157,11 +153,15 @@ locked2 = 40/(100-40)*(100-70) = 20
             mapIndex = users[addr].minimumsIndexes.at(i);
             
             if (block.timestamp <= mapIndex) { // block.timestamp<timestampEnd
-                tmp = users[addr].minimums[mapIndex].speedGradualUnlock.mul(mapIndex.sub(block.timestamp));
+                tmp = (users[addr].minimums[mapIndex].speedGradualUnlock) * (mapIndex - (block.timestamp));
                 
-                amountLocked = amountLocked.
-                                    add(tmp < users[addr].minimums[mapIndex].amountGradualWithdrawn ? 0 : tmp.sub(users[addr].minimums[mapIndex].amountGradualWithdrawn)).
-                                    add(users[addr].minimums[mapIndex].amountNoneGradual);
+                amountLocked = amountLocked + 
+                                    (
+                                        tmp < users[addr].minimums[mapIndex].amountGradualWithdrawn 
+                                        ? 0 
+                                        : tmp - (users[addr].minimums[mapIndex].amountGradualWithdrawn)
+                                    ) +
+                                    (users[addr].minimums[mapIndex].amountNoneGradual);
             }
         }
     }
@@ -220,13 +220,16 @@ locked2 = 40/(100-40)*(100-70) = 20
         users[addr].minimumsIndexes.add(timestampEnd);
         if (gradual == true) {
             // gradual
-            users[addr].minimums[timestampEnd].speedGradualUnlock = users[addr].minimums[timestampEnd].speedGradualUnlock.add(
-                (amount).div(timestampEnd.sub(timestampStart))
-            );
+            users[addr].minimums[timestampEnd].speedGradualUnlock = 
+                (users[addr].minimums[timestampEnd].speedGradualUnlock) +
+                (
+                    (amount)/(timestampEnd - timestampStart)
+                );
             //users[addr].minimums[timestamp].amountGradual = users[addr].minimums[timestamp].amountGradual.add(amount);
         } else {
             // none-gradual
-            users[addr].minimums[timestampEnd].amountNoneGradual = users[addr].minimums[timestampEnd].amountNoneGradual.add(amount);
+            users[addr].minimums[timestampEnd].amountNoneGradual = 
+                (users[addr].minimums[timestampEnd].amountNoneGradual) + (amount);
         }
     }
     
@@ -251,9 +254,9 @@ locked2 = 40/(100-40)*(100-70) = 20
             
             if (gradual == true) {
                 
-                users[addr].minimums[timestampEnd].amountGradualWithdrawn = users[addr].minimums[timestampEnd].amountGradualWithdrawn.add(value);
+                users[addr].minimums[timestampEnd].amountGradualWithdrawn = users[addr].minimums[timestampEnd].amountGradualWithdrawn + value;
                 
-                uint256 left = (users[addr].minimums[timestampEnd].speedGradualUnlock).mul(timestampEnd.sub(block.timestamp));
+                uint256 left = (users[addr].minimums[timestampEnd].speedGradualUnlock) * (timestampEnd - block.timestamp);
                 if (left <= users[addr].minimums[timestampEnd].amountGradualWithdrawn) {
                     users[addr].minimums[timestampEnd].speedGradualUnlock = 0;
                     // delete users[addr].minimums[timestampEnd];
@@ -261,7 +264,7 @@ locked2 = 40/(100-40)*(100-70) = 20
                 }
             } else {
                 if (users[addr].minimums[timestampEnd].amountNoneGradual > value) {
-                    users[addr].minimums[timestampEnd].amountNoneGradual = users[addr].minimums[timestampEnd].amountNoneGradual.sub(value);
+                    users[addr].minimums[timestampEnd].amountNoneGradual = users[addr].minimums[timestampEnd].amountNoneGradual - value;
                 } else {
                     users[addr].minimums[timestampEnd].amountNoneGradual = 0;
                     // delete users[addr].minimums[timestampEnd];
@@ -319,7 +322,7 @@ locked2 = 40/(100-40)*(100-70) = 20
                     // try move none-gradual
                     if (value >= users[from].minimums[_dataList[i]].amountNoneGradual) {
                         iValue = users[from].minimums[_dataList[i]].amountNoneGradual;
-                        value = value.sub(iValue);
+                        value = value - iValue;
                     } else {
                         iValue = value;
                         value = 0;
@@ -342,14 +345,14 @@ locked2 = 40/(100-40)*(100-70) = 20
                     // try move gradual
                     
                     // amount left in current minimums
-                    tmpValue = users[from].minimums[_dataList[i]].speedGradualUnlock.mul(
-                        _dataList[i].sub(block.timestamp)
+                    tmpValue = users[from].minimums[_dataList[i]].speedGradualUnlock * (
+                        _dataList[i] - block.timestamp
                     );
                         
                         
                     if (value >= tmpValue) {
                         iValue = tmpValue;
-                        value = value.sub(tmpValue);
+                        value = value - tmpValue;
 
                     } else {
                         iValue = value;
@@ -393,8 +396,12 @@ locked2 = 40/(100-40)*(100-70) = 20
         
     }
     
+    /**
+    * @dev gives index interval. here we deliberately making a loss precision(div before mul) to get the same index during interval.
+    * @param ts unixtimestamp
+    */
     function getIndexInterval(uint256 ts) internal view returns(uint256) {
-        return (ts).div(interval).mul(interval);
+        return ts / interval * interval ;
     }
     
     // useful method to sort native memory array 

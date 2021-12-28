@@ -8,7 +8,7 @@ import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 import '@uniswap/lib/contracts/libraries/TransferHelper.sol';
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
+
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
@@ -17,7 +17,7 @@ import "./interfaces/IStakingContract.sol";
 import "hardhat/console.sol";
 
 contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777SenderUpgradeable, MinimumsBase, IStakingContract {
-    using SafeMathUpgradeable for uint256;
+
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
     
     address public tradedToken;
@@ -179,8 +179,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
         uint256 priceBeforeStake = (
             _token0 == reserveToken
-                ? MULTIPLIER.mul(reserve0).div(reserve1)
-                : MULTIPLIER.mul(reserve1).div(reserve0)
+                ? MULTIPLIER * reserve0 / reserve1
+                : MULTIPLIER * reserve1 / reserve0
         );
         _stake(msg.sender, liquidityTokenAmount, priceBeforeStake);
     }
@@ -216,20 +216,16 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         uint256 amount, 
         uint256 total
     ) internal {
-        uint256 ratio = MULTIPLIER.mul(amount).div(total);
+        uint256 ratio = MULTIPLIER * amount / total;
         if (ratio > 0) {
             uint256 reward2Send;
-            for (uint256 i=0; i<rewardTokensList.length(); i++) {
+            for(uint256 i = 0; i < rewardTokensList.length(); i++) {
                 address rewardToken = rewardTokensList.at(i);
-                reward2Send = IERC20Upgradeable(rewardToken)
-                    .balanceOf(address(this))
-                    .mul(ratio).div(MULTIPLIER);
-                // if (_rewardRatio[rewardToken]) {
-                //     reward2Send = Math.min(
-                //         reward2Send,
-
-                //     );
-                // }
+                reward2Send = 
+                    (
+                        IERC20Upgradeable(rewardToken).balanceOf(address(this))
+                    ) * ratio / MULTIPLIER;
+                    
                 if (reward2Send > 0) {
                     IERC20Upgradeable(rewardTokensList.at(i)).transfer(to, reward2Send);
                     emit RewardGranted(rewardTokensList.at(i), to, reward2Send);
@@ -261,9 +257,9 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
                 IERC20Upgradeable(token_).transfer(to_, amount_);
             }
         } else {
-            uint256 adjusted = amount_.mul(fraction_).div(MULTIPLIER);
+            uint256 adjusted = amount_ * fraction_ / MULTIPLIER;
             IERC20Upgradeable(token_).transfer(fractionAddr_, adjusted);
-            remainingAfterFractionSend = amount_.sub(adjusted);
+            remainingAfterFractionSend = amount_ - adjusted;
             if (!fractionSendOnly_) {
                 IERC20Upgradeable(token_).transfer(to_, remainingAfterFractionSend);
                 remainingAfterFractionSend = 0;
@@ -280,8 +276,10 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
             address rewardToken = rewardTokensList.at(i);
             uint256 ratio = rewardTokenRatios[rewardToken];
             if (ratio > 0) {
-                uint256 limit = IERC20Upgradeable(rewardToken).balanceOf(address(this))
-                    .mul(ratio).div(MULTIPLIER);
+                uint256 limit = 
+                    (
+                        IERC20Upgradeable(rewardToken).balanceOf(address(this))
+                    ) * ratio / MULTIPLIER;
                 require (
                     totalSupply() + amount <= limit, 
                     "NO_MORE_STAKES_UNTIL_REWARDS_ADDED"
@@ -315,10 +313,10 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
             uint256 balance = balanceOf(from);
             if (balance >= amount) {
                 uint256 locked = _getMinimum(from);
-                uint256 remainingAmount = balance.sub(amount);
+                uint256 remainingAmount = balance - amount;
                 if (locked > remainingAmount) {
                      require(to != address(this), "STAKE_NOT_UNLOCKED_YET");
-                     minimumsTransfer(from, to, locked.sub(remainingAmount));
+                     minimumsTransfer(from, to, (locked - remainingAmount));
                 }
             } else {
                 // insufficient balance error would be in {ERC777::_move}
@@ -350,21 +348,22 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Sender
         require (reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
         uint256 priceBeforeStake = (
             _token0 == reserveToken
-                ? MULTIPLIER.mul(reserve0).div(reserve1)
-                : MULTIPLIER.mul(reserve1).div(reserve0)
+                ? MULTIPLIER * reserve0 / reserve1
+                : MULTIPLIER * reserve1 / reserve0
         );
         //Then the amount they would want to swap is
         // r3 = sqrt( (r1 + r2) * r1 ) - r1
         // where 
         //  r1 - reserve at uniswap(reserve1)
         //  r2 - incoming amount of reserve token
-        uint256 r3 = sqrt((reserve1.add(incomingReserveToken))
-            .mul(reserve1))
-            .sub(reserve1); //    
+        uint256 r3 = 
+            sqrt(
+                (reserve1 + incomingReserveToken)*(reserve1)
+            ) - reserve1; //    
         require(r3 > 0 && incomingReserveToken > r3, "BAD_AMOUNT");
         // remaining (r2-r3) we will exchange at uniswap to traded token
         uint256 amountTradedToken = doSwapOnUniswap(reserveToken, tradedToken, r3);
-        uint256 amountReserveToken = incomingReserveToken.sub(r3);
+        uint256 amountReserveToken = incomingReserveToken - r3;
         require(
             IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken)
             && IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken),
