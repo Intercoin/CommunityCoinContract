@@ -1,15 +1,16 @@
 require('dotenv').config()
 
 require("@nomiclabs/hardhat-ethers")
-require('hardhat-docgen')
 require('hardhat-deploy')
 require("@nomiclabs/hardhat-waffle")
 require("@nomiclabs/hardhat-web3")
 require("@nomiclabs/hardhat-etherscan")
-require("solidity-coverage")
-require("hardhat-gas-reporter")
-require('hardhat-docgen')
 
+require("hardhat-gas-reporter")
+require("hardhat-docgen")
+require("@hardhat-docgen/core")
+require("@hardhat-docgen/markdown")
+require("solidity-coverage")
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
 const goerliURL = `https://eth-goerli.alchemyapi.io/v2/${process.env.ALCHEMY_GOERLI}`
@@ -73,8 +74,9 @@ module.exports = {
   docgen: {
     path: './docs',
     clear: true,
-    runOnCompile: true,
+    runOnCompile: false,
   },
+  
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD"
@@ -122,9 +124,8 @@ module.exports = {
 
   namedAccounts: {
     deployer: 0
-    },
-// "./node_modules/@unuswap/v2-core/contracts", 
-// "./node_modules/@unuswap/v2-periphery/contracts"
+  },
+
   paths: {
     
     sources: "./contracts"

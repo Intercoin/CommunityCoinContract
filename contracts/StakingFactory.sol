@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 //import "./erc777/ERC777Layer.sol";
 import "./interfaces/IStakingFactory.sol";
 import "./interfaces/IStakingContract.sol";
+import "./interfaces/IStakingTransferDisallow.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
@@ -14,6 +15,7 @@ contract StakingFactory is IStakingFactory, Ownable {
     uint256 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
     address internal implementation;
+    address internal implementation2;
 
     mapping(address => mapping(
         address => mapping(
@@ -44,8 +46,12 @@ contract StakingFactory is IStakingFactory, Ownable {
         return instances.length;
     }
 
-    constructor(address impl) {
+    constructor(
+        address impl,
+        address impl2
+    ) {
         implementation = impl;
+        implementation2 = impl2;
     }
 
     function produce(
@@ -93,10 +99,18 @@ contract StakingFactory is IStakingFactory, Ownable {
         address instanceCreated = _createInstance(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);    
 
         require(instanceCreated != address(0), "StakingFactory: INSTANCE_CREATION_FAILED");
-        IStakingContract(instanceCreated).initialize(
-            reserveToken,  tradedToken,  LOCKUP_INTERVAL, duration, 
-            reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
-        );
+
+        if (duration == 0) {
+            IStakingTransferDisallow(instanceCreated).initialize(
+                reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+            );
+        } else {
+            IStakingContract(instanceCreated).initialize(
+                reserveToken,  tradedToken,  LOCKUP_INTERVAL, duration, 
+                reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+            );
+        }
+        
         Ownable(instanceCreated).transferOwnership(_msgSender());
         instance = instanceCreated;        
     }
@@ -123,7 +137,12 @@ contract StakingFactory is IStakingFactory, Ownable {
         uint256 tradedTokenClaimFraction, 
         uint256 lpClaimFraction
     ) internal returns (address instance) {
-        instance = implementation.clone();
+        if (duration == 0) {
+            instance = implementation2.clone();
+        } else {
+            instance = implementation.clone();
+        }
+        
         
         getInstance[reserveToken][tradedToken][duration] = instance;
         instances.push(instance);

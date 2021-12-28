@@ -42,6 +42,7 @@ describe("Staking contract tests", function () {
     const wrongClaimFraction = 99999999999;
 
     var implementation;
+    var implementation2;
     var stakingFactory;
     var erc20;
     var erc777;
@@ -52,12 +53,14 @@ describe("Staking contract tests", function () {
     beforeEach("deploying", async() => {
         const StakingFactoryF = await ethers.getContractFactory("StakingFactory");
         const StakingContractF = await ethers.getContractFactory("StakingContract");
+        const StakingTransferDisallowF = await ethers.getContractFactory("StakingTransferDisallow");
         const ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
         const ERC777Factory = await ethers.getContractFactory("ERC777Mintable");
 
         implementation = await StakingContractF.deploy();
+        implementation2 = await StakingTransferDisallowF.deploy();
 
-        stakingFactory = await StakingFactoryF.deploy(implementation.address);
+        stakingFactory = await StakingFactoryF.deploy(implementation.address, implementation2.address);
 
         erc20 = await ERC20Factory.deploy("ERC20 Token", "ERC20");
         erc777 = await ERC20Factory.deploy("ERC777 Token", "ERC777");

@@ -471,7 +471,14 @@
 426
 427
 428
-429</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+429
+430
+431
+432
+433
+434
+435
+436</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -528,10 +535,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -633,6 +636,9 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -652,6 +658,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -694,12 +701,15 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -853,6 +863,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -902,8 +916,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 &nbsp;
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 &nbsp;
 /**
@@ -912,8 +924,6 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
  */
 abstract contract MinimumsBase {
     
-    using SafeMath for uint256;
-	using Math for uint256;
 	using EnumerableSet for EnumerableSet.UintSet;
 	
 	struct Lockup {
@@ -989,7 +999,7 @@ locked2 = 40/(100-40)*(100-70) = 20
         returns (bool)
     {
 <span class="cstat-no" title="statement not covered" >        uint256 timestampStart = getIndexInterval(block.timestamp);</span>
-<span class="cstat-no" title="statement not covered" >        uint256 timestampEnd = timestampStart.add(intervalCount.mul(interval));</span>
+<span class="cstat-no" title="statement not covered" >        uint256 timestampEnd = timestampStart+(intervalCount * interval);</span>
 <span class="cstat-no" title="statement not covered" >        require(timestampEnd &gt; timestampStart, 'timestamp is less then current block.timestamp')</span>;
         
 <span class="cstat-no" title="statement not covered" >        _minimumsClear(addr, false)</span>;
@@ -1024,7 +1034,7 @@ locked2 = 40/(100-40)*(100-70) = 20
     )
         internal
     {
-<span class="cstat-no" title="statement not covered" >        users[from].lockup.duration = duration.mul(interval)</span>;
+<span class="cstat-no" title="statement not covered" >        users[from].lockup.duration = duration * interval</span>;
 <span class="cstat-no" title="statement not covered" >        users[from].lockup.exists = true</span>;
     }
     
@@ -1058,11 +1068,15 @@ locked2 = 40/(100-40)*(100-70) = 20
 <span class="cstat-no" title="statement not covered" >            mapIndex = users[addr].minimumsIndexes.at(i)</span>;
             
 <span class="cstat-no" title="statement not covered" >            if (block.timestamp &lt;= mapIndex) { // block.timestamp&lt;timestampEnd</span>
-<span class="cstat-no" title="statement not covered" >                tmp = users[addr].minimums[mapIndex].speedGradualUnlock.mul(mapIndex.sub(block.timestamp))</span>;
+<span class="cstat-no" title="statement not covered" >                tmp = (users[addr].minimums[mapIndex].speedGradualUnlock) * (mapIndex - (block.timestamp))</span>;
                 
-<span class="cstat-no" title="statement not covered" >                amountLocked = amountLocked.</span>
-                                    add(tmp &lt; users[addr].minimums[mapIndex].amountGradualWithdrawn ? 0 : tmp.sub(users[addr].minimums[mapIndex].amountGradualWithdrawn)).
-                                    add(users[addr].minimums[mapIndex].amountNoneGradual);
+<span class="cstat-no" title="statement not covered" >                amountLocked = amountLocked + </span>
+                                    (
+                                        tmp &lt; users[addr].minimums[mapIndex].amountGradualWithdrawn 
+                                        ? 0 
+                                        : tmp - (users[addr].minimums[mapIndex].amountGradualWithdrawn)
+                                    ) +
+                                    (users[addr].minimums[mapIndex].amountNoneGradual);
             }
         }
     }
@@ -1121,13 +1135,16 @@ locked2 = 40/(100-40)*(100-70) = 20
 <span class="cstat-no" title="statement not covered" >        users[addr].minimumsIndexes.add(timestampEnd)</span>;
 <span class="cstat-no" title="statement not covered" >        if (gradual == true) {</span>
             // gradual
-<span class="cstat-no" title="statement not covered" >            users[addr].minimums[timestampEnd].speedGradualUnlock = users[addr].minimums[timestampEnd].speedGradualUnlock.add(</span>
-                (amount).div(timestampEnd.sub(timestampStart))
-            );
+<span class="cstat-no" title="statement not covered" >            users[addr].minimums[timestampEnd].speedGradualUnlock = </span>
+                (users[addr].minimums[timestampEnd].speedGradualUnlock) +
+                (
+                    (amount)/(timestampEnd - timestampStart)
+                );
             //users[addr].minimums[timestamp].amountGradual = users[addr].minimums[timestamp].amountGradual.add(amount);
         } else {
             // none-gradual
-<span class="cstat-no" title="statement not covered" >            users[addr].minimums[timestampEnd].amountNoneGradual = users[addr].minimums[timestampEnd].amountNoneGradual.add(amount)</span>;
+<span class="cstat-no" title="statement not covered" >            users[addr].minimums[timestampEnd].amountNoneGradual = </span>
+                (users[addr].minimums[timestampEnd].amountNoneGradual) + (amount);
         }
     }
     
@@ -1152,9 +1169,9 @@ locked2 = 40/(100-40)*(100-70) = 20
             
 <span class="cstat-no" title="statement not covered" >            if (gradual == true) {</span>
                 
-<span class="cstat-no" title="statement not covered" >                users[addr].minimums[timestampEnd].amountGradualWithdrawn = users[addr].minimums[timestampEnd].amountGradualWithdrawn.add(value)</span>;
+<span class="cstat-no" title="statement not covered" >                users[addr].minimums[timestampEnd].amountGradualWithdrawn = users[addr].minimums[timestampEnd].amountGradualWithdrawn + value</span>;
                 
-<span class="cstat-no" title="statement not covered" >                uint256 left = (users[addr].minimums[timestampEnd].speedGradualUnlock).mul(timestampEnd.sub(block.timestamp));</span>
+<span class="cstat-no" title="statement not covered" >                uint256 left = (users[addr].minimums[timestampEnd].speedGradualUnlock) * (timestampEnd - block.timestamp);</span>
 <span class="cstat-no" title="statement not covered" >                if (left &lt;= users[addr].minimums[timestampEnd].amountGradualWithdrawn) {</span>
 <span class="cstat-no" title="statement not covered" >                    users[addr].minimums[timestampEnd].speedGradualUnlock = 0</span>;
                     // delete users[addr].minimums[timestampEnd];
@@ -1162,7 +1179,7 @@ locked2 = 40/(100-40)*(100-70) = 20
                 }
             } else {
 <span class="cstat-no" title="statement not covered" >                if (users[addr].minimums[timestampEnd].amountNoneGradual &gt; value) {</span>
-<span class="cstat-no" title="statement not covered" >                    users[addr].minimums[timestampEnd].amountNoneGradual = users[addr].minimums[timestampEnd].amountNoneGradual.sub(value)</span>;
+<span class="cstat-no" title="statement not covered" >                    users[addr].minimums[timestampEnd].amountNoneGradual = users[addr].minimums[timestampEnd].amountNoneGradual - value</span>;
                 } else {
 <span class="cstat-no" title="statement not covered" >                    users[addr].minimums[timestampEnd].amountNoneGradual = 0</span>;
                     // delete users[addr].minimums[timestampEnd];
@@ -1220,7 +1237,7 @@ locked2 = 40/(100-40)*(100-70) = 20
                     // try move none-gradual
 <span class="cstat-no" title="statement not covered" >                    if (value &gt;= users[from].minimums[_dataList[i]].amountNoneGradual) {</span>
 <span class="cstat-no" title="statement not covered" >                        iValue = users[from].minimums[_dataList[i]].amountNoneGradual</span>;
-<span class="cstat-no" title="statement not covered" >                        value = value.sub(iValue)</span>;
+<span class="cstat-no" title="statement not covered" >                        value = value - iValue</span>;
                     } else {
 <span class="cstat-no" title="statement not covered" >                        iValue = value</span>;
 <span class="cstat-no" title="statement not covered" >                        value = 0</span>;
@@ -1243,14 +1260,14 @@ locked2 = 40/(100-40)*(100-70) = 20
                     // try move gradual
                     
                     // amount left in current minimums
-<span class="cstat-no" title="statement not covered" >                    tmpValue = users[from].minimums[_dataList[i]].speedGradualUnlock.mul(</span>
-                        _dataList[i].sub(block.timestamp)
+<span class="cstat-no" title="statement not covered" >                    tmpValue = users[from].minimums[_dataList[i]].speedGradualUnlock * (</span>
+                        _dataList[i] - block.timestamp
                     );
                         
                         
 <span class="cstat-no" title="statement not covered" >                    if (value &gt;= tmpValue) {</span>
 <span class="cstat-no" title="statement not covered" >                        iValue = tmpValue</span>;
-<span class="cstat-no" title="statement not covered" >                        value = value.sub(tmpValue)</span>;
+<span class="cstat-no" title="statement not covered" >                        value = value - tmpValue</span>;
 &nbsp;
                     } else {
 <span class="cstat-no" title="statement not covered" >                        iValue = value</span>;
@@ -1294,8 +1311,12 @@ locked2 = 40/(100-40)*(100-70) = 20
         
     }
     
+    /**
+    * @dev gives index interval. here we deliberately making a loss precision(div before mul) to get the same index during interval.
+    * @param ts unixtimestamp
+    */
 <span class="fstat-no" title="function not covered" >    function getIndexInterval(uint256 ts) internal view returns(uint256) {</span>
-<span class="cstat-no" title="statement not covered" >        return (ts).div(interval).mul(interval);</span>
+<span class="cstat-no" title="statement not covered" >        return ts / interval * interval ;</span>
     }
     
     // useful method to sort native memory array 
@@ -1333,7 +1354,7 @@ locked2 = 40/(100-40)*(100-70) = 20
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Tue Dec 28 2021 14:29:58 GMT+0200 (Восточная Европа, стандартное время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Tue Dec 28 2021 20:47:15 GMT+0200 (Восточная Европа, стандартное время)
 </div>
 </div>
 <script src="../../../prettify.js"></script>
