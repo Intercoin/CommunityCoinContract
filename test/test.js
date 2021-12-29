@@ -53,9 +53,10 @@ describe("Staking contract tests", function () {
     beforeEach("deploying", async() => {
         const StakingFactoryF = await ethers.getContractFactory("StakingFactory");
         const StakingContractF = await ethers.getContractFactory("StakingContract");
-        const StakingTransferDisallowF = await ethers.getContractFactory("StakingTransferDisallow");
+        const StakingTransferDisallowF = await ethers.getContractFactory("StakingTransferRules");
         const ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
         const ERC777Factory = await ethers.getContractFactory("ERC777Mintable");
+        
 
         implementation = await StakingContractF.deploy();
         implementation2 = await StakingTransferDisallowF.deploy();
@@ -70,6 +71,45 @@ describe("Staking contract tests", function () {
         
         //console.log("before each №1");
     });
+
+    it("sqrt coverage", async() => {
+        const MockSrqtCoverageFactory = await ethers.getContractFactory("MockSrqtCoverage");
+        let mockSrqtCoverageInstance = await MockSrqtCoverageFactory.deploy();
+
+        let inputArr = [
+            "0x100000000000000000000000000000000",
+            "0x10000000000000000",
+            "0x100000000",
+            "0x100000",
+            "0x400",
+            "0x100",
+            "0x10",
+            "0x4",
+            "0x2",
+            "0x1",
+            ];
+        let expectArr = [
+            "0x10000000000000000",
+            "0x100000000",
+            "0x10000",
+            "0x400",
+            "0x20",
+            "0x10",
+            "0x4",
+            "0x2",
+            "0x1",
+            "0x1",
+        ];
+
+        let tmp;
+        for (let i = 0; i< inputArr.length; i++) {
+            tmp = await mockSrqtCoverageInstance.calculateSqrt(BigNumber.from(inputArr[i]));
+            await expect(
+                BigNumber.from(tmp).eq(BigNumber.from(expectArr[i]))
+            ).to.be.equal(true);
+        }
+        
+    }); 
 
     it("shouldnt create with uniswap pair exists", async() => {
         await expect(stakingFactory["produce(address,address,uint256,uint256,uint256,uint256)"](
@@ -217,7 +257,7 @@ describe("Staking contract tests", function () {
 
         });
 
-        it('buyAddLiquidityAndStake test()', async () => {
+        it("buyAddLiquidityAndStake test()", async () => {
         
             await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
             await erc20ReservedToken.connect(bob).approve(stakingInstance.address, ONE_ETH.mul(ONE));
@@ -233,7 +273,7 @@ describe("Staking contract tests", function () {
         
         });    
         
-        it('buyAddLiquidityAndStake (through paying token)', async () => {
+        it("buyAddLiquidityAndStake (through paying token)", async () => {
         
             await erc20.mint(bob.address, ONE_ETH.mul(ONE));
             
@@ -271,7 +311,7 @@ describe("Staking contract tests", function () {
         
         });    
 
-        it('buyAddLiquidityAndStake (through ETH)', async () => {
+        it("buyAddLiquidityAndStake (through ETH)", async () => {
         
             // create pair Token2 => WETH
             await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
@@ -302,7 +342,7 @@ describe("Staking contract tests", function () {
             
         });    
 
-        it('shouldnt redeem if not unlocked yet', async () => {
+        it("shouldnt redeem if not unlocked yet", async () => {
             
             await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
             await erc20ReservedToken.connect(bob).approve(stakingInstance.address, ONE_ETH.mul(ONE));
@@ -312,20 +352,18 @@ describe("Staking contract tests", function () {
 
             await expect(shares).to.not.equal(ZERO);
             
-            await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
-            
             // even if approve before
             await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
             await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith('STAKE_NOT_UNLOCKED_YET');
 
         }); 
 
-        it('no one should add or remove tokens reward except owner', async () => {
+        it("no one should add or remove tokens reward except owner", async () => {
             await expect(stakingInstance.connect(charlie).addRewardToken(erc20Reward.address, ZERO)).to.be.revertedWith("Ownable: caller is not the owner");
             await expect(stakingInstance.connect(charlie).removeRewardToken(erc20Reward.address)).to.be.revertedWith("Ownable: caller is not the owner");
         });
 
-        it('should manage tokens reward', async () => {
+        it("should manage tokens reward", async () => {
             let arr;
             // was not included before
             arr = await stakingInstance.viewRewardTokensList();
@@ -343,8 +381,25 @@ describe("Staking contract tests", function () {
             await expect(arr).to.not.include(erc20Reward.address);
         });
 
+        
+        
+        it("shouldnt stake if rewards limit exceeded ", async() => {
+            
+            // update reward info
+            await stakingInstance.connect(owner).addRewardToken(erc20Reward.address, ONE);
+
+            await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
+            await erc20ReservedToken.connect(bob).approve(stakingInstance.address, ONE_ETH.mul(ONE));
+
+            await expect(
+                stakingInstance.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE))
+            ).to.be.revertedWith("NO_MORE_STAKES_UNTIL_REWARDS_ADDED");
+            
+            
+        });
+
         describe("should consume all traded tokens by contract when buying liquidity", function() {
-            it('when uniswap reverves are equal', async () => {
+            it("when uniswap reverves are equal", async () => {
                 await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
                 await erc20ReservedToken.connect(bob).approve(stakingInstance.address, ONE_ETH.mul(ONE));
             
@@ -363,7 +418,7 @@ describe("Staking contract tests", function () {
                 ).to.be.eq(true);
             });
 
-            it('when uniswap reverves are not equal', async () => {
+            it("when uniswap reverves are not equal", async () => {
                 
                 await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(TEN).mul(THOUSAND));
                 await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(FOUR).mul(TEN).mul(THOUSAND));
@@ -430,33 +485,21 @@ describe("Staking contract tests", function () {
                 shares = await stakingInstance.balanceOf(bob.address);
             });
 
-            it('should shares appear and not equal zero', async () => {
+            it("should shares appear and not equal zero", async () => {
                 await expect(shares).to.not.equal(ZERO);
             });
 
-            it('shouldnt redeem until time expire', async () => {
-                await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
-            });
 
-            it('shouldnt redeem and remove liquidity until time expire ', async () => {
+            it("shouldnt redeem and remove liquidity until time expire", async () => {
                 await expect(stakingInstance.connect(bob).redeemAndRemoveLiquidity(shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+                // even if approve before
+                await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
+                await expect(stakingInstance.connect(bob).redeemAndRemoveLiquidity(shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+                
             });
 
-            it('redeem (check lockup duration)', async () => {
-                
-                // pass some mtime
-                await time.increase(DaysCount*dayInSeconds+9);
-                await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("ERC777: transfer amount exceeds allowance");
-    
-                await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
-                await stakingInstance.connect(bob).redeem(shares);
-                
-                await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("ERC777: transfer amount exceeds balance");
-                
-                
-            });    
-
-            it('redeem and remove liquidity', async () => {
+            
+            it("redeem and remove liquidity", async () => {
                 
                 // pass some mtime
                 await time.increase(DaysCount*dayInSeconds+9);
@@ -477,52 +520,97 @@ describe("Staking contract tests", function () {
                 await expect(bobTradedTokenAfter).gt(bobTradedTokenBefore);
                 
             }); 
+            describe("redeem via approve and call redeem", function() {
+                it("shouldnt redeem until time expire", async () => {
+                    await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+                });
+                it("redeem tokens", async () => {
+                
+                    // pass some mtime
+                    await time.increase(DaysCount*dayInSeconds+9);
+                    await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("ERC777: transfer amount exceeds allowance");
+                    await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
+                    await stakingInstance.connect(bob).redeem(shares);
+                    await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("ERC777: transfer amount exceeds balance");
+                });    
+                
+
+            }); 
+            describe("redeem via directly send to contract", function() {
+                it("shouldnt redeem until time expire", async () => {
+                    await expect(stakingInstance.connect(bob).transfer(stakingInstance.address, shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+                });
+                it("redeem tokens", async () => {
+                    // pass some mtime
+                    await time.increase(DaysCount*dayInSeconds+9);
+                    await stakingInstance.connect(bob).transfer(stakingInstance.address, shares);
+                });    
+            }); 
 
             describe("reward tokens", function() {
                 beforeEach("before each callback", async() => {
                     // add reward token
                     await stakingInstance.connect(owner).addRewardToken(erc20Reward.address, ZERO);
+                });
+
+
+                describe("empty reward balance", function() {
+                    beforeEach("before each callback", async() => {
+                        // pass some mtime
+                        await time.increase(DaysCount*dayInSeconds+9);
+                    });
+
+                    it("via approve and call", async() => {
+                        let bobRewardBalanceBefore = await erc20Reward.balanceOf(bob.address);
+                        await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
+                        await stakingInstance.connect(bob).redeem(shares);
+                        let bobRewardBalanceAfter = await erc20Reward.balanceOf(bob.address);
+                        await expect(bobRewardBalanceBefore).to.be.equal(bobRewardBalanceAfter);
+                    });
+
+                    it("via directly send to contract", async() => {
+                        let bobRewardBalanceBefore = await erc20Reward.balanceOf(bob.address);
+                        await stakingInstance.connect(bob).transfer(stakingInstance.address, shares);
+                        let bobRewardBalanceAfter = await erc20Reward.balanceOf(bob.address);
+                        await expect(bobRewardBalanceBefore).to.be.equal(bobRewardBalanceAfter);
+                        
+                    });
+                });
+                describe("none-empty reward balance", function() {
+                    beforeEach("before each callback", async() => {
+                        await erc20Reward.mint(stakingInstance.address, ONE_ETH.mul(ONE));    
+                        // pass some mtime
+                        await time.increase(DaysCount*dayInSeconds+10);
+                    });
+
+                    it("via approve and call", async() => {
+                        let bobRewardBalanceBefore = await erc20Reward.balanceOf(bob.address);
+                        await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
+                        await stakingInstance.connect(bob).redeem(shares);
+                        let bobRewardBalanceAfter = await erc20Reward.balanceOf(bob.address);
+                        // here Bob will get all reward as the one participant
+                        await expect(
+                            BigNumber.from(bobRewardBalanceBefore).lt(BigNumber.from(bobRewardBalanceAfter))
+                        ).to.be.equal(true);
+                        await expect(
+                            BigNumber.from(bobRewardBalanceAfter).eq(ONE_ETH.mul(ONE))
+                        ).to.be.equal(true);
+                    });
+
+                    it("via directly send to contract", async() => {
+                        let bobRewardBalanceBefore = await erc20Reward.balanceOf(bob.address);
+                        await stakingInstance.connect(bob).transfer(stakingInstance.address, shares);
+                        let bobRewardBalanceAfter = await erc20Reward.balanceOf(bob.address);
+                        // here Bob will  get all reward as the one participant
+                        await expect(
+                            BigNumber.from(bobRewardBalanceBefore).lt(BigNumber.from(bobRewardBalanceAfter))
+                        ).to.be.equal(true);
+                        await expect(
+                            BigNumber.from(bobRewardBalanceAfter).eq(ONE_ETH.mul(ONE))
+                        ).to.be.equal(true);
+                    });
 
                 });
-                it('check reward after redeem with empty reward balance', async () => {
-
-
-                    // pass some mtime
-                    await time.increase(DaysCount*dayInSeconds+9);                
-                    
-                    await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
-
-                    let bobRewardBalanceBefore = await erc20Reward.balanceOf(bob.address);
-                    await stakingInstance.connect(bob).redeem(shares);
-                    
-                    let bobRewardBalanceAfter = await erc20Reward.balanceOf(bob.address);
-                    await expect(bobRewardBalanceBefore).to.be.equal(bobRewardBalanceAfter);
-                    
-                });    
-                
-                it('check reward after redeem with none-empty reward balance', async () => {
-                    
-                    await erc20Reward.mint(stakingInstance.address, ONE_ETH.mul(ONE));    
-                    
-                     // pass some mtime
-                    await time.increase(DaysCount*dayInSeconds+10);
-                    
-                    await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
-
-                    let bobRewardBalanceBefore = await erc20Reward.balanceOf(bob.address);
-                    await stakingInstance.connect(bob).redeem(shares);
-                    
-                    let bobRewardBalanceAfter = await erc20Reward.balanceOf(bob.address);
-
-                    // here accountTwo get all reward as the one participant
-                    await expect(
-                        BigNumber.from(bobRewardBalanceBefore).lt(BigNumber.from(bobRewardBalanceAfter))
-                    ).to.be.equal(true);
-                    await expect(
-                        BigNumber.from(bobRewardBalanceAfter).eq(ONE_ETH.mul(ONE))
-                    ).to.be.equal(true);
-                    
-                });   
 
             });
   
@@ -532,7 +620,7 @@ describe("Staking contract tests", function () {
  
 
         // left for erc777
-        // it('buyAddLiquidityAndStake ERC777 tokensReceived', async () => {
+        // xit('buyAddLiquidityAndStake ERC777 tokensReceived', async () => {
             
         //     await UniswapRouterFactoryInstance.createPair(ERC20MintableInstanceToken1.address, ERC777MintableInstanceToken1.address);
             

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./minimums/upgradeable/MinimumsBase.sol";
-
-import "./interfaces/IStakingTransferDisallow.sol";
+import "./interfaces/IStakingTransferRules.sol";
 
 import "./StakingBase.sol";
 
-contract StakingTransferDisallow is StakingBase, IStakingTransferDisallow {
+contract StakingTransferRules is StakingBase, IStakingTransferRules {
 
     // called once by the factory at time of deployment
     function initialize(

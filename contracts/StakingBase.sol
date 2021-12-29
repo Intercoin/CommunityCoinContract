@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import '@uniswap/v2-periphery/contracts/interfaces/IWETH.sol';
-import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
-import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
-import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
-//import '@uniswap/lib/contracts/libraries/TransferHelper.sol';
+import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+//import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
+//import "hardhat/console.sol";
 
-abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777SenderUpgradeable {
+abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777SenderUpgradeable, IERC777RecipientUpgradeable {
 
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
     
@@ -32,6 +34,11 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
     address internal constant uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
     
     address internal WETH;
+    
+    bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
+    bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
+    //bytes32 constant private TOKENS_RECIPIENT_INTERFACE_HASH = 0xb281fc8c12954d22544db45de3159a39272895b169a852b314f9cc762e44c53b;
+        
 
     IUniswapV2Router02 internal UniswapV2Router02;
     IUniswapV2Pair internal uniswapV2Pair;
@@ -39,7 +46,7 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
     mapping(address => uint256) public rewardTokenRatios;
     
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
-    event Staked(address indexed account, uint256 amount, uint priceBeforeStake);
+    event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
    
     ////////////////////////////////////////////////////////////////////////
@@ -48,36 +55,6 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
     receive() external payable {
     }
 
-    
-    function StakingBase_init(
-        address reserveToken_,
-        address tradedToken_, 
-        uint256 tradedTokenClaimFraction_, 
-        uint256 reserveTokenClaimFraction_,
-        uint256 lpClaimFraction_
-    ) onlyInitializing internal {
-
-        string memory otherName = ERC777Upgradeable(tradedToken_).name();
-        string memory otherSymbol = ERC777Upgradeable(tradedToken_).symbol();
-
-        string memory name = string(abi.encodePacked(otherName, " Staking Token"));
-        string memory symbol = string(abi.encodePacked(otherSymbol, ".STAKE"));
-
-        __Ownable_init();
-        __ERC777_init(name, symbol, (new address[](0)));
-
-        (tradedToken, reserveToken, tradedTokenClaimFraction, reserveTokenClaimFraction, lpClaimFraction)
-        = (tradedToken_, reserveToken_, tradedTokenClaimFraction_, reserveTokenClaimFraction_, lpClaimFraction_);
-        
-        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
-        WETH = UniswapV2Router02.WETH();
-        
-        address pair =  IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
-        require(pair != address(0), "NO_UNISWAP_V2_PAIR");
-        uniswapV2Pair = IUniswapV2Pair(pair);
-        _token0 = uniswapV2Pair.token0();
-        _token1 = uniswapV2Pair.token1();
-    }
     
     function tokensToSend(
         address operator,
@@ -90,6 +67,33 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         virtual
         external
     {
+    }
+
+    
+
+    function tokensReceived(
+        address /*operator*/,
+        address from,
+        address to,
+        uint256 amount,
+        bytes calldata /*userData*/,
+        bytes calldata /*operatorData*/
+    ) 
+        external 
+        override
+    {
+        if (_msgSender() == address(this) && to == address(this)) {
+
+            uint256 totalSharesBalanceBefore = totalSupply();
+            // burn or send to dead address. 
+            // note that locked tokens are checks above in Stakingcontract
+            IERC20Upgradeable(address(this)).transfer(
+                deadAddress, amount
+            );
+
+            _redeem(from, amount, totalSharesBalanceBefore);
+            //revert("ART");
+        }
     }
     
     ////////////////////////////////////////////////////////////////////////
@@ -112,10 +116,7 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         _buyLiquidityAndStake(msg.sender, amountReserveToken);
     }
     
-    /**
-     * way to redeem via approve/transferFrom.
-     * another way is send directly to contract
-     */
+    
     function buyLiquidityAndStake(
         uint256 tokenBAmount
     ) public {
@@ -123,22 +124,61 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         _buyLiquidityAndStake(msg.sender, tokenBAmount);
     }
     
+    /**
+     * 
+     * 
+     */
+    /// @notice way to redeem via approve/transferFrom. Another way is send directly to contract
+    /// @dev The Alexandr N. Tetearing algorithm could increase precision
+    /// @param amount The number of rings from dendrochronological sample
     function redeem(
         uint256 amount
     ) public {  
-        (, uint256 totalSharesBalance) = _beforeRedeem(amount);
-        uint256 amount2Redeem = _redeem(msg.sender, amount);
-        uniswapV2Pair.transfer(msg.sender, amount2Redeem);
+        uint256 totalSharesBalanceBefore = totalSupply();
+// console.log("totalSharesBalanceBefore=",totalSharesBalanceBefore);
+        // !!!!! be carefull.  not transferFrom, but IERC20Upgradeable(address(this)).transferFrom.
+        // because in this case tokens will be allow to this contract and contract must be THIS but not MSG.SENDER
+        //transferFrom(msg.sender, address(this), amount);
+// console.log("address(this)=",address(this));
+// console.log("msg.sender=",msg.sender);        
+// console.log("deadAddress=",deadAddress);        
+// console.log("=====================");
+        IERC20Upgradeable(address(this)).transferFrom(
+            msg.sender, deadAddress, amount
+        );
+        //------
+// console.log("amount=",amount);
+        _redeem(msg.sender, amount, totalSharesBalanceBefore);
+    }
+
+function redeemAndRemoveLiquidity(
+        uint256 amount
+    ) public {
+        
+        uint256 totalSharesBalanceBefore = totalSupply();
+        
+        // !!!!! be carefull.  not transferFrom, but IERC20Upgradeable(address(this)).transferFrom.
+        // because in this case tokens will be allow to this contract and contract must be THIS but not MSG.SENDER
+        //transferFrom(msg.sender, address(this), amount);
+        IERC20Upgradeable(address(this)).transferFrom(
+            msg.sender, deadAddress, amount
+        );
+        //------
+
+        _redeemAndRemoveLiquidity(amount, totalSharesBalanceBefore);
+
+    }
+    
+    function _redeemAndRemoveLiquidity(
+        uint256 amount,
+        uint256 totalSharesBalance
+    ) internal {
+        
+        __redeemAndRemoveLiquidity(msg.sender, amount);
         _grantReward(msg.sender, amount, totalSharesBalance);
     }
 
-    function redeemAndRemoveLiquidity(
-        uint256 amount
-    ) public {
-        (, uint256 totalSharesBalance) = _beforeRedeem(amount);
-        _redeemAndRemoveLiquidity(msg.sender, amount);
-        _grantReward(msg.sender, amount, totalSharesBalance);
-    }
+
 
     function addRewardToken(
         address addr,
@@ -180,7 +220,54 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+    function StakingBase_init(
+        address reserveToken_,
+        address tradedToken_, 
+        uint256 tradedTokenClaimFraction_, 
+        uint256 reserveTokenClaimFraction_,
+        uint256 lpClaimFraction_
+    ) onlyInitializing internal {
 
+        string memory otherName = ERC777Upgradeable(tradedToken_).name();
+        string memory otherSymbol = ERC777Upgradeable(tradedToken_).symbol();
+
+        string memory name = string(abi.encodePacked(otherName, " Staking Token"));
+        string memory symbol = string(abi.encodePacked(otherSymbol, ".STAKE"));
+
+        __Ownable_init();
+        __ERC777_init(name, symbol, (new address[](0)));
+
+        // register interfaces
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
+
+        (tradedToken, reserveToken, tradedTokenClaimFraction, reserveTokenClaimFraction, lpClaimFraction)
+        = (tradedToken_, reserveToken_, tradedTokenClaimFraction_, reserveTokenClaimFraction_, lpClaimFraction_);
+        
+        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
+        WETH = UniswapV2Router02.WETH();
+        
+        address pair =  IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
+        require(pair != address(0), "NO_UNISWAP_V2_PAIR");
+        uniswapV2Pair = IUniswapV2Pair(pair);
+        _token0 = uniswapV2Pair.token0();
+        _token1 = uniswapV2Pair.token1();
+    }
+
+    function _redeem(
+        address sender, 
+        uint256 amount,
+        uint256 totalSharesBalance
+    ) 
+        internal 
+    {  
+        
+        uint256 amount2Redeem = __redeem(sender, amount);
+        
+        uniswapV2Pair.transfer(sender, amount2Redeem);
+        _grantReward(sender, amount, totalSharesBalance);
+    }
+
+    
     function _beforeRedeem(
         uint256 amount
     ) internal returns(uint256 senderBalance, uint256 totalBalance) {
@@ -195,7 +282,6 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         );
         //------
     }
-    
     
     /**
      * when user redeem token we will additionally grant percent of
@@ -235,7 +321,10 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         uint256 fraction_, 
         address fractionAddr_, 
         address to_
-    ) internal returns(uint256 remainingAfterFractionSend) {
+    ) 
+        internal 
+        returns(uint256 remainingAfterFractionSend) 
+    {
         bool fractionSendOnly_ = (to_ == address(0));
         remainingAfterFractionSend = 0;
         if (fraction_ == MULTIPLIER) {
@@ -262,7 +351,10 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         address addr, 
         uint256 amount, 
         uint priceBeforeStake
-    ) internal virtual {
+    ) 
+        internal 
+        virtual 
+    {
         for (uint256 i=0; i<rewardTokensList.length(); i++) {
             address rewardToken = rewardTokensList.at(i);
             uint256 ratio = rewardTokenRatios[rewardToken];
@@ -286,7 +378,11 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         address from,
         address to,
         uint256 amount
-    ) internal virtual override {
+    ) 
+        internal 
+        virtual 
+        override 
+    {
         //---
     }
     
@@ -294,8 +390,11 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         address tokenIn, 
         address tokenOut, 
         uint256 amountIn
-    ) internal returns(uint256 amountOut) {
-        require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), 'approve failed.');
+    ) 
+        internal 
+        returns(uint256 amountOut) 
+    {
+        require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "approve failed.");
         address[] memory path = new address[](2);
         path[0] = address(tokenIn);
         path[1] = address(tokenOut);
@@ -309,7 +408,9 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
     function _buyLiquidityAndStake(
         address from, 
         uint256 incomingReserveToken
-    ) internal {
+    ) 
+        internal 
+    {
         (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
         require (reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
         uint256 priceBeforeStake = (
@@ -333,7 +434,7 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         require(
             IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken)
             && IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken),
-            'APPROVE_FAILED'
+            "APPROVE_FAILED"
         );
         (,, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
             tradedToken,
@@ -349,11 +450,20 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         _stake(from, lpTokens, priceBeforeStake);
     }
     
-    function _redeemAndRemoveLiquidity(
+    ////////////////////////////////////////////////////////////////////////
+    // private section /////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+
+    function __redeemAndRemoveLiquidity(
         address sender, 
         uint256 amount
-    ) private {
-        uint256 amount2Redeem = _redeem(sender, amount);
+    ) 
+        private 
+    {
+
+        
+        uint256 amount2Redeem = __redeem(sender, amount);
+
         require(uniswapV2Pair.approve(uniswapRouter, amount2Redeem), "APPROVE_FAILED");
         (uint amountA, uint amountB) = UniswapV2Router02.removeLiquidity(
             tradedToken,//address tokenA,
@@ -368,18 +478,27 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         _fractionAmountSend(reserveToken, amountB, reserveTokenClaimFraction, owner(), sender);
     }
     
-    function _redeem(
+    function __redeem(
         address sender, 
         uint256 amount
-    ) private returns(uint256 amount2Redeem){
+    ) 
+        private 
+        returns(uint256 amount2Redeem)
+    {
         emit Redeemed(sender, amount);
-        IERC20Upgradeable(address(this)).transfer(deadAddress, amount);
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
+        // transfer and burn moved to upper level
         amount2Redeem = _fractionAmountSend(address(uniswapV2Pair), amount, lpClaimFraction, owner(), address(0));
     }
     
-    function sqrt(uint256 x) private pure returns (uint256 result) {
+    function sqrt(
+        uint256 x
+    ) 
+        internal 
+        pure 
+        returns(uint256 result) 
+    {
         if (x == 0) {
             return 0;
         }

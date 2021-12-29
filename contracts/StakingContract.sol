@@ -6,6 +6,7 @@ import "./minimums/upgradeable/MinimumsBase.sol";
 import "./interfaces/IStakingContract.sol";
 
 import "./StakingBase.sol";
+//import "hardhat/console.sol";
 
 contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
 
@@ -59,6 +60,10 @@ contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
         address to,
         uint256 amount
     ) internal virtual override {
+// console.log("operator=",operator);
+// console.log("from=",from);
+// console.log("to=",to);
+// console.log("amount=",amount);
         if (from != address(0)) { // otherwise minting
             // main goals are
             // - prevent transfer amount if locked more then available FOR REDEEM only (then to == address(this))
@@ -73,11 +78,24 @@ contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
             //  user1(total=100;locked=40)      user1(total=30;locked=30)
             //  user2(total=0;locked=0)         user2(total=70;locked=10)
             uint256 balance = balanceOf(from);
+//console.log("balance=",balance);        
             if (balance >= amount) {
                 uint256 locked = _getMinimum(from);
+//console.log("locked=",locked);        
                 uint256 remainingAmount = balance - amount;
                 if (locked > remainingAmount) {
-                     require(to != address(this), "STAKE_NOT_UNLOCKED_YET");
+                    if (
+                        (operator == address(this)) || // transferFrom sender to deadaddress through approve
+                        to == address(this) // if send directly to contract
+                    )  {
+                        revert("STAKE_NOT_UNLOCKED_YET");
+                    }
+
+                    
+                    //  require(
+                    //      to != address(this), 
+                    //      "STAKE_NOT_UNLOCKED_YET"
+                    //     );
                      minimumsTransfer(from, to, (locked - remainingAmount));
                 }
             } else {

@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 //import "./erc777/ERC777Layer.sol";
 import "./interfaces/IStakingFactory.sol";
 import "./interfaces/IStakingContract.sol";
-import "./interfaces/IStakingTransferDisallow.sol";
+import "./interfaces/IStakingTransferRules.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
@@ -101,7 +101,7 @@ contract StakingFactory is IStakingFactory, Ownable {
         require(instanceCreated != address(0), "StakingFactory: INSTANCE_CREATION_FAILED");
 
         if (duration == 0) {
-            IStakingTransferDisallow(instanceCreated).initialize(
+            IStakingTransferRules(instanceCreated).initialize(
                 reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
             );
         } else {
