@@ -491,7 +491,7 @@ describe("Staking contract tests", function () {
 
 
             it("shouldnt redeem and remove liquidity until time expire", async () => {
-                await expect(stakingInstance.connect(bob).redeemAndRemoveLiquidity(shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+                await expect(stakingInstance.connect(bob).redeemAndRemoveLiquidity(shares)).to.be.revertedWith("Redeem amount exceeds allowance");
                 // even if approve before
                 await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
                 await expect(stakingInstance.connect(bob).redeemAndRemoveLiquidity(shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
@@ -504,7 +504,7 @@ describe("Staking contract tests", function () {
                 // pass some mtime
                 await time.increase(DaysCount*dayInSeconds+9);
 
-                await expect(stakingInstance.connect(bob).redeemAndRemoveLiquidity(shares)).to.be.revertedWith("ERC777: transfer amount exceeds allowance");
+                await expect(stakingInstance.connect(bob).redeemAndRemoveLiquidity(shares)).to.be.revertedWith("Redeem amount exceeds allowance");
                 
                 await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
 
@@ -522,22 +522,25 @@ describe("Staking contract tests", function () {
             }); 
             describe("redeem via approve and call redeem", function() {
                 it("shouldnt redeem until time expire", async () => {
+                    await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("Redeem amount exceeds allowance");
+                    await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
                     await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
                 });
                 it("redeem tokens", async () => {
                 
                     // pass some mtime
                     await time.increase(DaysCount*dayInSeconds+9);
-                    await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("ERC777: transfer amount exceeds allowance");
+                    await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("Redeem amount exceeds allowance");
                     await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
                     await stakingInstance.connect(bob).redeem(shares);
-                    await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("ERC777: transfer amount exceeds balance");
+                    
                 });    
                 
 
             }); 
             describe("redeem via directly send to contract", function() {
                 it("shouldnt redeem until time expire", async () => {
+
                     await expect(stakingInstance.connect(bob).transfer(stakingInstance.address, shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
                 });
                 it("redeem tokens", async () => {

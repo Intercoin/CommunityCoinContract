@@ -6,7 +6,7 @@ import "./minimums/upgradeable/MinimumsBase.sol";
 import "./interfaces/IStakingContract.sol";
 
 import "./StakingBase.sol";
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
 
@@ -64,7 +64,10 @@ contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
 // console.log("from=",from);
 // console.log("to=",to);
 // console.log("amount=",amount);
-        if (from != address(0)) { // otherwise minting
+// console.log("address(this)=",address(this));
+
+        if (from !=address(0)) { // otherwise minted
+
             // main goals are
             // - prevent transfer amount if locked more then available FOR REDEEM only (then to == address(this))
             // - transfer minimums applicable only for minimums. 
@@ -78,18 +81,30 @@ contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
             //  user1(total=100;locked=40)      user1(total=30;locked=30)
             //  user2(total=0;locked=0)         user2(total=70;locked=10)
             uint256 balance = balanceOf(from);
-//console.log("balance=",balance);        
+// console.log("balance=",balance);        
             if (balance >= amount) {
                 uint256 locked = _getMinimum(from);
-//console.log("locked=",locked);        
+// console.log("locked=",locked);        
                 uint256 remainingAmount = balance - amount;
                 if (locked > remainingAmount) {
+                    // if (
+                    //     (operator == address(this)) || // transferFrom sender to deadaddress through approve
+                    //     to == address(this) // if send directly to contract
+                    // )  {
+                    //     revert("STAKE_NOT_UNLOCKED_YET");
+                    // }
+
                     if (
-                        (operator == address(this)) || // transferFrom sender to deadaddress through approve
+                        (/*from == address(this) && */to == address(0)) || // burnt
                         to == address(this) // if send directly to contract
                     )  {
                         revert("STAKE_NOT_UNLOCKED_YET");
                     }
+                    
+        // if (
+        //     (from ==address(0)) || // minted
+        //     (from == address(this) && to == address(0)) // burnt 
+        // ) {
 
                     
                     //  require(

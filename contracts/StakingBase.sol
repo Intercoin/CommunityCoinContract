@@ -28,7 +28,7 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
     uint256 public lpClaimFraction;
     uint256 internal constant MULTIPLIER = 100000;
     
-    address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
+    //address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
     
     address internal constant uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address internal constant uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
@@ -87,9 +87,11 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
             uint256 totalSharesBalanceBefore = totalSupply();
             // burn or send to dead address. 
             // note that locked tokens are checks above in Stakingcontract
-            IERC20Upgradeable(address(this)).transfer(
-                deadAddress, amount
-            );
+            // IERC20Upgradeable(address(this)).transfer(
+            //     deadAddress, amount
+            // );
+            
+            _burn(address(this), amount, "", "");
 
             _redeem(from, amount, totalSharesBalanceBefore);
             //revert("ART");
@@ -143,9 +145,12 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
 // console.log("msg.sender=",msg.sender);        
 // console.log("deadAddress=",deadAddress);        
 // console.log("=====================");
-        IERC20Upgradeable(address(this)).transferFrom(
-            msg.sender, deadAddress, amount
-        );
+        // IERC20Upgradeable(address(this)).transferFrom(
+        //     msg.sender, deadAddress, amount
+        // );
+        require(allowance(msg.sender, address(this))  >= amount, "Redeem amount exceeds allowance");
+        _burn(msg.sender, amount, "", "");
+
         //------
 // console.log("amount=",amount);
         _redeem(msg.sender, amount, totalSharesBalanceBefore);
@@ -160,9 +165,11 @@ function redeemAndRemoveLiquidity(
         // !!!!! be carefull.  not transferFrom, but IERC20Upgradeable(address(this)).transferFrom.
         // because in this case tokens will be allow to this contract and contract must be THIS but not MSG.SENDER
         //transferFrom(msg.sender, address(this), amount);
-        IERC20Upgradeable(address(this)).transferFrom(
-            msg.sender, deadAddress, amount
-        );
+        // IERC20Upgradeable(address(this)).transferFrom(
+        //     msg.sender, deadAddress, amount
+        // );
+        require(allowance(msg.sender, address(this))  >= amount, "Redeem amount exceeds allowance");
+        _burn(msg.sender, amount, "", "");
         //------
 
         _redeemAndRemoveLiquidity(amount, totalSharesBalanceBefore);
@@ -293,8 +300,8 @@ function redeemAndRemoveLiquidity(
         uint256 amount, 
         uint256 total
     ) internal {
-        uint256 ratio = MULTIPLIER * amount / total;
-        if (ratio > 0) {
+        if (total > 0 && amount > 0) {
+            uint256 ratio = MULTIPLIER * amount / total;
             uint256 reward2Send;
             for(uint256 i = 0; i < rewardTokensList.length(); i++) {
                 address rewardToken = rewardTokensList.at(i);
