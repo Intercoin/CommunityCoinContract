@@ -51,11 +51,11 @@ locked2 = 40/(100-40)*(100-70) = 20
     }
     
     mapping (address => UserStruct) private users;
-    uint256 private interval;
+    uint64 private interval;
     
     
     function MinimumsBase_init (
-        uint256 interval_
+        uint64 interval_
     ) 
         internal
         onlyInitializing 

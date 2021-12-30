@@ -20,28 +20,28 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>0/3</span>
+        <span class='fraction'>3/3</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Branches</span>
-        <span class='fraction'>0/2</span>
+        <span class='fraction'>2/2</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>0/2</span>
+        <span class='fraction'>2/2</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>0/3</span>
+        <span class='fraction'>3/3</span>
       </div>
     </div>
   </div>
-  <div class='status-line low'></div>
+  <div class='status-line high'></div>
 <pre><table class="coverage">
 <tr><td class="line-count quiet">1
 2
@@ -89,7 +89,17 @@
 44
 45
 46
-47</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -107,7 +117,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -123,7 +143,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -131,7 +151,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -139,21 +159,31 @@
 pragma solidity ^0.8.0;
 &nbsp;
 import "./interfaces/IStakingTransferRules.sol";
-&nbsp;
 import "./StakingBase.sol";
 &nbsp;
 contract StakingTransferRules is StakingBase, IStakingTransferRules {
 &nbsp;
-    // called once by the factory at time of deployment
-<span class="fstat-no" title="function not covered" >    function initialize(</span>
+    /**
+    * @notice initialize method. Called once by the factory at time of deployment
+    * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
+    * @param tradedToken_ address of traded token. ie investor token - ITR
+    * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `MULTIPLIER`. 
+    * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `MULTIPLIER`. 
+    * @param lpClaimFraction_ fraction of LP token multiplied by `MULTIPLIER`. 
+    */
+    function initialize(
         address reserveToken_,
         address tradedToken_, 
-        uint256 tradedTokenClaimFraction_, 
-        uint256 reserveTokenClaimFraction_,
-        uint256 lpClaimFraction_
-    ) initializer external override {
+        uint64 tradedTokenClaimFraction_, 
+        uint64 reserveTokenClaimFraction_,
+        uint64 lpClaimFraction_
+    ) 
+        initializer 
+        external 
+        override 
+    {
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        StakingBase_init(</span>
+        StakingBase_init(
             reserveToken_,
             tradedToken_, 
             tradedTokenClaimFraction_, 
@@ -163,21 +193,21 @@ contract StakingTransferRules is StakingBase, IStakingTransferRules {
 &nbsp;
     }
 &nbsp;
-<span class="fstat-no" title="function not covered" >    function _beforeTokenTransfer(</span>
+    function _beforeTokenTransfer(
         address operator,
         address from,
         address to,
         uint256 amount
     ) internal virtual override {
-<span class="cstat-no" title="statement not covered" >        require (</span>
+        require (
             (
                 from == address(0) || // if minting
                 from == address(this) || // burning to dead address or any contract do
                 to == address(this) // redeem
             ),
-            "TRANSFER STAKES DISABLED"
+            "TRANSFER_STAKES_DISABLED"
         );
-<span class="cstat-no" title="statement not covered" >        super._beforeTokenTransfer(operator, from, to, amount)</span>;
+        super._beforeTokenTransfer(operator, from, to, amount);
     }
 &nbsp;
 &nbsp;
@@ -187,7 +217,7 @@ contract StakingTransferRules is StakingBase, IStakingTransferRules {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Dec 29 2021 16:40:54 GMT+0200 (Восточная Европа, стандартное время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Dec 30 2021 20:57:51 GMT+0200 (Восточная Европа, стандартное время)
 </div>
 </div>
 <script src="../prettify.js"></script>

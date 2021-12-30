@@ -5,43 +5,46 @@ import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-//import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
+//import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 //import "hardhat/console.sol";
 
-abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777SenderUpgradeable, IERC777RecipientUpgradeable {
+abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777RecipientUpgradeable/*, IERC777SenderUpgradeable*/ {
 
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
     
+    // slot 0
     address public tradedToken;
+    uint64 public tradedTokenClaimFraction;
+    // slot 1
     address public reserveToken;
+    uint64 public reserveTokenClaimFraction;
+    // slot 2
     address private _token0;
+    uint64 public lpClaimFraction;
+    // slot 3
     address private _token1;
-    uint256 public tradedTokenClaimFraction;
-    uint256 public reserveTokenClaimFraction;
-    uint256 public lpClaimFraction;
-    uint256 internal constant MULTIPLIER = 100000;
+    uint64 internal constant MULTIPLIER = 100000;
     
     //address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
-    
+    // slot 4
     address internal constant uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    // slot 5
     address internal constant uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
-    
+    // slot 6
     address internal WETH;
     
-    bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
+    //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
-    //bytes32 constant private TOKENS_RECIPIENT_INTERFACE_HASH = 0xb281fc8c12954d22544db45de3159a39272895b169a852b314f9cc762e44c53b;
-        
-
+    // slot 7
     IUniswapV2Router02 internal UniswapV2Router02;
+    // slot 8
     IUniswapV2Pair internal uniswapV2Pair;
+    // slot 9
     EnumerableSetUpgradeable.AddressSet private rewardTokensList;
     mapping(address => uint256) public rewardTokenRatios;
     
@@ -52,25 +55,30 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+
+    /// @notice Special function receive ether
     receive() external payable {
     }
 
-    
-    function tokensToSend(
-        address operator,
-        address from,
-        address to,
-        uint256 amount,
-        bytes calldata userData,
-        bytes calldata operatorData
-    )   override
-        virtual
-        external
-    {
-    }
+    // left when will be implemented
+    // function tokensToSend(
+    //     address operator,
+    //     address from,
+    //     address to,
+    //     uint256 amount,
+    //     bytes calldata userData,
+    //     bytes calldata operatorData
+    // )   override
+    //     virtual
+    //     external
+    // {
+    // }
 
     
-
+    /**
+    * @notice used to catch when used try to redeem by sending shares directly to contract
+    * see more in {IERC777RecipientUpgradeable::tokensReceived}
+    */
     function tokensReceived(
         address /*operator*/,
         address from,
@@ -83,25 +91,25 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         override
     {
         if (_msgSender() == address(this) && to == address(this)) {
-
             uint256 totalSharesBalanceBefore = totalSupply();
-            // burn or send to dead address. 
-            // note that locked tokens are checks above in Stakingcontract
-            // IERC20Upgradeable(address(this)).transfer(
-            //     deadAddress, amount
-            // );
-            
             _burn(address(this), amount, "", "");
-
             _redeem(from, amount, totalSharesBalanceBefore);
-            //revert("ART");
         }
     }
     
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    function buyLiquidityAndStake() public payable {
+
+    /** 
+    * @notice payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap. 
+    * Finally will add to liquidity pool and stake it. User will obtain shares 
+    */
+    function buyLiquidityAndStake(
+    ) 
+        public 
+        payable 
+    {
         require(msg.value>0, "INSUFFICIENT_BALANCE");
         uint256 amountETH = msg.value;
         IWETH(WETH).deposit{value: amountETH}();
@@ -109,110 +117,112 @@ abstract contract StakingBase is OwnableUpgradeable, ERC777Upgradeable, IERC777S
         _buyLiquidityAndStake(msg.sender, amountReserveToken);
     }
     
+    /** 
+    * @notice method will receive payingToken token, exchange to reserve token via uniswap. 
+    * Finally will add to liquidity pool and stake it. User will obtain shares 
+    */
     function buyLiquidityAndStake(
         address payingToken, 
         uint256 amount
-    ) public {
+    ) 
+        public 
+    {
         IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
         uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
         _buyLiquidityAndStake(msg.sender, amountReserveToken);
     }
     
-    
+    /** 
+    * @notice method will receive reserveToken token then will add to liquidity pool and stake it. User will obtain shares 
+    */
     function buyLiquidityAndStake(
         uint256 tokenBAmount
-    ) public {
+    ) 
+        public 
+    {
         IERC20Upgradeable(reserveToken).transferFrom(msg.sender, address(this), tokenBAmount);
         _buyLiquidityAndStake(msg.sender, tokenBAmount);
     }
     
     /**
-     * 
-     * 
-     */
-    /// @notice way to redeem via approve/transferFrom. Another way is send directly to contract
-    /// @dev The Alexandr N. Tetearing algorithm could increase precision
-    /// @param amount The number of rings from dendrochronological sample
+    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+    * @param amount The number of shares that will be redeemed.
+    */
     function redeem(
         uint256 amount
-    ) public {  
+    ) 
+        public 
+    {
         uint256 totalSharesBalanceBefore = totalSupply();
-// console.log("totalSharesBalanceBefore=",totalSharesBalanceBefore);
-        // !!!!! be carefull.  not transferFrom, but IERC20Upgradeable(address(this)).transferFrom.
-        // because in this case tokens will be allow to this contract and contract must be THIS but not MSG.SENDER
-        //transferFrom(msg.sender, address(this), amount);
-// console.log("address(this)=",address(this));
-// console.log("msg.sender=",msg.sender);        
-// console.log("deadAddress=",deadAddress);        
-// console.log("=====================");
-        // IERC20Upgradeable(address(this)).transferFrom(
-        //     msg.sender, deadAddress, amount
-        // );
-        require(allowance(msg.sender, address(this))  >= amount, "Redeem amount exceeds allowance");
+        require(allowance(msg.sender, address(this)) >= amount, "Redeem amount exceeds allowance");
         _burn(msg.sender, amount, "", "");
-
-        //------
-// console.log("amount=",amount);
         _redeem(msg.sender, amount, totalSharesBalanceBefore);
     }
 
-function redeemAndRemoveLiquidity(
+    /**
+    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
+    * @param amount The number of shares that will be redeemed.
+    */
+    function redeemAndRemoveLiquidity(
         uint256 amount
-    ) public {
-        
+    ) 
+        public 
+    {
         uint256 totalSharesBalanceBefore = totalSupply();
-        
-        // !!!!! be carefull.  not transferFrom, but IERC20Upgradeable(address(this)).transferFrom.
-        // because in this case tokens will be allow to this contract and contract must be THIS but not MSG.SENDER
-        //transferFrom(msg.sender, address(this), amount);
-        // IERC20Upgradeable(address(this)).transferFrom(
-        //     msg.sender, deadAddress, amount
-        // );
         require(allowance(msg.sender, address(this))  >= amount, "Redeem amount exceeds allowance");
         _burn(msg.sender, amount, "", "");
-        //------
-
         _redeemAndRemoveLiquidity(amount, totalSharesBalanceBefore);
-
-    }
-    
-    function _redeemAndRemoveLiquidity(
-        uint256 amount,
-        uint256 totalSharesBalance
-    ) internal {
-        
-        __redeemAndRemoveLiquidity(msg.sender, amount);
-        _grantReward(msg.sender, amount, totalSharesBalance);
     }
 
-
-
+    /**
+    * @notice adding token that will be used as reward for staking. Reward will obtain during user redeem
+    * @param token token rewards's address 
+    * @param ratioToLP ratio to lp token multipleid by `MULTIPLIER`
+    */
     function addRewardToken(
-        address addr,
+        address token,
         uint256 ratioToLP
-    ) public onlyOwner() {
-        rewardTokensList.add(addr);
-        rewardTokenRatios[addr] = ratioToLP;
+    )
+        public 
+        onlyOwner 
+    {
+        rewardTokensList.add(token);
+        rewardTokenRatios[token] = ratioToLP;
     }
-    
+
+    /**
+    * @notice removing token that early used as reward for staking. 
+    * @param token token rewards's address 
+    */
     function removeRewardToken(
-        address addr
-    ) public onlyOwner() {
-        rewardTokensList.remove(addr);
-        delete rewardTokenRatios[addr];
+        address token
+    ) 
+        public 
+        onlyOwner
+    {
+        rewardTokensList.remove(token);
+        delete rewardTokenRatios[token];
     }
     
+    /**
+    * @notice return reward token's list
+    * @return array of reward tokens
+    */
     function viewRewardTokensList() public view returns(address[] memory) {
         return rewardTokensList.values();
     }
     
-    // if already added liquidity earlier, goes into same pool    
+    /**
+    * @notice way to stake LP tokens of current pool(traded/reserve tokens)
+    * @dev keep in mind that user can redeem lp token from other staking contract with same pool but different duration and use here.
+    * @param lpAmount liquidity tokens's amount
+    */
     function stakeLiquidity(
-        uint256 liquidityTokenAmount
+        uint256 lpAmount
     ) public {
-        require (liquidityTokenAmount > 0, "AMOUNT_EMPTY" );
+        require (lpAmount > 0, "AMOUNT_EMPTY" );
         IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(
-            msg.sender, address(this), liquidityTokenAmount
+            msg.sender, address(this), lpAmount
         );
         (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
         uint256 priceBeforeStake = (
@@ -220,19 +230,19 @@ function redeemAndRemoveLiquidity(
                 ? MULTIPLIER * reserve0 / reserve1
                 : MULTIPLIER * reserve1 / reserve0
         );
-        _stake(msg.sender, liquidityTokenAmount, priceBeforeStake);
+        _stake(msg.sender, lpAmount, priceBeforeStake);
     }
-
 
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+
     function StakingBase_init(
         address reserveToken_,
         address tradedToken_, 
-        uint256 tradedTokenClaimFraction_, 
-        uint256 reserveTokenClaimFraction_,
-        uint256 lpClaimFraction_
+        uint64 tradedTokenClaimFraction_, 
+        uint64 reserveTokenClaimFraction_,
+        uint64 lpClaimFraction_
     ) onlyInitializing internal {
 
         string memory otherName = ERC777Upgradeable(tradedToken_).name();
@@ -274,22 +284,15 @@ function redeemAndRemoveLiquidity(
         _grantReward(sender, amount, totalSharesBalance);
     }
 
-    
-    function _beforeRedeem(
-        uint256 amount
-    ) internal returns(uint256 senderBalance, uint256 totalBalance) {
-        senderBalance = balanceOf(msg.sender);
-        totalBalance = totalSupply();
-
-        // !!!!! be carefull.  not transferFrom, but IERC20Upgradeable(address(this)).transferFrom.
-        // because in this case tokens will be allow to this contract and contract must be THIS but not MSG.SENDER
-        //transferFrom(msg.sender, address(this), amount);
-        IERC20Upgradeable(address(this)).transferFrom(
-            msg.sender, address(this), amount
-        );
-        //------
+    function _redeemAndRemoveLiquidity(
+        uint256 amount,
+        uint256 totalSharesBalance
+    ) internal {
+        
+        __redeemAndRemoveLiquidity(msg.sender, amount);
+        _grantReward(msg.sender, amount, totalSharesBalance);
     }
-    
+        
     /**
      * when user redeem token we will additionally grant percent of
      * token's reward by formula
@@ -357,7 +360,7 @@ function redeemAndRemoveLiquidity(
     function _stake(
         address addr, 
         uint256 amount, 
-        uint priceBeforeStake
+        uint256 priceBeforeStake
     ) 
         internal 
         virtual 
@@ -370,6 +373,9 @@ function redeemAndRemoveLiquidity(
                     (
                         IERC20Upgradeable(rewardToken).balanceOf(address(this))
                     ) * ratio / MULTIPLIER;
+                
+                // here is a trick. totalSupply() actually should be IERC20Upgradeable(uniswapV2Pair).totalSupply().
+                // but ratio exchange lp to shares are 1to1. so we avoiding external call and use internal count of shares
                 require (
                     totalSupply() + amount <= limit, 
                     "NO_MORE_STAKES_UNTIL_REWARDS_ADDED"

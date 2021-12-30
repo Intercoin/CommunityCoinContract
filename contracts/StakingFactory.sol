@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-
-//import "./erc777/ERC777Layer.sol";
 import "./interfaces/IStakingFactory.sol";
 import "./interfaces/IStakingContract.sol";
 import "./interfaces/IStakingTransferRules.sol";
@@ -11,8 +9,8 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 contract StakingFactory is IStakingFactory, Ownable {
     using Clones for address;
-    uint256 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
-    uint256 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+    uint64 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
+    uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
     address internal implementation;
     address internal implementation2;
@@ -30,10 +28,10 @@ contract StakingFactory is IStakingFactory, Ownable {
     struct InstanceInfo {
         address reserveToken;
         address tradedToken;
-        uint256 duration;
-        uint256 reserveTokenClaimFraction;
-        uint256 tradedTokenClaimFraction;
-        uint256 lpClaimFraction;
+        uint64 duration;
+        uint64 reserveTokenClaimFraction;
+        uint64 tradedTokenClaimFraction;
+        uint64 lpClaimFraction;
     }
     mapping(address => InstanceInfo) private _instanceInfos;
     
@@ -57,7 +55,7 @@ contract StakingFactory is IStakingFactory, Ownable {
     function produce(
         address reserveToken, 
         address tradedToken, 
-        uint256 duration
+        uint64 duration
     ) public returns (address instance) {
          // 1% from LP tokens should move to owner while user try to redeem
         return _produce(reserveToken, tradedToken, duration, 0, 0, 1000);
@@ -66,10 +64,10 @@ contract StakingFactory is IStakingFactory, Ownable {
     function produce(
         address reserveToken, 
         address tradedToken, 
-        uint256 duration, 
-        uint256 reserveTokenClaimFraction, 
-        uint256 tradedTokenClaimFraction, 
-        uint256 lpClaimFraction
+        uint64 duration, 
+        uint64 reserveTokenClaimFraction, 
+        uint64 tradedTokenClaimFraction, 
+        uint64 lpClaimFraction
     ) public onlyOwner() returns (address instance) {
         return _produce(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);
     }
@@ -77,7 +75,7 @@ contract StakingFactory is IStakingFactory, Ownable {
     function getInstanceInfo(
         address reserveToken, 
         address tradedToken, 
-        uint256 duration
+        uint64 duration
     ) public view returns(InstanceInfo memory) {
         address instance = getInstance[reserveToken][tradedToken][duration];
         return _instanceInfos[instance];
@@ -86,10 +84,10 @@ contract StakingFactory is IStakingFactory, Ownable {
     function _produce(
         address reserveToken,
         address tradedToken,
-        uint256 duration,
-        uint256 reserveTokenClaimFraction,
-        uint256 tradedTokenClaimFraction,
-        uint256 lpClaimFraction
+        uint64 duration,
+        uint64 reserveTokenClaimFraction,
+        uint64 tradedTokenClaimFraction,
+        uint64 lpClaimFraction
     ) internal returns (address instance) {
         _createInstanceValidate(
             reserveToken, tradedToken, duration, 
@@ -118,9 +116,9 @@ contract StakingFactory is IStakingFactory, Ownable {
     function _createInstanceValidate(
         address reserveToken, 
         address tradedToken, 
-        uint256 duration, 
-        uint256 tradedClaimFraction, 
-        uint256 reserveClaimFraction
+        uint64 duration, 
+        uint64 tradedClaimFraction, 
+        uint64 reserveClaimFraction
     ) internal view {
         require(reserveToken != tradedToken, "StakingFactory: IDENTICAL_ADDRESSES");
         require(reserveToken != address(0) && tradedToken != address(0), "StakingFactory: ZERO_ADDRESS");
@@ -132,10 +130,10 @@ contract StakingFactory is IStakingFactory, Ownable {
     function _createInstance(
         address reserveToken, 
         address tradedToken, 
-        uint256 duration, 
-        uint256 reserveTokenClaimFraction, 
-        uint256 tradedTokenClaimFraction, 
-        uint256 lpClaimFraction
+        uint64 duration, 
+        uint64 reserveTokenClaimFraction, 
+        uint64 tradedTokenClaimFraction, 
+        uint64 lpClaimFraction
     ) internal returns (address instance) {
         if (duration == 0) {
             instance = implementation2.clone();

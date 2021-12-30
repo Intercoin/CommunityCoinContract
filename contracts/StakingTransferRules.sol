@@ -2,19 +2,29 @@
 pragma solidity ^0.8.0;
 
 import "./interfaces/IStakingTransferRules.sol";
-
 import "./StakingBase.sol";
 
 contract StakingTransferRules is StakingBase, IStakingTransferRules {
 
-    // called once by the factory at time of deployment
+    /**
+    * @notice initialize method. Called once by the factory at time of deployment
+    * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
+    * @param tradedToken_ address of traded token. ie investor token - ITR
+    * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `MULTIPLIER`. 
+    * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `MULTIPLIER`. 
+    * @param lpClaimFraction_ fraction of LP token multiplied by `MULTIPLIER`. 
+    */
     function initialize(
         address reserveToken_,
         address tradedToken_, 
-        uint256 tradedTokenClaimFraction_, 
-        uint256 reserveTokenClaimFraction_,
-        uint256 lpClaimFraction_
-    ) initializer external override {
+        uint64 tradedTokenClaimFraction_, 
+        uint64 reserveTokenClaimFraction_,
+        uint64 lpClaimFraction_
+    ) 
+        initializer 
+        external 
+        override 
+    {
 
         StakingBase_init(
             reserveToken_,
@@ -38,7 +48,7 @@ contract StakingTransferRules is StakingBase, IStakingTransferRules {
                 from == address(this) || // burning to dead address or any contract do
                 to == address(this) // redeem
             ),
-            "TRANSFER STAKES DISABLED"
+            "TRANSFER_STAKES_DISABLED"
         );
         super._beforeTokenTransfer(operator, from, to, amount);
     }

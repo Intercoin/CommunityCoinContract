@@ -7,9 +7,9 @@ interface IStakingTransferRules {
     function initialize(
         address reserveToken_,
         address tradedToken_, 
-        uint256 tradedTokenClaimFraction_, 
-        uint256 reserveTokenClaimFraction_,
-        uint256 lpClaimFraction_
+        uint64 tradedTokenClaimFraction_, 
+        uint64 reserveTokenClaimFraction_,
+        uint64 lpClaimFraction_
         ) external;
     
 }
