@@ -8,7 +8,7 @@ import "./StakingBase.sol";
 
 contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
 
-    // @notice count of lockupIntervals. Represented how long shares will be staked. 
+    // @notice count of lockupIntervals. Represented how long wallet tokens will be staked. 
     uint64 public duration;
     
     /**
@@ -16,7 +16,7 @@ contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
     * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
     * @param tradedToken_ address of traded token. ie investor token - ITR
     * @param lockupInterval_ interval in seconds. ie `duration tick`. day in seconds by default
-    * @param duration_ count of lockupIntervals. Represented how long shares will be staked. 
+    * @param duration_ count of lockupIntervals. Represented how long wallet tokens will be staked. 
     * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `MULTIPLIER`. 
     * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `MULTIPLIER`. 
     * @param lpClaimFraction_ fraction of LP token multiplied by `MULTIPLIER`. 
@@ -24,7 +24,7 @@ contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
     function initialize(
         address reserveToken_,
         address tradedToken_, 
-        uint64 lockupInterval_,
+        uint32 lockupInterval_,
         uint64 duration_, 
         uint64 tradedTokenClaimFraction_, 
         uint64 reserveTokenClaimFraction_,
@@ -51,11 +51,11 @@ contract StakingContract is StakingBase, MinimumsBase, IStakingContract {
     ////////////////////////////////////////////////////////////////////////
     
     /**
-    * @notice returns shares that locked at account
+    * @notice returns wallet tokens that locked at account
     * @param account account's address
-    * @return amount locked shares
+    * @return amount locked wallet tokens
     */
-    function viewLockedShares(
+    function viewLockedWalletTokens(
         address account
     ) 
         public 

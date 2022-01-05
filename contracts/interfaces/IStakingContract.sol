@@ -6,7 +6,7 @@ interface IStakingContract {
     function initialize(
         address reserveToken_,
         address tradedToken_, 
-        uint64 lockupInterval_, //  interval 
+        uint32 lockupInterval_, //  interval 
         uint64 duration_, 
         uint64 tradedTokenClaimFraction_, 
         uint64 reserveTokenClaimFraction_,

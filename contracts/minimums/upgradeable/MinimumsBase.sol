@@ -15,7 +15,7 @@ abstract contract MinimumsBase is Initializable, ContextUpgradeable {
 	using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
 	
 	struct Lockup {
-        uint256 duration;
+        uint64 duration;
         //bool gradual; // does not used 
         bool exists;
     }
@@ -51,11 +51,11 @@ locked2 = 40/(100-40)*(100-70) = 20
     }
     
     mapping (address => UserStruct) private users;
-    uint64 private interval;
+    uint32 private interval;
     
     
     function MinimumsBase_init (
-        uint64 interval_
+        uint32 interval_
     ) 
         internal
         onlyInitializing 
@@ -91,7 +91,7 @@ locked2 = 40/(100-40)*(100-70) = 20
     {
         uint256 timestampStart = getIndexInterval(block.timestamp);
         uint256 timestampEnd = timestampStart + (intervalCount * interval);
-        require(timestampEnd > timestampStart, 'timestamp is less then current block.timestamp');
+        require(timestampEnd > timestampStart, "timestamp is less then current block.timestamp");
         
         _minimumsClear(addr, false);
         
@@ -121,7 +121,7 @@ locked2 = 40/(100-40)*(100-70) = 20
      */
     function _automaticLockupAdd(
         address from,
-        uint256 duration
+        uint32 duration
     )
         internal
     {
@@ -384,8 +384,7 @@ locked2 = 40/(100-40)*(100-70) = 20
    
         }
         
-        if (value != 0) {
-            
+        // if (value != 0) {
             // todo 0: what this?
             // _appendMinimum(
             //     to,
@@ -393,7 +392,7 @@ locked2 = 40/(100-40)*(100-70) = 20
             //     value,
             //     false
             // );
-        }
+        // }
      
         
     }

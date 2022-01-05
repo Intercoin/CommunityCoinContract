@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 contract StakingFactory is IStakingFactory, Ownable {
     using Clones for address;
-    uint64 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
+    uint32 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
     address internal implementation;

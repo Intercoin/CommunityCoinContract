@@ -9,7 +9,8 @@ require("@nomiclabs/hardhat-etherscan")
 require("hardhat-gas-reporter")
 require("hardhat-docgen")
 require("@hardhat-docgen/core")
-require("@hardhat-docgen/markdown")
+//require("@hardhat-docgen/markdown")
+require("./docgen-custom-markdown")
 require("solidity-coverage")
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
@@ -72,6 +73,7 @@ module.exports = {
     }
   },
   docgen: {
+    theme: '../../docgen-custom-markdown',
     path: './docs',
     clear: true,
     runOnCompile: false,

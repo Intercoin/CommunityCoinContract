@@ -237,7 +237,7 @@ describe("Staking contract tests", function () {
                 )).to.be.revertedWith("StakingFactory: PAIR_ALREADY_EXISTS");
             });
 
-            it("shouldnt transfer shares", async() => {
+            it("shouldnt transfer wallet tokens", async() => {
                 await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
                 await erc20ReservedToken.connect(bob).approve(stakingInstance.address, ONE_ETH.mul(ONE));
 
@@ -473,7 +473,7 @@ describe("Staking contract tests", function () {
                 
             });
 
-            it("should transfer shares after stake", async() => {
+            it("should transfer wallet tokens after stake", async() => {
                 await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
                 await erc20ReservedToken.connect(bob).approve(stakingInstance.address, ONE_ETH.mul(ONE));
 
@@ -482,8 +482,8 @@ describe("Staking contract tests", function () {
                 await stakingInstance.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
                 let bobSharesAfter = await stakingInstance.balanceOf(bob.address);
 
-                let bobLockedBalanceAfter = await stakingInstance.connect(bob).viewLockedShares(bob.address);
-                let aliceLockedBalanceAfter = await stakingInstance.connect(bob).viewLockedShares(alice.address);
+                let bobLockedBalanceAfter = await stakingInstance.connect(bob).viewLockedWalletTokens(bob.address);
+                let aliceLockedBalanceAfter = await stakingInstance.connect(bob).viewLockedWalletTokens(alice.address);
                 await expect(aliceLockedBalanceAfter).to.be.eq(ZERO);
                 await expect(bobLockedBalanceAfter).to.be.eq(bobSharesAfter);
 
@@ -491,8 +491,8 @@ describe("Staking contract tests", function () {
 
                 let bobSharesAfterTransfer = await stakingInstance.balanceOf(bob.address);
                 let aliceSharesAfterBobTransfer = await stakingInstance.balanceOf(alice.address);
-                let bobLockedBalanceAfterBobTransfer = await stakingInstance.connect(bob).viewLockedShares(bob.address);
-                let aliceLockedBalanceAfterBobTransfer = await stakingInstance.connect(bob).viewLockedShares(alice.address);
+                let bobLockedBalanceAfterBobTransfer = await stakingInstance.connect(bob).viewLockedWalletTokens(bob.address);
+                let aliceLockedBalanceAfterBobTransfer = await stakingInstance.connect(bob).viewLockedWalletTokens(alice.address);
 
                 await expect(bobSharesAfterTransfer).to.be.eq(ZERO);
                 await expect(bobSharesAfter).to.be.eq(aliceSharesAfterBobTransfer);
@@ -607,7 +607,7 @@ describe("Staking contract tests", function () {
                     shares = await stakingInstance.balanceOf(bob.address);
                 });
 
-                it("should shares appear and not equal zero", async () => {
+                it("should wallet tokens appear and not equal zero", async () => {
                     await expect(shares).to.not.equal(ZERO);
                 });
 
