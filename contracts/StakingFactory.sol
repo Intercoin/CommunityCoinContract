@@ -7,7 +7,9 @@ import "./interfaces/IStakingTransferRules.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
-contract StakingFactory is IStakingFactory, Ownable {
+import "./WalletTokensContract.sol";
+
+contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
     using Clones for address;
     uint32 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
@@ -22,19 +24,38 @@ contract StakingFactory is IStakingFactory, Ownable {
     )) public override getInstance;
 
     address[] public override instances;
+
+    //      wallet address     instance   ratioBalanceValue
+    mapping(address => mapping(address => uint256 )) internal ratioBalances;
     
     mapping(address => address) private _instanceCreators;
     
     struct InstanceInfo {
         address reserveToken;
-        address tradedToken;
         uint64 duration;
+        address tradedToken;
         uint64 reserveTokenClaimFraction;
         uint64 tradedTokenClaimFraction;
         uint64 lpClaimFraction;
+        bool exists;
     }
     mapping(address => InstanceInfo) private _instanceInfos;
     
+    constructor(
+        address impl,
+        address impl2
+    ) 
+        WalletTokensContract("Staking Tokens", "STAKE", LOCKUP_INTERVAL)
+    {
+        implementation = impl;
+        implementation2 = impl2;
+    }
+
+    modifier onlyStaking() {
+        require(_instanceInfos[msg.sender].exists == true);
+        _;
+    }
+
     function instancesCount()
         external 
         override 
@@ -44,13 +65,19 @@ contract StakingFactory is IStakingFactory, Ownable {
         return instances.length;
     }
 
-    constructor(
-        address impl,
-        address impl2
-    ) {
-        implementation = impl;
-        implementation2 = impl2;
+    function issueWalletTokens(
+        address account, 
+        uint256 amount, 
+        uint256 duration, 
+        uint256 priceBeforeStake
+    ) 
+        external 
+        override
+        onlyStaking
+    {
+        _stake(account, amount, duration, priceBeforeStake);
     }
+    
 
     function produce(
         address reserveToken, 
@@ -147,15 +174,183 @@ contract StakingFactory is IStakingFactory, Ownable {
         _instanceCreators[instance] = msg.sender;
         _instanceInfos[instance] = InstanceInfo(
             reserveToken,
-            tradedToken,
             duration, 
+            tradedToken,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
-            lpClaimFraction
+            lpClaimFraction,
+            true
         );
         emit InstanceCreated(reserveToken, tradedToken, instance, instances.length);
     }
 
+    /////////////////////////////////////
+    /**
+    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+    * @param amount The number of shares that will be redeemed.
+    */
+    function redeem(
+        uint256 amount
+    ) 
+        public 
+    {
+        _redeem(amount, new address[](0));
+    }
+    /**
+    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+    * @param amount The number of shares that will be redeemed.
+    * @param preferredInstances preferred instances for redeem first
+    */
+    function redeem(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        public 
+    {
+        _redeem(amount, preferredInstances);
+    }
+
+    /**
+    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
+    * @param amount The number of shares that will be redeemed.
+    */
+    function redeemAndRemoveLiquidity(
+        uint256 amount
+    ) 
+        public 
+    {
+        _redeemAndRemoveLiquidity(amount, new address[](0));
+    }
+
+    /**
+    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
+    * @param amount The number of shares that will be redeemed.
+    * @param preferredInstances preferred instances for redeem first
+    */
+    function redeemAndRemoveLiquidity(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        public 
+    {
+        _redeemAndRemoveLiquidity(amount, preferredInstances);
+    }
+
+    function _beforeRedeem(
+        address account,
+        uint256 amount
+    ) 
+        internal 
+        returns(uint256 totalSharesBalanceBefore)
+    {
+        totalSharesBalanceBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Redeem amount exceeds allowance");
+        _burn(account, amount, "", "");
+    }
+
+    function _redeem(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        internal 
+    {
+        uint256 totalSharesBalanceBefore = _beforeRedeem(msg.sender, amount);
+        
+        if (preferredInstances.length == 0) {
+            preferredInstances = instances;
+        }
+
+        uint256 amountLeft = amount;
+        uint256 amountToRedeem;
+        for (uint256 i = 0; i < preferredInstances.length; i++) {
+            amountToRedeem = amount*ratioBalances[msg.sender][preferredInstances[i]]/FRACTION;
+            if (amountToRedeem> 0) {
+                try IStakingContract(preferredInstances[i]).redeem(
+                    msg.sender, 
+                    amountToRedeem,
+                    totalSharesBalanceBefore
+                ) {
+                    
+                }
+                catch {
+                    revert("Error when redeem in an instance");
+                }
+            }
+
+            amountLeft -= amountToRedeem;
+        }
+        
+        require(amountLeft == 0, "insufficient amount to redeem");
+
+    }
+
+    function _redeemAndRemoveLiquidity(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        internal 
+    {
+        uint256 totalSharesBalanceBefore = _beforeRedeem(msg.sender, amount);
+        if (preferredInstances.length == 0) {
+            preferredInstances = instances;
+        }
+
+        uint256 amountLeft = amount;
+        uint256 amountToRedeem;
+        for (uint256 i = 0; i < preferredInstances.length; i++) {
+            amountToRedeem = amount*ratioBalances[msg.sender][preferredInstances[i]]/FRACTION;
+            if (amountToRedeem> 0) {
+                try IStakingContract(preferredInstances[i]).redeemAndRemoveLiquidity(
+                    msg.sender, 
+                    amountToRedeem,
+                    totalSharesBalanceBefore
+                ) {
+                    
+                }
+                catch {
+                    revert("Error when redeem in an instance");
+                }
+            }
+
+            amountLeft -= amountToRedeem;
+        }
+        
+        require(amountLeft == 0, "insufficient amount to redeem");
+    }
     
+    // redeem logic
+    // loop from instances and redeem available tokens.
+    // if is it enough  ==> revert
+    
+    function _stake(
+        address account, 
+        uint256 amount, 
+        uint256 duration, 
+        uint256 priceBeforeStake
+    ) 
+        internal 
+        virtual 
+        override
+    {
+
+        //sync new ratio
+        uint256[] memory instanceValues = new uint256[](instances.length);
+        uint256 balanceAccount = balanceOf(account);
+        for(uint256 i = 0; i < instances.length; i++) {
+            instanceValues[i] = balanceAccount*ratioBalances[account][instances[i]]/FRACTION;
+        }
+        balanceAccount+=amount;
+        for(uint256 i = 0; i < instances.length; i++) {
+            instanceValues[i] = balanceAccount*ratioBalances[account][instances[i]]/FRACTION;
+            ratioBalances[account][instances[i]] = 
+                (
+                    (instanceValues[i]) + (msg.sender == instances[i] ? amount: 0)
+                ) * FRACTION / balanceAccount;
+        }
+
+        super._stake(account, amount, duration, priceBeforeStake);
+    }
+        
+
 
 }

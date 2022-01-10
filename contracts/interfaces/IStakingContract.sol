@@ -16,4 +16,6 @@ interface IStakingContract {
     function stake(address addr, uint256 amount) external;
     function getMinimum(address addr) external view returns(uint256);
     */
+    function redeem(address account, uint256 amount, uint256 totalSupplyBefore) external;
+    function redeemAndRemoveLiquidity(address account, uint256 amount, uint256 totalSupplyBefore) external;
 }

@@ -10,7 +10,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  * Realization a restriction limits for user transfer
  * 
  */
-abstract contract MinimumsBase is Initializable, ContextUpgradeable {
+abstract contract MinimumsBaseUpgradeable is Initializable, ContextUpgradeable {
 
 	using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
 	
@@ -52,7 +52,6 @@ locked2 = 40/(100-40)*(100-70) = 20
     
     mapping (address => UserStruct) private users;
     uint32 private interval;
-    
     
     function MinimumsBase_init (
         uint32 interval_
