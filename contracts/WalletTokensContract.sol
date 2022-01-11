@@ -8,8 +8,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 //import "hardhat/console.sol";
-import "./minimums/common/MinimumsBase.sol";
-abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBase, IERC777Recipient/*, IERC777SenderUpgradeable*/ {
+import "./minimums/common/MinimumsBaseMultiple.sol";
+abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBaseMultiple, IERC777Recipient/*, IERC777SenderUpgradeable*/ {
 
     using EnumerableSet for EnumerableSet.AddressSet;
     
@@ -96,7 +96,7 @@ abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBase, IER
         uint32 lockupInterval
     )
         ERC777(name, symbol, (new address[](0)))
-        MinimumsBase(lockupInterval)
+        MinimumsBaseMultiple(lockupInterval)
     {
 
         // register interfaces
@@ -106,6 +106,7 @@ abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBase, IER
      
     
     function _stake(
+        uint256 poolIndex,
         address addr, 
         uint256 amount, 
         uint256 duration, 
@@ -136,54 +137,9 @@ abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBase, IER
 
 
         emit Staked(addr, amount, priceBeforeStake);
-        _minimumsAdd(addr, amount, duration, false);
+        _minimumsAdd(poolIndex, addr, amount, duration, false);
     }
     
-   function _beforeTokenTransfer(
-        address operator,
-        address from,
-        address to,
-        uint256 amount
-    ) 
-        internal 
-        virtual 
-        override 
-    {
-        if (from !=address(0)) { // otherwise minted
-
-            // main goals are
-            // - prevent transfer amount if locked more then available FOR REDEEM only (then to == address(this))
-            // - transfer minimums applicable only for minimums. (in transfer first of all consume free `token`, then if enough using `locked`)
-            // - also prevent burn locked token
-            // so example
-            //  total=100; locked=40;(for 1 year) amount2send=70
-            //  if it's redeem - revert
-            //  if usual transfer from user1 to user2 - we will tranfer 70 and 10 will lockup
-            //  so tokens balance 
-            //          was                         will be
-            //  user1(total=100;locked=40)      user1(total=30;locked=30)
-            //  user2(total=0;locked=0)         user2(total=70;locked=10)
-            uint256 balance = balanceOf(from);
-
-            if (balance >= amount) {
-                uint256 locked = _getMinimum(from);
-                uint256 remainingAmount = balance - amount;
-                if (locked > remainingAmount) {
-                    if (
-                        (/*from == address(this) && */to == address(0)) || // burnt
-                        to == address(this) // if send directly to contract
-                    )  {
-                        revert("STAKE_NOT_UNLOCKED_YET");
-                    }
-        
-                    minimumsTransfer(from, to, (locked - remainingAmount));
-                }
-            } else {
-                // insufficient balance error would be in {ERC777::_move}
-            }
-        }
-        super._beforeTokenTransfer(operator, from, to, amount);
-    }
     
     
     ////////////////////////////////////////////////////////////////////////
