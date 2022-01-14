@@ -6,17 +6,25 @@ import "./interfaces/IStakingContract.sol";
 import "./interfaces/IStakingTransferRules.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
-
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "./WalletTokensContract.sol";
 
 import "./lib/PackedMapping32.sol";
 
-contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
+contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract, AccessControlEnumerable {
     using Clones for address;
     using PackedMapping32 for PackedMapping32.Map;
 
+    /**
+    * strategy ENUM VARS used in calculation algos
+    */
+    enum Strategy{ UNSTAKE, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
+    
     uint32 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+
+    bytes32 public constant ADMIN_ROLE = "admin";
+    bytes32 public constant REDEEM_ROLE = "redeem";
 
     address internal implementation;
     address internal implementation2;
@@ -27,12 +35,12 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
         )
     )) public override getInstance;
 
-    mapping (address => PackedMapping32.Map) internal ratioBalances;
-
     address[] public override instances;
     mapping(address => uint256) private _instanceIndexes;
     mapping(address => address) private _instanceCreators;
-    
+
+    // staked balance in instances. increase when stakes, descrease when unstake/redeem
+    mapping(address => uint256) private _instanceStaked;
     
     struct InstanceInfo {
         address reserveToken;
@@ -44,7 +52,10 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
         bool exists;
     }
     mapping(address => InstanceInfo) private _instanceInfos;
-    
+
+
+    ////////////////////
+
     constructor(
         address impl,
         address impl2
@@ -53,6 +64,10 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
     {
         implementation = impl;
         implementation2 = impl2;
+        
+        _grantRole(ADMIN_ROLE, msg.sender);
+        _setRoleAdmin(REDEEM_ROLE, ADMIN_ROLE);
+
     }
 
     modifier onlyStaking() {
@@ -80,8 +95,15 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
         onlyStaking
     {
         //_issueWalletTokens(msg.sender, account, amount, duration, priceBeforeStake);
-        _addToRatioBalance(_instanceIndexes[msg.sender], account, amount);
-        _stake(_instanceIndexes[msg.sender], account, amount, duration, priceBeforeStake);
+        //_addToRatioBalance(_instanceIndexes[msg.sender], account, amount);
+
+        address instance = msg.sender;
+        _instanceStaked[instance] += amount;
+
+        unstakeable[account] += amount;
+        totalUnstakeable += amount;
+        
+        _stake(account, amount, duration, priceBeforeStake);
     }
     
 
@@ -130,17 +152,17 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
         address instanceCreated = _createInstance(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);    
 
         require(instanceCreated != address(0), "StakingFactory: INSTANCE_CREATION_FAILED");
-
-        if (duration == 0) {
-            IStakingTransferRules(instanceCreated).initialize(
-                reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
-            );
-        } else {
+        require(duration == 0, "cant be zero duration");
+        // if (duration == 0) {
+        //     IStakingTransferRules(instanceCreated).initialize(
+        //         reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+        //     );
+        // } else {
             IStakingContract(instanceCreated).initialize(
                 reserveToken,  tradedToken,  LOCKUP_INTERVAL, duration, 
                 reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
             );
-        }
+        // }
         
         Ownable(instanceCreated).transferOwnership(_msgSender());
         instance = instanceCreated;        
@@ -193,18 +215,39 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
         emit InstanceCreated(reserveToken, tradedToken, instance, instances.length);
     }
 
-    /////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
     /**
-    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
-    * @param amount The number of shares that will be redeemed.
+    * @notice used to catch when used try to redeem by sending shares directly to contract
+    * see more in {IERC777RecipientUpgradeable::tokensReceived}
     */
+    function tokensReceived(
+        address /*operator*/,
+        address from,
+        address to,
+        uint256 amount,
+        bytes calldata /*userData*/,
+        bytes calldata /*operatorData*/
+    ) 
+        external 
+        override
+    {
+        if (_msgSender() == address(this) && to == address(this)) {
+            _redeem(from, amount, new address[](0));
+        }
+    }
+
     function redeem(
         uint256 amount
     ) 
-        public 
+        external
     {
-        _redeem(amount, new address[](0));
+        _redeem(msg.sender, amount, new address[](0));
     }
+
+
     /**
     * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
     * @param amount The number of shares that will be redeemed.
@@ -214,9 +257,9 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
         uint256 amount,
         address[] memory preferredInstances
     ) 
-        public 
+        external
     {
-        _redeem(amount, preferredInstances);
+        _redeem(msg.sender, amount, preferredInstances);
     }
 
     /**
@@ -226,9 +269,9 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
     function redeemAndRemoveLiquidity(
         uint256 amount
     ) 
-        public 
+        external
     {
-        _redeemAndRemoveLiquidity(amount, new address[](0));
+        _redeemAndRemoveLiquidity(msg.sender, amount, new address[](0));
     }
 
     /**
@@ -240,9 +283,9 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
         uint256 amount,
         address[] memory preferredInstances
     ) 
-        public 
+        external
     {
-        _redeemAndRemoveLiquidity(amount, preferredInstances);
+        _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances);
     }
 
     function _beforeRedeem(
@@ -257,78 +300,121 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
         _burn(account, amount, "", "");
     }
 
+    function _poolStakesAvailable(
+        address account,
+        uint256 amount,
+        address[] memory preferredInstances,
+        Strategy strategy
+    ) 
+        internal 
+        view
+        returns(
+            address[] memory instancesAddress, 
+            uint256[] memory values
+        ) 
+    {
+        if (preferredInstances.length == 0) {
+            preferredInstances = instances;
+        }
+        uint256 amountLeft = amount;
+        uint256 amountToRedeem;
+        uint256 len;
+        for (uint256 i = 0; i < preferredInstances.length; i++) {
+            
+            if (_instanceStaked[preferredInstances[i]] > 0) {
+                if (strategy == Strategy.UNSTAKE) {
+                    amountToRedeem = 
+                        amountLeft > _instanceStaked[preferredInstances[i]]
+                        ? 
+                            _instanceStaked[preferredInstances[i]] > unstakeable[account]
+                            ? 
+                            unstakeable[account]
+                            :
+                            _instanceStaked[preferredInstances[i]]
+                        : 
+                        amountLeft;
+                
+                } else if (
+                    strategy == Strategy.REDEEM || 
+                    strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
+                ) {
+                    amountToRedeem = 
+                        amountLeft > _instanceStaked[preferredInstances[i]] 
+                        ? 
+                        _instanceStaked[preferredInstances[i]] 
+                        : 
+                        amountLeft
+                        ;
+                }
+                
+                if (amountToRedeem > 0) {
+                    instancesAddress[len] = preferredInstances[i]; 
+                    values[len] = amountToRedeem;
+                    len += 1;
+
+                    amountLeft -= amountToRedeem;
+                }
+            }
+
+            
+        }
+        
+        require(amountLeft == 0, "insufficient amount");
+
+    }
+
     function _redeem(
+        address account,
         uint256 amount,
         address[] memory preferredInstances
     ) 
         internal 
+        onlyRole(REDEEM_ROLE)  
     {
-        uint256 totalSharesBalanceBefore = _beforeRedeem(msg.sender, amount);
-        
-        if (preferredInstances.length == 0) {
-            preferredInstances = instances;
-        }
-
-        uint256 amountLeft = amount;
-        uint256 amountToRedeem;
-        for (uint256 i = 0; i < preferredInstances.length; i++) {
-            amountToRedeem = amount*(ratioBalances[msg.sender].get(i))/FRACTION;
-            if (amountToRedeem> 0) {
-                try IStakingContract(preferredInstances[i]).redeem(
-                    msg.sender, 
-                    amountToRedeem,
-                    totalSharesBalanceBefore
-                ) {
-                    
-                }
-                catch {
-                    revert("Error when redeem in an instance");
-                }
+        require (amount <= totalRedeemable, "insufficient balance to redeem");
+        uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM);
+        for (uint256 i = 0; i < instancesToRedeem.length; i++) {
+            try IStakingContract(instancesToRedeem[i]).redeem(
+                account, 
+                valuesToRedeem[i],
+                totalSharesBalanceBefore
+            ) {
+                _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
             }
-
-            amountLeft -= amountToRedeem;
+            catch {
+                revert("Error when redeem in an instance");
+            }
         }
-        
-        require(amountLeft == 0, "insufficient amount to redeem");
-
     }
 
     function _redeemAndRemoveLiquidity(
+        address account,
         uint256 amount,
         address[] memory preferredInstances
     ) 
         internal 
+        onlyRole(REDEEM_ROLE)  
     {
-        uint256 totalSharesBalanceBefore = _beforeRedeem(msg.sender, amount);
-        if (preferredInstances.length == 0) {
-            preferredInstances = instances;
-        }
+        
+        require (amount <= totalRedeemable, "insufficient balance to redeem");
 
-        uint256 amountLeft = amount;
-        uint256 amountToRedeem;
-        for (uint256 i = 0; i < preferredInstances.length; i++) {
-            amountToRedeem = amount*ratioBalances[msg.sender].get(i)/FRACTION;
-            if (amountToRedeem> 0) {
-                try IStakingContract(preferredInstances[i]).redeemAndRemoveLiquidity(
-                    msg.sender, 
-                    amountToRedeem,
-                    totalSharesBalanceBefore
-                ) {
-                    
-                }
-                catch {
-                    revert("Error when redeem in an instance");
-                }
+        uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM);
+
+        for (uint256 i = 0; i < instancesToRedeem.length; i++) {
+            try IStakingContract(preferredInstances[i]).redeemAndRemoveLiquidity(
+                account, 
+                valuesToRedeem[i],
+                totalSharesBalanceBefore
+            ) {
+                _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
             }
-
-            amountLeft -= amountToRedeem;
+            catch {
+                revert("Error when redeem");
+            }
         }
-        
-        require(amountLeft == 0, "insufficient amount to redeem");
     }
-
-        
-
 
     function _beforeTokenTransfer(
         address operator,
@@ -342,146 +428,101 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract {
     {
         if (from !=address(0)) { // otherwise minted
 
-            // main goals are
-            // - prevent transfer amount if locked more then available FOR REDEEM only (then to == address(this))
-            // - transfer minimums applicable only for minimums. (in transfer first of all consume free `token`, then if enough using `locked`)
-            // - also prevent burn locked token
-            // so example
-            //  total=100; locked=40;(for 1 year) amount2send=70
-            //  if it's redeem - revert
-            //  if usual transfer from user1 to user2 - we will tranfer 70 and 10 will lockup
-            //  so tokens balance 
-            //          was                         will be
-            //  user1(total=100;locked=40)      user1(total=30;locked=30)
-            //  user2(total=0;locked=0)         user2(total=70;locked=10)
-
-
-            // // upd
-            // while transfer we transfer by equal part FROM each user pool and by 50% from locked/unlocked IN each pool
-            // for example
-            // user1 have 200WT(WalletTokens) in 2 pools
-            // 40%(pool#1) 50 locked and 30 unlocked   = total 80
-            // 60%(pool#2) 20 locked and 100 unlocked  = total 120
-            // user2 have 50WT(WalletTokens) in 1 pool
-            // 100%(pool#3) 50 locked and 0 unlocked    = total 50
-            ////
-            // user1 try to send 100WT to user2
-            // user2 will obtain 100wt in equvalent (100%/User1PoolsCount) from each user1 pools. 
-            // here it will be 50%(from pool1)/50%(from pool2), so 40WT from pool1 and 60WT from pool2
-            // then works minimumTransfer as usuall(trying to send unlocked first and then left) (in each pool, not in total!!!)
-            // so 
-            //  40WT from pool1 - it's 25 unlocked and 15 locked
-            //  60WT from pool2 - it's 50 unlocked and 10 locked
-            //// Finally 
-            // user1 will have 100WT(WalletTokens) in 2 pools
-            // 40%(pool#1) 40 locked and 0 unlocked     = total 40
-            // 60%(pool#2) 20 locked and 40 unlocked    = total 60
-            // user2 will have 150WT(WalletTokens) in 3 pools
-            // 26.6(6)%(pool#1) 15 locked and 25 unlocked    = total 40
-            // 40%(pool#2) 10 locked and 50 unlocked     = total 60
-            // 33.3(3)%(pool#3) 50 locked and 0 unlocked    = total 50
-
             uint256 balance = balanceOf(from);
-//_getMinimumByPool
 
             if (balance >= amount) {
-                uint256[] memory minimumsBefore = _getMinimumByPools(from, instances.length);
                 
-                uint256 locked;// = _getMinimum(from);
+                // uint256 remainingAmount = balance - amount;
 
-                for (uint256 i = 0; i< instances.length; i++) {
-                    locked += minimumsBefore[i];
-                }
+                // if (
+                //     to == address(0) || // if burnt
+                //     to == address(this) // if send directly to contract
+                // ) {
+                //     //it's try to redeem
+                //     // if (locked > remainingAmount) {
+                //     //     revert("STAKE_NOT_UNLOCKED_YET");
+                //     // //} else {
+                        
+                //     // }
+
+                    
+           
+                // } else if (locked > remainingAmount) {
+                //     // else it's just transfer
+                //     uint256 lockedAmountToTransfer = (locked - remainingAmount);
+                //     minimumsTransfer(from, to, lockedAmountToTransfer);
+                //     //?????
+
+                // }
 
                 uint256 remainingAmount = balance - amount;
-
-
+                
                 if (
                     to == address(0) || // if burnt
                     to == address(this) // if send directly to contract
                 ) {
-                    //it's try to redeem
-                    if (locked > remainingAmount) {
-                        revert("STAKE_NOT_UNLOCKED_YET");
-                    //} else {
-                        
+                    require(amount <= totalRedeemable, "STAKE_NOT_UNLOCKED_YET");
+                } else {
+                    // else it's just transfer
+                    // unstakeable[from] means as locked var. but not equal: locked can be less than unstakeable[from]
+                    
+                    
+                    uint256 locked = _getMinimum(from);
+                    //else drop locked minimum, but remove minimums even if remaining was enough
+                    //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
+                    if (locked > 0 && locked >= amount ) {
+                        minimumsTransfer(from, ZERO_ADDRESS, amount);
                     }
-                    // SYNCFREE balance ratio
-                    // TODO 0: loop through free tokens only and recalculate ratioBalances
 
-                } else if (locked > remainingAmount) {
-                    uint256 lockedAmountToTransfer = (locked - remainingAmount);
-                    minimumsTransfer(from, to, lockedAmountToTransfer);
-                    // SYNC FREE and locked
-                    // TODO 0: loop through locked tokens that left
-                    // here we will remove all free tokens from all pools. and reduce locked from beginner
-                    // and recalculate ratioBalances
+                    uint256 r = unstakeable[from] - remainingAmount;
+                    unstakeable[from] -= r;
+                    totalUnstakeable -= r;
+                    totalRedeemable += r;
+
+                    
                 }
+                
             
-                // if (locked > remainingAmount) {
-                //     uint256 lockedAmountToTransfer = (locked - remainingAmount);
-                //     if (
-                //         (/*from == address(this) && */to == address(0)) || // burnt
-                //         to == address(this) // if send directly to contract
-                //     )  {
-                //         revert("STAKE_NOT_UNLOCKED_YET");
-                //     }
-                    
-                    
-                //     minimumsTransfer(from, to, lockedAmountToTransfer);
-
-                //     uint256[] memory minimumsAfter = _getMinimumByPools(from, instances.length);
-
-
-                // }
             } else {
                 // insufficient balance error would be in {ERC777::_move}
             }
         }
         super._beforeTokenTransfer(operator, from, to, amount);
+
+    }
+
+    /**
+    * @notice method like redeem but can applicable only for own staked tokens. so no need to have redeem role for this
+    */
+    function unstake(
+        uint256 amount
+    ) 
+        public 
+    {
+        address account = msg.sender;
+
+        uint256 locked = _getMinimum(account);
+        uint256 remainingAmount = balanceOf(account) - amount;
+        require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
+        
+
+        uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
+        (address[] memory instancesList, uint256[] memory values) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE);
+        for (uint256 i = 0; i < instancesList.length; i++) {
+            try IStakingContract(instancesList[i]).redeem(
+                account, 
+                values[i],
+                totalSharesBalanceBefore
+            ) {
+                _instanceStaked[instancesList[i]] -= values[i];
+            }
+            catch {
+                revert("Error when unstake");
+            }
+        }
     }
     
-    function _addToRatioBalance(
-        uint256 poolIndex,
-        address account,
-        uint256 amount
-    )
-        internal 
-    {
-        // sync new ratio
-        uint256[] memory instanceValues = new uint256[](instances.length);
-        uint256 balanceAccount = balanceOf(account);
-        for(uint256 i = 0; i < instances.length; i++) {
-            instanceValues[i] = balanceAccount * ratioBalances[account].get(i) / FRACTION;
-        }
-        balanceAccount += amount;
-
-        for(uint256 i = 0; i < instances.length; i++) {
-            instanceValues[i] = balanceAccount * ratioBalances[account].get(i) / FRACTION;
-            ratioBalances[account].set(
-                i,
-                uint32(
-                    (
-                        (i == poolIndex) ? instanceValues[i]+amount : instanceValues[i]
-                    )
-                     * FRACTION / balanceAccount
-                )
-            );
-        }
-    }
-
-    totalBefore
-    totalAfter
-    pool[i] = x%  
-    function _syncRatioBalance(
-        uint256 poolIndex,
-        address account,
-        uint256 amount
-    )
-        internal 
-    {
-        }
-
-
+    
+    
 
 }

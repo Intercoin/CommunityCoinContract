@@ -8,11 +8,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 //import "hardhat/console.sol";
-import "./minimums/common/MinimumsBaseMultiple.sol";
-abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBaseMultiple, IERC777Recipient/*, IERC777SenderUpgradeable*/ {
+import "./minimums/common/MinimumsBase.sol";
+abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBase, IERC777Recipient/*, IERC777SenderUpgradeable*/ {
 
     using EnumerableSet for EnumerableSet.AddressSet;
-    
     
     // slot 2
     address private _token0;
@@ -31,6 +30,11 @@ abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBaseMulti
     EnumerableSet.AddressSet private rewardTokensList;
     mapping(address => uint256) public rewardTokenRatios;
     
+    mapping(address => uint256) public unstakeable;
+    uint256 totalUnstakeable;
+    uint256 totalRedeemable;
+
+
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
@@ -58,27 +62,6 @@ abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBaseMulti
     // }
 
     
-    /**
-    * @notice used to catch when used try to redeem by sending shares directly to contract
-    * see more in {IERC777RecipientUpgradeable::tokensReceived}
-    */
-    function tokensReceived(
-        address /*operator*/,
-        address from,
-        address to,
-        uint256 amount,
-        bytes calldata /*userData*/,
-        bytes calldata /*operatorData*/
-    ) 
-        external 
-        override
-    {
-        if (_msgSender() == address(this) && to == address(this)) {
-            uint256 totalSharesBalanceBefore = totalSupply();
-            _burn(address(this), amount, "", "");
-//            _redeem(from, amount, totalSharesBalanceBefore);
-        }
-    }
     
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
@@ -96,7 +79,7 @@ abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBaseMulti
         uint32 lockupInterval
     )
         ERC777(name, symbol, (new address[](0)))
-        MinimumsBaseMultiple(lockupInterval)
+        MinimumsBase(lockupInterval)
     {
 
         // register interfaces
@@ -106,7 +89,6 @@ abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBaseMulti
      
     
     function _stake(
-        uint256 poolIndex,
         address addr, 
         uint256 amount, 
         uint256 duration, 
@@ -135,9 +117,8 @@ abstract contract WalletTokensContract is/* Ownable,*/ ERC777, MinimumsBaseMulti
         // }
         _mint(addr, amount, "", "");
 
-
         emit Staked(addr, amount, priceBeforeStake);
-        _minimumsAdd(poolIndex, addr, amount, duration, false);
+        _minimumsAdd(addr, amount, duration, false);
     }
     
     

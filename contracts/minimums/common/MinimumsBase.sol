@@ -11,6 +11,7 @@ contract MinimumsBase {
 
 	using EnumerableSet for EnumerableSet.UintSet;
 	
+    address internal constant ZERO_ADDRESS = address(0);
 	struct Lockup {
         uint64 duration;
         //bool gradual; // does not used 
@@ -333,7 +334,12 @@ locked2 = 40/(100-40)*(100-70) = 20
                         iValue,
                         false
                     );
-                    _minimumsAddLow(to, block.timestamp, _dataList[i], iValue, false);
+
+                    // shouldn't add miniums for zero account.
+                    // that feature using to drop minimums from sender
+                    if (to != ZERO_ADDRESS) {
+                        _minimumsAddLow(to, block.timestamp, _dataList[i], iValue, false);
+                    }
                     
                     if (value == 0) {
                         break;
@@ -364,8 +370,12 @@ locked2 = 40/(100-40)*(100-70) = 20
                     // uint256 speed = iValue.div(
                         //     users[from].minimums[_dataList[i]].timestampEnd.sub(block.timestamp);
                         // );
-                    _minimumsAddLow(to, block.timestamp, _dataList[i], iValue, true);
-                    
+
+                    // shouldn't add miniums for zero account.
+                    // that feature using to drop minimums from sender
+                    if (to != ZERO_ADDRESS) {
+                        _minimumsAddLow(to, block.timestamp, _dataList[i], iValue, true);
+                    }
                     if (value == 0) {
                         break;
                     }
