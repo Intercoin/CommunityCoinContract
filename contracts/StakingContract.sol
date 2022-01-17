@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./interfaces/IStakingContract.sol";
+import "./interfaces/IStakingFactory.sol";
 //import "hardhat/console.sol";
 
 contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777RecipientUpgradeable, IStakingContract/*, IERC777SenderUpgradeable*/ {
@@ -402,7 +403,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         internal 
         virtual 
     {
-        IStakingFactory(factory).issueWalletTokens(addr, amount, duration,priceBeforeStake);
+        IStakingFactory(factory).issueWalletTokens(addr, amount, duration, priceBeforeStake);
     }
     
     function _beforeTokenTransfer(

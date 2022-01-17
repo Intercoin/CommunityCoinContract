@@ -7,13 +7,20 @@ import "./interfaces/IStakingTransferRules.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "./WalletTokensContract.sol";
 
 import "./lib/PackedMapping32.sol";
 
-contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract, AccessControlEnumerable {
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
+import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
+//import "hardhat/console.sol";
+import "./minimums/common/MinimumsBase.sol";
+
+contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, ERC777, MinimumsBase, IERC777Recipient {
     using Clones for address;
     using PackedMapping32 for PackedMapping32.Map;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /**
     * strategy ENUM VARS used in calculation algos
@@ -55,12 +62,32 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract, Acces
 
 
     ////////////////////
+    
+    //uint64 public lpClaimFraction;
+    uint64 internal constant MULTIPLIER = 100000;
+    
+    //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
+    bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
+
+    EnumerableSet.AddressSet private rewardTokensList;
+    mapping(address => uint256) public rewardTokenRatios;
+    
+    mapping(address => uint256) public unstakeable;
+    uint256 totalUnstakeable;
+    uint256 totalRedeemable;
+
+
+    event RewardGranted(address indexed token, address indexed account, uint256 amount);
+    event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
+    event Redeemed(address indexed account, uint256 amount);
+
 
     constructor(
         address impl,
         address impl2
     ) 
-        WalletTokensContract("Staking Tokens", "STAKE", LOCKUP_INTERVAL)
+        ERC777("Staking Tokens", "STAKE", (new address[](0)))
+        MinimumsBase(LOCKUP_INTERVAL)
     {
         implementation = impl;
         implementation2 = impl2;
@@ -87,7 +114,7 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract, Acces
     function issueWalletTokens(
         address account, 
         uint256 amount, 
-        uint256 duration, 
+        uint64 duration, 
         uint256 priceBeforeStake
     ) 
         external 
@@ -104,7 +131,45 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract, Acces
         totalUnstakeable += amount;
         
         _stake(account, amount, duration, priceBeforeStake);
+
     }
+    
+    
+    function _stake(
+        address addr, 
+        uint256 amount, 
+        uint256 duration, 
+        uint256 priceBeforeStake
+    ) 
+        internal 
+        virtual 
+    {
+        // TODO 0: keep to undestand where i should to store reward 
+        // for (uint256 i=0; i<rewardTokensList.length(); i++) {
+        //     address rewardToken = rewardTokensList.at(i);
+        //     uint256 ratio = rewardTokenRatios[rewardToken];
+        //     if (ratio > 0) {
+        //         uint256 limit = 
+        //             (
+        //                 IERC20Upgradeable(rewardToken).balanceOf(address(this))
+        //             ) * ratio / MULTIPLIER;
+                
+        //         // here is a trick. totalSupply() actually should be IERC20Upgradeable(uniswapV2Pair).totalSupply().
+        //         // but ratio exchange lp to shares are 1to1. so we avoiding external call and use internal count of shares
+        //         require (
+        //             totalSupply() + amount <= limit, 
+        //             "NO_MORE_STAKES_UNTIL_REWARDS_ADDED"
+        //         );
+        //     }
+        // }
+        _mint(addr, amount, "", "");
+
+        emit Staked(addr, amount, priceBeforeStake);
+
+        _minimumsAdd(addr, amount, duration, false);
+
+    }
+    
     
 
     function produce(
@@ -375,15 +440,17 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract, Acces
         uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM);
         for (uint256 i = 0; i < instancesToRedeem.length; i++) {
-            try IStakingContract(instancesToRedeem[i]).redeem(
-                account, 
-                valuesToRedeem[i],
-                totalSharesBalanceBefore
-            ) {
-                _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-            }
-            catch {
-                revert("Error when redeem in an instance");
+            if (_instanceStaked[instancesToRedeem[i]] > 0) {
+                try IStakingContract(instancesToRedeem[i]).redeem(
+                    account, 
+                    valuesToRedeem[i],
+                    totalSharesBalanceBefore
+                ) {
+                    _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                }
+                catch {
+                    revert("Error when redeem in an instance");
+                }
             }
         }
     }
@@ -403,15 +470,17 @@ contract StakingFactory is IStakingFactory, Ownable, WalletTokensContract, Acces
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM);
 
         for (uint256 i = 0; i < instancesToRedeem.length; i++) {
-            try IStakingContract(preferredInstances[i]).redeemAndRemoveLiquidity(
-                account, 
-                valuesToRedeem[i],
-                totalSharesBalanceBefore
-            ) {
-                _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-            }
-            catch {
-                revert("Error when redeem");
+            if (_instanceStaked[instancesToRedeem[i]] > 0) {
+                try IStakingContract(preferredInstances[i]).redeemAndRemoveLiquidity(
+                    account, 
+                    valuesToRedeem[i],
+                    totalSharesBalanceBefore
+                ) {
+                    _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                }
+                catch {
+                    revert("Error when redeem");
+                }
             }
         }
     }
