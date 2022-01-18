@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import "./interfaces/IHook.sol";
 import "./interfaces/IStakingFactory.sol";
 import "./interfaces/IStakingContract.sol";
-import "./interfaces/IStakingTransferRules.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "./lib/PackedMapping32.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+//import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 //import "hardhat/console.sol";
@@ -20,7 +20,7 @@ import "./minimums/common/MinimumsBase.sol";
 contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, ERC777, MinimumsBase, IERC777Recipient {
     using Clones for address;
     using PackedMapping32 for PackedMapping32.Map;
-    using EnumerableSet for EnumerableSet.AddressSet;
+    //using EnumerableSet for EnumerableSet.AddressSet;
 
     /**
     * strategy ENUM VARS used in calculation algos
@@ -33,8 +33,13 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     bytes32 public constant ADMIN_ROLE = "admin";
     bytes32 public constant REDEEM_ROLE = "redeem";
 
-    address internal implementation;
-    address internal implementation2;
+    address public implementation;
+    IHook public hook; // hook used to bonus calculation
+    uint256 public immutable discountSensitivity;
+
+    uint256 totalUnstakeable;
+    uint256 totalRedeemable;
+    uint256 totalExtra;         // extra tokens minted by factory when staked
 
     mapping(address => mapping(
         address => mapping(
@@ -60,48 +65,46 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     }
     mapping(address => InstanceInfo) private _instanceInfos;
 
-
     ////////////////////
-    
-    //uint64 public lpClaimFraction;
-    uint64 internal constant MULTIPLIER = 100000;
     
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
-    EnumerableSet.AddressSet private rewardTokensList;
+    //EnumerableSet.AddressSet private rewardTokensList;
     mapping(address => uint256) public rewardTokenRatios;
-    
     mapping(address => uint256) public unstakeable;
-    uint256 totalUnstakeable;
-    uint256 totalRedeemable;
 
 
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
 
+    modifier onlyStaking() {
+        require(_instanceInfos[msg.sender].exists == true);
+        _;
+    }
 
     constructor(
         address impl,
-        address impl2
+        address hook_,
+        uint256 discountSensitivity_
     ) 
         ERC777("Staking Tokens", "STAKE", (new address[](0)))
         MinimumsBase(LOCKUP_INTERVAL)
     {
         implementation = impl;
-        implementation2 = impl2;
+        hook = IHook(hook_);
+
+        discountSensitivity = discountSensitivity_;
         
         _grantRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(REDEEM_ROLE, ADMIN_ROLE);
 
     }
 
-    modifier onlyStaking() {
-        require(_instanceInfos[msg.sender].exists == true);
-        _;
-    }
-
+    ////////////////////////////////////////////////////////////////////////
+    // external section ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
     function instancesCount()
         external 
         override 
@@ -114,7 +117,6 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     function issueWalletTokens(
         address account, 
         uint256 amount, 
-        uint64 duration, 
         uint256 priceBeforeStake
     ) 
         external 
@@ -127,51 +129,52 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         address instance = msg.sender;
         _instanceStaked[instance] += amount;
 
+        // logic "how much bonus user will obtain"
+        uint256 bonusAmount = 0; 
+        if (address(hook) != address(0)) {
+            bonusAmount = hook.bonusCalculation(instance, account, _instanceInfos[instance].duration, amount);
+        }
+
+        totalExtra += bonusAmount;
+        
         unstakeable[account] += amount;
         totalUnstakeable += amount;
         
-        _stake(account, amount, duration, priceBeforeStake);
+        // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
+        // also keep in mind that user can unstake only unstakeable[account] which saved w/o bonusTokens, but minimums and mint with it.
+        // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
+        amount += bonusAmount;
+
+        _mint(account, amount, "", "");
+        emit Staked(account, amount, priceBeforeStake);
+        _minimumsAdd(account, amount, _instanceInfos[instance].duration, false);
 
     }
-    
-    
-    function _stake(
-        address addr, 
-        uint256 amount, 
-        uint256 duration, 
-        uint256 priceBeforeStake
+
+    /**
+    * @notice used to catch when used try to redeem by sending shares directly to contract
+    * see more in {IERC777RecipientUpgradeable::tokensReceived}
+    */
+    function tokensReceived(
+        address /*operator*/,
+        address from,
+        address to,
+        uint256 amount,
+        bytes calldata /*userData*/,
+        bytes calldata /*operatorData*/
     ) 
-        internal 
-        virtual 
+        external 
+        override
     {
-        // TODO 0: keep to undestand where i should to store reward 
-        // for (uint256 i=0; i<rewardTokensList.length(); i++) {
-        //     address rewardToken = rewardTokensList.at(i);
-        //     uint256 ratio = rewardTokenRatios[rewardToken];
-        //     if (ratio > 0) {
-        //         uint256 limit = 
-        //             (
-        //                 IERC20Upgradeable(rewardToken).balanceOf(address(this))
-        //             ) * ratio / MULTIPLIER;
-                
-        //         // here is a trick. totalSupply() actually should be IERC20Upgradeable(uniswapV2Pair).totalSupply().
-        //         // but ratio exchange lp to shares are 1to1. so we avoiding external call and use internal count of shares
-        //         require (
-        //             totalSupply() + amount <= limit, 
-        //             "NO_MORE_STAKES_UNTIL_REWARDS_ADDED"
-        //         );
-        //     }
-        // }
-        _mint(addr, amount, "", "");
-
-        emit Staked(addr, amount, priceBeforeStake);
-
-        _minimumsAdd(addr, amount, duration, false);
-
+        if (_msgSender() == address(this) && to == address(this)) {
+            _redeem(from, amount, new address[](0));
+        }
     }
-    
-    
 
+
+    ////////////////////////////////////////////////////////////////////////
+    // public section //////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
     function produce(
         address reserveToken, 
         address tradedToken, 
@@ -200,7 +203,92 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         address instance = getInstance[reserveToken][tradedToken][duration];
         return _instanceInfos[instance];
     }
+
+    /**
+    * @notice method like redeem but can applicable only for own staked tokens. so no need to have redeem role for this
+    */
+    function unstake(
+        uint256 amount
+    ) 
+        public 
+    {
+        address account = msg.sender;
+
+        uint256 locked = _getMinimum(account);
+        uint256 remainingAmount = balanceOf(account) - amount;
+        require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
+        
+
+        //uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
+        _beforeRedeem(account, amount);
+
+        (address[] memory instancesList, uint256[] memory values) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE);
+        for (uint256 i = 0; i < instancesList.length; i++) {
+            try IStakingContract(instancesList[i]).redeem(
+                account, 
+                values[i]
+            ) {
+                _instanceStaked[instancesList[i]] -= values[i];
+            }
+            catch {
+                revert("Error when unstake");
+            }
+        }
+    }
     
+    function redeem(
+        uint256 amount
+    ) 
+        public
+    {
+        _redeem(msg.sender, amount, new address[](0));
+    }
+
+    /**
+    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+    * @param amount The number of shares that will be redeemed.
+    * @param preferredInstances preferred instances for redeem first
+    */
+    function redeem(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        public
+    {
+        _redeem(msg.sender, amount, preferredInstances);
+    }
+
+    /**
+    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
+    * @param amount The number of shares that will be redeemed.
+    */
+    function redeemAndRemoveLiquidity(
+        uint256 amount
+    ) 
+        public
+    {
+        _redeemAndRemoveLiquidity(msg.sender, amount, new address[](0));
+    }
+
+    /**
+    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
+    * @param amount The number of shares that will be redeemed.
+    * @param preferredInstances preferred instances for redeem first
+    */
+    function redeemAndRemoveLiquidity(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        public
+    {
+        _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances);
+    }
+        
+    ////////////////////////////////////////////////////////////////////////
+    // internal section ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    
+
     function _produce(
         address reserveToken,
         address tradedToken,
@@ -224,8 +312,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         //     );
         // } else {
             IStakingContract(instanceCreated).initialize(
-                reserveToken,  tradedToken,  LOCKUP_INTERVAL, duration, 
-                reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+                reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
             );
         // }
         
@@ -255,12 +342,8 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         uint64 tradedTokenClaimFraction, 
         uint64 lpClaimFraction
     ) internal returns (address instance) {
-        if (duration == 0) {
-            instance = implementation2.clone();
-        } else {
-            instance = implementation.clone();
-        }
-        
+
+        instance = implementation.clone();
         
         getInstance[reserveToken][tradedToken][duration] = instance;
         
@@ -280,91 +363,19 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         emit InstanceCreated(reserveToken, tradedToken, instance, instances.length);
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    
-    /**
-    * @notice used to catch when used try to redeem by sending shares directly to contract
-    * see more in {IERC777RecipientUpgradeable::tokensReceived}
-    */
-    function tokensReceived(
-        address /*operator*/,
-        address from,
-        address to,
-        uint256 amount,
-        bytes calldata /*userData*/,
-        bytes calldata /*operatorData*/
-    ) 
-        external 
-        override
-    {
-        if (_msgSender() == address(this) && to == address(this)) {
-            _redeem(from, amount, new address[](0));
-        }
-    }
-
-    function redeem(
-        uint256 amount
-    ) 
-        external
-    {
-        _redeem(msg.sender, amount, new address[](0));
-    }
-
-
-    /**
-    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
-    * @param amount The number of shares that will be redeemed.
-    * @param preferredInstances preferred instances for redeem first
-    */
-    function redeem(
-        uint256 amount,
-        address[] memory preferredInstances
-    ) 
-        external
-    {
-        _redeem(msg.sender, amount, preferredInstances);
-    }
-
-    /**
-    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
-    * @param amount The number of shares that will be redeemed.
-    */
-    function redeemAndRemoveLiquidity(
-        uint256 amount
-    ) 
-        external
-    {
-        _redeemAndRemoveLiquidity(msg.sender, amount, new address[](0));
-    }
-
-    /**
-    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
-    * @param amount The number of shares that will be redeemed.
-    * @param preferredInstances preferred instances for redeem first
-    */
-    function redeemAndRemoveLiquidity(
-        uint256 amount,
-        address[] memory preferredInstances
-    ) 
-        external
-    {
-        _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances);
-    }
-
     function _beforeRedeem(
         address account,
         uint256 amount
     ) 
         internal 
-        returns(uint256 totalSharesBalanceBefore)
+       // returns(uint256 totalSharesBalanceBefore)
     {
-        totalSharesBalanceBefore = totalSupply();
+        //totalSharesBalanceBefore = totalSupply();
         require(allowance(account, address(this))  >= amount, "Redeem amount exceeds allowance");
         _burn(account, amount, "", "");
     }
 
+    // create map of instance->amount or LP tokens that need to redeem
     function _poolStakesAvailable(
         address account,
         uint256 amount,
@@ -384,6 +395,28 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         uint256 amountLeft = amount;
         uint256 amountToRedeem;
         uint256 len;
+
+        if (
+            strategy == Strategy.REDEEM || 
+            strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
+        ) {
+            
+            // TODO 0: 
+            // //Сколько X  LP токенов выдать пользователю при  запросе Y токенов
+            // LPTokens =  WalletTokens * ratio;
+            // ratio = A / (A + B * discountSensitivity);
+            // где 
+            // discountSensitivity - константа которая указывается в фабрике FactoryContract
+            // A = totalRedeemable across all pools
+            // B = totalSupply - A - totalUnstakeable
+            uint256 A = totalRedeemable;
+            uint256 B = totalSupply() - A - totalUnstakeable;
+            uint256 ratio = A / (A + B * discountSensitivity);
+            amountLeft =  amount * ratio; // LPTokens =  WalletTokens * ratio;
+        } else {
+            amountLeft = amount;
+        }
+
         for (uint256 i = 0; i < preferredInstances.length; i++) {
             
             if (_instanceStaked[preferredInstances[i]] > 0) {
@@ -437,16 +470,18 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         onlyRole(REDEEM_ROLE)  
     {
         require (amount <= totalRedeemable, "insufficient balance to redeem");
-        uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
+        // uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
+        _beforeRedeem(account, amount);
+
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM);
         for (uint256 i = 0; i < instancesToRedeem.length; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
                 try IStakingContract(instancesToRedeem[i]).redeem(
                     account, 
-                    valuesToRedeem[i],
-                    totalSharesBalanceBefore
+                    valuesToRedeem[i]
                 ) {
                     _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                    totalRedeemable -= valuesToRedeem[i];
                 }
                 catch {
                     revert("Error when redeem in an instance");
@@ -466,17 +501,19 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         
         require (amount <= totalRedeemable, "insufficient balance to redeem");
 
-        uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM);
+        //uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
+        _beforeRedeem(account, amount);
+
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
 
         for (uint256 i = 0; i < instancesToRedeem.length; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
                 try IStakingContract(preferredInstances[i]).redeemAndRemoveLiquidity(
                     account, 
-                    valuesToRedeem[i],
-                    totalSharesBalanceBefore
+                    valuesToRedeem[i]
                 ) {
                     _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                    totalRedeemable -= valuesToRedeem[i];
                 }
                 catch {
                     revert("Error when redeem");
@@ -496,102 +533,71 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         override 
     {
         if (from !=address(0)) { // otherwise minted
+            if (from == address(this) && to == address(0)) { // burnt by contract itself
 
-            uint256 balance = balanceOf(from);
+            } else { 
+    
+                uint256 balance = balanceOf(from);
 
-            if (balance >= amount) {
-                
-                // uint256 remainingAmount = balance - amount;
+                if (balance >= amount) {
+                    
+                    // uint256 remainingAmount = balance - amount;
 
-                // if (
-                //     to == address(0) || // if burnt
-                //     to == address(this) // if send directly to contract
-                // ) {
-                //     //it's try to redeem
-                //     // if (locked > remainingAmount) {
-                //     //     revert("STAKE_NOT_UNLOCKED_YET");
-                //     // //} else {
+                    // if (
+                    //     to == address(0) || // if burnt
+                    //     to == address(this) // if send directly to contract
+                    // ) {
+                    //     //it's try to redeem
+                    //     // if (locked > remainingAmount) {
+                    //     //     revert("STAKE_NOT_UNLOCKED_YET");
+                    //     // //} else {
+                            
+                    //     // }
+
                         
-                //     // }
-
-                    
-           
-                // } else if (locked > remainingAmount) {
-                //     // else it's just transfer
-                //     uint256 lockedAmountToTransfer = (locked - remainingAmount);
-                //     minimumsTransfer(from, to, lockedAmountToTransfer);
-                //     //?????
-
-                // }
-
-                uint256 remainingAmount = balance - amount;
-                
-                if (
-                    to == address(0) || // if burnt
-                    to == address(this) // if send directly to contract
-                ) {
-                    require(amount <= totalRedeemable, "STAKE_NOT_UNLOCKED_YET");
-                } else {
-                    // else it's just transfer
-                    // unstakeable[from] means as locked var. but not equal: locked can be less than unstakeable[from]
-                    
-                    
-                    uint256 locked = _getMinimum(from);
-                    //else drop locked minimum, but remove minimums even if remaining was enough
-                    //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
-                    if (locked > 0 && locked >= amount ) {
-                        minimumsTransfer(from, ZERO_ADDRESS, amount);
-                    }
-
-                    uint256 r = unstakeable[from] - remainingAmount;
-                    unstakeable[from] -= r;
-                    totalUnstakeable -= r;
-                    totalRedeemable += r;
-
-                    
-                }
-                
             
-            } else {
-                // insufficient balance error would be in {ERC777::_move}
+                    // } else if (locked > remainingAmount) {
+                    //     // else it's just transfer
+                    //     uint256 lockedAmountToTransfer = (locked - remainingAmount);
+                    //     minimumsTransfer(from, to, lockedAmountToTransfer);
+                    //     //?????
+
+                    // }
+
+                    uint256 remainingAmount = balance - amount;
+                    
+                    if (
+                        to == address(0) || // if burnt
+                        to == address(this) // if send directly to contract
+                    ) {
+                        require(amount <= totalRedeemable, "STAKE_NOT_UNLOCKED_YET");
+                    } else {
+                        // else it's just transfer
+                        // unstakeable[from] means as locked var. but not equal: locked can be less than unstakeable[from]
+                        
+                        
+                        uint256 locked = _getMinimum(from);
+                        //else drop locked minimum, but remove minimums even if remaining was enough
+                        //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
+                        if (locked > 0 && locked >= amount ) {
+                            minimumsTransfer(from, ZERO_ADDRESS, amount);
+                        }
+
+                        uint256 r = unstakeable[from] - remainingAmount;
+                        unstakeable[from] -= r;
+                        totalUnstakeable -= r;
+                        totalRedeemable += r;
+    
+                    }
+                    
+                } else {
+                    // insufficient balance error would be in {ERC777::_move}
+                }
             }
         }
         super._beforeTokenTransfer(operator, from, to, amount);
 
     }
 
-    /**
-    * @notice method like redeem but can applicable only for own staked tokens. so no need to have redeem role for this
-    */
-    function unstake(
-        uint256 amount
-    ) 
-        public 
-    {
-        address account = msg.sender;
-
-        uint256 locked = _getMinimum(account);
-        uint256 remainingAmount = balanceOf(account) - amount;
-        require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
-        
-
-        uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
-        (address[] memory instancesList, uint256[] memory values) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE);
-        for (uint256 i = 0; i < instancesList.length; i++) {
-            try IStakingContract(instancesList[i]).redeem(
-                account, 
-                values[i],
-                totalSharesBalanceBefore
-            ) {
-                _instanceStaked[instancesList[i]] -= values[i];
-            }
-            catch {
-                revert("Error when unstake");
-            }
-        }
-    }
-    
-    
-    
 
 }

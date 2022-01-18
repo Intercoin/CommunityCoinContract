@@ -7,7 +7,6 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 //import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
@@ -15,7 +14,7 @@ import "./interfaces/IStakingContract.sol";
 import "./interfaces/IStakingFactory.sol";
 //import "hardhat/console.sol";
 
-contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777RecipientUpgradeable, IStakingContract/*, IERC777SenderUpgradeable*/ {
+contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, IStakingContract/*, IERC777SenderUpgradeable*/ {
 
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
     
@@ -46,13 +45,10 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
     IUniswapV2Router02 internal UniswapV2Router02;
     // slot 8
     IUniswapV2Pair internal uniswapV2Pair;
-    // slot 9
-    EnumerableSetUpgradeable.AddressSet private rewardTokensList;
-    mapping(address => uint256) public rewardTokenRatios;
-    
-    // @notice count of lockupIntervals. Represented how long wallet tokens will be staked. 
-    uint64 public duration;
-    
+    // // slot 9
+    // EnumerableSetUpgradeable.AddressSet private rewardTokensList;
+    // mapping(address => uint256) public rewardTokenRatios;
+        
     // factory address
     address factory;
     
@@ -106,11 +102,11 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         external 
         override
     {
-        if (_msgSender() == address(this) && to == address(this)) {
-            uint256 totalSharesBalanceBefore = totalSupply();
-            _burn(address(this), amount, "", "");
-            _redeem(from, amount, totalSharesBalanceBefore);
-        }
+        // if (_msgSender() == address(this) && to == address(this)) {
+        //     uint256 totalSharesBalanceBefore = totalSupply();
+        //     _burn(address(this), amount, "", "");
+        //     _redeem(from, amount, totalSharesBalanceBefore);
+        // }
     }
     
     ////////////////////////////////////////////////////////////////////////
@@ -123,14 +119,14 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
     */
     function redeem(
         address account,
-        uint256 amount,
-        uint256 totalSupplyBefore
+        uint256 amount
     ) 
         external
         override 
         onlyFactory
     {
-        _redeem(account, amount, totalSupplyBefore);
+        uint256 amount2Redeem = __redeem(account, amount);
+        uniswapV2Pair.transfer(account, amount2Redeem);
     }
 
     /**
@@ -139,14 +135,13 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
     */
     function redeemAndRemoveLiquidity(
         address account,
-        uint256 amount,
-        uint256 totalSupplyBefore
+        uint256 amount
     ) 
         external
         override 
         onlyFactory 
     {
-        _redeemAndRemoveLiquidity(account, amount, totalSupplyBefore);
+        __redeemAndRemoveLiquidity(account, amount);
     }
 
     /** 
@@ -191,45 +186,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         IERC20Upgradeable(reserveToken).transferFrom(msg.sender, address(this), tokenBAmount);
         _buyLiquidityAndStake(msg.sender, tokenBAmount);
     }
-    
-    /**
-    * @notice adding token that will be used as reward for staking. Reward will obtain during user redeem
-    * @param token token rewards's address 
-    * @param ratioToLP ratio to lp token multipleid by `MULTIPLIER`
-    */
-    function addRewardToken(
-        address token,
-        uint256 ratioToLP
-    )
-        public 
-        onlyOwner 
-    {
-        rewardTokensList.add(token);
-        rewardTokenRatios[token] = ratioToLP;
-    }
-
-    /**
-    * @notice removing token that early used as reward for staking. 
-    * @param token token rewards's address 
-    */
-    function removeRewardToken(
-        address token
-    ) 
-        public 
-        onlyOwner
-    {
-        rewardTokensList.remove(token);
-        delete rewardTokenRatios[token];
-    }
-    
-    /**
-    * @notice return reward token's list
-    * @return array of reward tokens
-    */
-    function viewRewardTokensList() public view returns(address[] memory) {
-        return rewardTokensList.values();
-    }
-    
+       
     /**
     * @notice way to stake LP tokens of current pool(traded/reserve tokens)
     * @dev keep in mind that user can redeem lp token from other staking contract with same pool but different duration and use here.
@@ -260,8 +217,6 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
     * @notice initialize method. Called once by the factory at time of deployment
     * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
     * @param tradedToken_ address of traded token. ie investor token - ITR
-    * @param lockupInterval_ interval in seconds. ie `duration tick`. day in seconds by default
-    * @param duration_ count of lockupIntervals. Represented how long wallet tokens will be staked. 
     * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `MULTIPLIER`. 
     * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `MULTIPLIER`. 
     * @param lpClaimFraction_ fraction of LP token multiplied by `MULTIPLIER`. 
@@ -269,8 +224,6 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
     function initialize(
         address reserveToken_,
         address tradedToken_, 
-        uint32 lockupInterval_,
-        uint64 duration_, 
         uint64 tradedTokenClaimFraction_, 
         uint64 reserveTokenClaimFraction_,
         uint64 lpClaimFraction_
@@ -279,7 +232,6 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         external 
         override 
     {
-        duration = duration_;
         
         string memory otherName = ERC777Upgradeable(tradedToken_).name();
         string memory otherSymbol = ERC777Upgradeable(tradedToken_).symbol();
@@ -287,7 +239,6 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         string memory name = string(abi.encodePacked(otherName, " Staking Token"));
         string memory symbol = string(abi.encodePacked(otherSymbol, ".STAKE"));
 
-        __Ownable_init();
         __ERC777_init(name, symbol, (new address[](0)));
 
         // register interfaces
@@ -309,54 +260,11 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
 
     function _redeem(
         address sender, 
-        uint256 amount,
-        uint256 totalSharesBalance
+        uint256 amount
     ) 
         internal 
     {  
         
-        uint256 amount2Redeem = __redeem(sender, amount);
-        
-        uniswapV2Pair.transfer(sender, amount2Redeem);
-        _grantReward(sender, amount, totalSharesBalance);
-    }
-
-    function _redeemAndRemoveLiquidity(
-        address sender, 
-        uint256 amount,
-        uint256 totalSharesBalance
-    ) internal {
-        
-        __redeemAndRemoveLiquidity(sender, amount);
-        _grantReward(sender, amount, totalSharesBalance);
-    }
-        
-    /**
-     * when user redeem token we will additionally grant percent of
-     * token's reward by formula
-     * usershares/totalShares * Whitelisttoken[X]
-    */
-    function _grantReward(
-        address to, 
-        uint256 amount, 
-        uint256 total
-    ) internal {
-        if (total > 0 && amount > 0) {
-            uint256 ratio = MULTIPLIER * amount / total;
-            uint256 reward2Send;
-            for(uint256 i = 0; i < rewardTokensList.length(); i++) {
-                address rewardToken = rewardTokensList.at(i);
-                reward2Send = 
-                    (
-                        IERC20Upgradeable(rewardToken).balanceOf(address(this))
-                    ) * ratio / MULTIPLIER;
-                    
-                if (reward2Send > 0) {
-                    IERC20Upgradeable(rewardTokensList.at(i)).transfer(to, reward2Send);
-                    emit RewardGranted(rewardTokensList.at(i), to, reward2Send);
-                }
-            }
-        }
     }
     
     /**
@@ -403,7 +311,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
         internal 
         virtual 
     {
-        IStakingFactory(factory).issueWalletTokens(addr, amount, duration, priceBeforeStake);
+        IStakingFactory(factory).issueWalletTokens(addr, amount, priceBeforeStake);
     }
     
     function _beforeTokenTransfer(
@@ -493,7 +401,6 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
     ) 
         private 
     {
-
         
         uint256 amount2Redeem = __redeem(sender, amount);
 
@@ -507,8 +414,8 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
             address(this),//address to,
             block.timestamp//uint deadline
         );
-        _fractionAmountSend(tradedToken, amountA, tradedTokenClaimFraction, owner(), sender);
-        _fractionAmountSend(reserveToken, amountB, reserveTokenClaimFraction, owner(), sender);
+        _fractionAmountSend(tradedToken, amountA, tradedTokenClaimFraction, factory, sender);
+        _fractionAmountSend(reserveToken, amountB, reserveTokenClaimFraction, factory, sender);
     }
     
     function __redeem(
@@ -522,7 +429,7 @@ contract StakingContract is OwnableUpgradeable, ERC777Upgradeable, IERC777Recipi
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
         // transfer and burn moved to upper level
-        amount2Redeem = _fractionAmountSend(address(uniswapV2Pair), amount, lpClaimFraction, owner(), address(0));
+        amount2Redeem = _fractionAmountSend(address(uniswapV2Pair), amount, lpClaimFraction, factory, address(0));
     }
     
     function sqrt(
