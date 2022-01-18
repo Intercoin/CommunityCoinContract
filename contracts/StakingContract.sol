@@ -50,9 +50,8 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     // mapping(address => uint256) public rewardTokenRatios;
         
     // factory address
-    address factory;
+    address internal factory;
     
-
     modifier onlyFactory() {
         require(factory == msg.sender);
         _;
@@ -60,10 +59,7 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
-    constructor() {
-        factory = msg.sender;
-    }
-
+    
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -232,7 +228,7 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
         external 
         override 
     {
-        
+        factory = msg.sender;
         string memory otherName = ERC777Upgradeable(tradedToken_).name();
         string memory otherSymbol = ERC777Upgradeable(tradedToken_).symbol();
 

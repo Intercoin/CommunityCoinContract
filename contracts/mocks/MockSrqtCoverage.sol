@@ -14,4 +14,5 @@ contract MockSrqtCoverage is StakingContract {
     {
         return sqrt(x);
     }
+
 }

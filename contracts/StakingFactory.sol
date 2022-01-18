@@ -16,6 +16,7 @@ import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 //import "hardhat/console.sol";
 import "./minimums/common/MinimumsBase.sol";
+//import "./StakingContract.sol";
 
 contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, ERC777, MinimumsBase, IERC777Recipient {
     using Clones for address;
@@ -93,6 +94,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         MinimumsBase(LOCKUP_INTERVAL)
     {
         implementation = impl;
+//        implementation = address(new StakingContract());!!!!!!!
         hook = IHook(hook_);
 
         discountSensitivity = discountSensitivity_;
@@ -283,7 +285,17 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     {
         _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances);
     }
-        
+
+     
+    function viewLockedWalletTokens(
+        address account
+    ) 
+        public 
+        view 
+        returns (uint256 amount) 
+    {
+        amount = _getMinimum(account);
+    }   
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -305,7 +317,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         address instanceCreated = _createInstance(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);    
 
         require(instanceCreated != address(0), "StakingFactory: INSTANCE_CREATION_FAILED");
-        require(duration == 0, "cant be zero duration");
+        require(duration != 0, "cant be zero duration");
         // if (duration == 0) {
         //     IStakingTransferRules(instanceCreated).initialize(
         //         reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
@@ -316,7 +328,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
             );
         // }
         
-        Ownable(instanceCreated).transferOwnership(_msgSender());
+        //Ownable(instanceCreated).transferOwnership(_msgSender());
         instance = instanceCreated;        
     }
     
