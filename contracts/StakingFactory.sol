@@ -16,7 +16,6 @@ import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 //import "hardhat/console.sol";
 import "./minimums/common/MinimumsBase.sol";
-//import "./StakingContract.sol";
 
 contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, ERC777, MinimumsBase, IERC777Recipient {
     using Clones for address;
@@ -34,7 +33,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     bytes32 public constant ADMIN_ROLE = "admin";
     bytes32 public constant REDEEM_ROLE = "redeem";
 
-    address public implementation;
+    address public immutable implementation;
     IHook public hook; // hook used to bonus calculation
     uint256 public immutable discountSensitivity;
 
@@ -221,11 +220,8 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
         
 
-        //uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
-        _beforeRedeem(account, amount);
-
-        (address[] memory instancesList, uint256[] memory values) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE);
-        for (uint256 i = 0; i < instancesList.length; i++) {
+        (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE);
+        for (uint256 i = 0; i < len; i++) {
             try IStakingContract(instancesList[i]).redeem(
                 account, 
                 values[i]
@@ -375,18 +371,6 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         emit InstanceCreated(reserveToken, tradedToken, instance, instances.length);
     }
 
-    function _beforeRedeem(
-        address account,
-        uint256 amount
-    ) 
-        internal 
-       // returns(uint256 totalSharesBalanceBefore)
-    {
-        //totalSharesBalanceBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Redeem amount exceeds allowance");
-        _burn(account, amount, "", "");
-    }
-
     // create map of instance->amount or LP tokens that need to redeem
     function _poolStakesAvailable(
         address account,
@@ -395,18 +379,27 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         Strategy strategy
     ) 
         internal 
-        view
         returns(
             address[] memory instancesAddress, 
-            uint256[] memory values
+            uint256[] memory values,
+            uint256 len
         ) 
     {
+
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Redeem amount exceeds allowance");
+        _burn(account, amount, "", "");
+
         if (preferredInstances.length == 0) {
             preferredInstances = instances;
         }
+// console.log("preferredInstances.length=", preferredInstances.length);
+        instancesAddress = new address[](preferredInstances.length);
+        values = new uint256[](preferredInstances.length);
+        len = 0;
         uint256 amountLeft = amount;
         uint256 amountToRedeem;
-        uint256 len;
+        
 
         if (
             strategy == Strategy.REDEEM || 
@@ -421,8 +414,14 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
             // discountSensitivity - константа которая указывается в фабрике FactoryContract
             // A = totalRedeemable across all pools
             // B = totalSupply - A - totalUnstakeable
+// console.log("totalRedeemable = %s",totalRedeemable);
+// console.log("totalSupplyBefore = %s",totalSupplyBefore);
+// console.log("totalUnstakeable = %s",totalUnstakeable);
             uint256 A = totalRedeemable;
-            uint256 B = totalSupply() - A - totalUnstakeable;
+            uint256 B = totalSupplyBefore - A - totalUnstakeable;
+// console.log("A = %s",A);
+// console.log("B = %s",B);
+// console.log("discountSensitivity = %s",discountSensitivity);
             uint256 ratio = A / (A + B * discountSensitivity);
             amountLeft =  amount * ratio; // LPTokens =  WalletTokens * ratio;
         } else {
@@ -482,11 +481,9 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         onlyRole(REDEEM_ROLE)  
     {
         require (amount <= totalRedeemable, "insufficient balance to redeem");
-        // uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
-        _beforeRedeem(account, amount);
-
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM);
-        for (uint256 i = 0; i < instancesToRedeem.length; i++) {
+        
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM);
+        for (uint256 i = 0; i < len; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
                 try IStakingContract(instancesToRedeem[i]).redeem(
                     account, 
@@ -513,14 +510,22 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         
         require (amount <= totalRedeemable, "insufficient balance to redeem");
 
-        //uint256 totalSharesBalanceBefore = _beforeRedeem(account, amount);
-        _beforeRedeem(account, amount);
+// console.log("!preferredInstances=",preferredInstances.length);
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
+// console.log("instancesToRedeem=",instancesToRedeem.length);
+// console.log("instancesToRedeem[0]=",instancesToRedeem[0]);
+// console.log("instancesToRedeem[1]=",instancesToRedeem[1]);
+// console.log("valuesToRedeem[0]=",valuesToRedeem[0]);
+// console.log("valuesToRedeem[1]=",valuesToRedeem[1]);
+// console.log("len=",len);
 
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
 
-        for (uint256 i = 0; i < instancesToRedeem.length; i++) {
+        for (uint256 i = 0; i < len; i++) {
+// console.log("i=",i);
+// console.log("instancesToRedeem[i]=",instancesToRedeem[i]);
+// console.log("valuesToRedeem[i]=",valuesToRedeem[i]);
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
-                try IStakingContract(preferredInstances[i]).redeemAndRemoveLiquidity(
+                try IStakingContract(instancesToRedeem[i]).redeemAndRemoveLiquidity(
                     account, 
                     valuesToRedeem[i]
                 ) {

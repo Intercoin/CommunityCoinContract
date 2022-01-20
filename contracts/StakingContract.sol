@@ -15,7 +15,7 @@ import "./interfaces/IStakingFactory.sol";
 //import "hardhat/console.sol";
 
 contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, IStakingContract/*, IERC777SenderUpgradeable*/ {
-
+ 
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
     
     // slot 0
@@ -44,7 +44,7 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     // slot 7
     IUniswapV2Router02 internal UniswapV2Router02;
     // slot 8
-    IUniswapV2Pair internal uniswapV2Pair;
+    IUniswapV2Pair public uniswapV2Pair;
     // // slot 9
     // EnumerableSetUpgradeable.AddressSet private rewardTokensList;
     // mapping(address => uint256) public rewardTokenRatios;
