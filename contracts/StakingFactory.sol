@@ -8,18 +8,19 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
-import "./lib/PackedMapping32.sol";
+//import "./lib/PackedMapping32.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 //import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
-//import "hardhat/console.sol";
 import "./minimums/common/MinimumsBase.sol";
+
+import "hardhat/console.sol";
 
 contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, ERC777, MinimumsBase, IERC777Recipient {
     using Clones for address;
-    using PackedMapping32 for PackedMapping32.Map;
+    // using PackedMapping32 for PackedMapping32.Map;
     //using EnumerableSet for EnumerableSet.AddressSet;
 
     /**
@@ -84,6 +85,11 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         _;
     }
 
+    modifier onlyRoleWithAccount(bytes32 role, address account) {
+        _checkRole(role, account);
+        _;
+    }
+
     constructor(
         address impl,
         address hook_,
@@ -93,19 +99,21 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         MinimumsBase(LOCKUP_INTERVAL)
     {
         implementation = impl;
-//        implementation = address(new StakingContract());!!!!!!!
+
         hook = IHook(hook_);
 
         discountSensitivity = discountSensitivity_;
         
         _grantRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(REDEEM_ROLE, ADMIN_ROLE);
-
+        // register interfaces
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
 
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+   
     function instancesCount()
         external 
         override 
@@ -157,7 +165,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     * see more in {IERC777RecipientUpgradeable::tokensReceived}
     */
     function tokensReceived(
-        address /*operator*/,
+        address operator,
         address from,
         address to,
         uint256 amount,
@@ -168,7 +176,13 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         override
     {
         if (_msgSender() == address(this) && to == address(this)) {
-            _redeem(from, amount, new address[](0));
+
+            // here we will already receive token to address(this)
+            uint256 totalSupplyBefore = totalSupply();
+            // so burn it already from contract 
+            _burn(address(this), amount, "", "");
+
+            _redeem(from, amount, new address[](0), totalSupplyBefore);
         }
     }
 
@@ -215,14 +229,35 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     {
         address account = msg.sender;
 
-        uint256 locked = _getMinimum(account);
-        uint256 remainingAmount = balanceOf(account) - amount;
-        require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
+        uint256 balance = balanceOf(account);
         
+        require (amount <= balance, "INSUFFICIENT_BALANCE");
+        
+        uint256 locked = _getMinimum(account);
+        uint256 remainingAmount = balance - amount;
+// console.log("locked=", locked);
+// console.log("balanceOf(account)=", balanceOf(account));
+// console.log("remainingAmount=", remainingAmount);
+        require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
 
-        (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE);
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _unstake(account, amount, totalSupplyBefore);
+        
+    }
+
+    function _unstake(
+        address account,
+        uint256 amount,
+        uint256 totalSupplyBefore
+    ) 
+        internal 
+    {
+        (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE, totalSupplyBefore);
         for (uint256 i = 0; i < len; i++) {
-            try IStakingContract(instancesList[i]).redeem(
+            try IStakingContract(instancesList[i]).redeemAndRemoveLiquidity(
                 account, 
                 values[i]
             ) {
@@ -239,7 +274,12 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     ) 
         public
     {
-        _redeem(msg.sender, amount, new address[](0));
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeem(account, amount, new address[](0), totalSupplyBefore);
     }
 
     /**
@@ -253,7 +293,12 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     ) 
         public
     {
-        _redeem(msg.sender, amount, preferredInstances);
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeem(account, amount, preferredInstances, totalSupplyBefore);
     }
 
     /**
@@ -265,7 +310,12 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     ) 
         public
     {
-        _redeemAndRemoveLiquidity(msg.sender, amount, new address[](0));
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeemAndRemoveLiquidity(msg.sender, amount, new address[](0), totalSupplyBefore);
     }
 
     /**
@@ -279,7 +329,12 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     ) 
         public
     {
-        _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances);
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances, totalSupplyBefore);
     }
 
      
@@ -376,7 +431,8 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         address account,
         uint256 amount,
         address[] memory preferredInstances,
-        Strategy strategy
+        Strategy strategy,
+        uint256 totalSupplyBefore
     ) 
         internal 
         returns(
@@ -386,9 +442,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         ) 
     {
 
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Redeem amount exceeds allowance");
-        _burn(account, amount, "", "");
+       
 
         if (preferredInstances.length == 0) {
             preferredInstances = instances;
@@ -406,22 +460,14 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
             strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
         ) {
             
-            // TODO 0: 
-            // //Сколько X  LP токенов выдать пользователю при  запросе Y токенов
             // LPTokens =  WalletTokens * ratio;
             // ratio = A / (A + B * discountSensitivity);
             // где 
             // discountSensitivity - константа которая указывается в фабрике FactoryContract
             // A = totalRedeemable across all pools
             // B = totalSupply - A - totalUnstakeable
-// console.log("totalRedeemable = %s",totalRedeemable);
-// console.log("totalSupplyBefore = %s",totalSupplyBefore);
-// console.log("totalUnstakeable = %s",totalUnstakeable);
             uint256 A = totalRedeemable;
             uint256 B = totalSupplyBefore - A - totalUnstakeable;
-// console.log("A = %s",A);
-// console.log("B = %s",B);
-// console.log("discountSensitivity = %s",discountSensitivity);
             uint256 ratio = A / (A + B * discountSensitivity);
             amountLeft =  amount * ratio; // LPTokens =  WalletTokens * ratio;
         } else {
@@ -475,14 +521,15 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     function _redeem(
         address account,
         uint256 amount,
-        address[] memory preferredInstances
+        address[] memory preferredInstances,
+        uint256 totalSupplyBefore
     ) 
         internal 
-        onlyRole(REDEEM_ROLE)  
+        onlyRoleWithAccount(REDEEM_ROLE, account)
     {
-        require (amount <= totalRedeemable, "insufficient balance to redeem");
+        require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
         
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM);
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM, totalSupplyBefore);
         for (uint256 i = 0; i < len; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
                 try IStakingContract(instancesToRedeem[i]).redeem(
@@ -502,16 +549,17 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     function _redeemAndRemoveLiquidity(
         address account,
         uint256 amount,
-        address[] memory preferredInstances
+        address[] memory preferredInstances,
+        uint256 totalSupplyBefore
     ) 
         internal 
-        onlyRole(REDEEM_ROLE)  
+        onlyRoleWithAccount(REDEEM_ROLE, account)  
     {
         
-        require (amount <= totalRedeemable, "insufficient balance to redeem");
+        require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
 
 // console.log("!preferredInstances=",preferredInstances.length);
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY, totalSupplyBefore);
 // console.log("instancesToRedeem=",instancesToRedeem.length);
 // console.log("instancesToRedeem[0]=",instancesToRedeem[0]);
 // console.log("instancesToRedeem[1]=",instancesToRedeem[1]);
@@ -587,7 +635,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
                         to == address(0) || // if burnt
                         to == address(this) // if send directly to contract
                     ) {
-                        require(amount <= totalRedeemable, "STAKE_NOT_UNLOCKED_YET");
+                        //require(amount <= totalRedeemable, "STAKE_NOT_UNLOCKED_YET");
                     } else {
                         // else it's just transfer
                         // unstakeable[from] means as locked var. but not equal: locked can be less than unstakeable[from]
