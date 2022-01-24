@@ -7,7 +7,6 @@ artifacts
 secret.*.json
 TODO.txt
 /cache
-/docs
 /metadata
 /.deps
 /.debugger

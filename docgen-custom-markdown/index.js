@@ -6,7 +6,7 @@ function processBuildInfo(source, name, data) {
 
   const { title, author, details } = devdoc;
   const { notice } = userdoc;
-
+  
   // derive external signatures from internal types
 
   const getSigType = function ({ type, components = [] }) {
@@ -59,6 +59,7 @@ function processBuildInfo(source, name, data) {
 }
 
 const titleNoticeDetailsAuthor = (obj) => [
+
   obj.title && [`> Title: ${obj.title}`, ''],
   obj.notice && [`> Notice: ${obj.notice}`, ''],
   obj.details && [`> Details: ${obj.details}`, ''],
@@ -86,7 +87,7 @@ const renderTable = (type, entry, params) => [
     (e, idx) =>
       '| ' +
       [
-        e.name,
+        (e.name == '') ? '-/-' : e.name,
         `${e.type}`,
         type === 'event'
           ? e.indexed
@@ -99,41 +100,51 @@ const renderTable = (type, entry, params) => [
   '',
 ];
 
-const renderMembers = (name, members) =>
-  members &&
-  Object.keys(members).length > 0 &&
-  Object.values(members).map((m) => [
-    m.type === 'contractConstructor'
-      ? [
-        `## *constructor*`,
+const renderMembers = (p, name, members) => {
+  if (members && Object.keys(members).length > 0) {
+    output = [
+      //(p !== 'contractConstructor') ? `## ${p}` : `## *constructor*`,
+      `## *${p}*`,
+    ...Object.values(members).map(function(m) { return [
+      m.type === 'contractConstructor'
+        ? [
+          '',
+          //`***constructor(${renderArgumentList(m.inputs || [])})***`,
+        ]
+        : [
+          `### ${m.name}`,
+          //'',
+          // `***${name}.${m.name}(${renderArgumentList(
+          //   m.inputs || []
+          // )})${renderAttrs(m).filter((x) => x)}***`,
+        ],
+      '',
+      titleNoticeDetailsAuthor(m),
+  //function(){console.log(JSON.stringify(m))}(),
+      m.inputs &&
+      m.inputs.length > 0 && [
+        'Arguments',
         '',
-        `***constructor(${renderArgumentList(m.inputs || [])})***`,
-      ]
-      : [
-        `## *${m.type}* ${m.name}`,
-        '',
-        `***${name}.${m.name}(${renderArgumentList(
-          m.inputs || []
-        )})${renderAttrs(m).filter((x) => x)}***`,
+        renderTable(m.type, m.inputs, m.params || {}),
       ],
-    '',
-    titleNoticeDetailsAuthor(m),
-    m.inputs &&
-    m.inputs.length > 0 && [
-      'Arguments',
+      m.outputs &&
+      m.outputs.length > 0 && [
+        'Outputs',
+        '',
+        renderTable(m.type, m.outputs, m.returns),
+      ],
       '',
-      renderTable(m.type, m.inputs, m.params || {}),
-    ],
-    m.outputs &&
-    m.outputs.length > 0 && [
-      'Outputs',
       '',
-      renderTable(m.type, m.outputs, m.returns),
-    ],
-    '',
-    '',
-  ]);
+    ]
+    }
+    )];
+    } else {
+      output = [];
+    }
+    return output;
+  };
 const renderOverview = (members) => [
+
   '| **method name** | **called by** | **description** |',
   '|-|-|-|',
   members &&
@@ -148,22 +159,22 @@ const renderOverview = (members) => [
       ].join('|')
       : '|'+[
         `<a href="#${m.name}">${m.name}</a>`,
-        '',
-        '',
+        typeof(m["custom:calledby"]) === 'undefined'? "everyone" : m["custom:calledby"] ,
+        typeof(m["custom:shortd"]) === 'undefined'? "" : m["custom:shortd"] ,
         // `***${name}.${m.name}(${renderArgumentList(
         //   m.inputs || []
         // )})${renderAttrs(m).filter((x) => x)}***`,
       ].join('|')+'|',
-])
+  ])
 ];
 function renderContract(source, name, info) {
   const printOrder = [
-    'contractConstructor',
-    'receive()',
-    'fallback()',
-    'event',
-    'stateVariable',
-    'function',
+    {name:'contractConstructor', title:'Constructor'},
+    {name:'receive()', title:'receive()'},
+    {name:'fallback()', title:'fallback()'},
+    {name:'event', title:'Events'},
+    {name:'stateVariable', title:'StateVariables'},
+    {name:'function', title:'Functions'}
   ];
   const output = [
     `# ${name}`,
@@ -175,8 +186,8 @@ function renderContract(source, name, info) {
     '',
     'Once installed will be use methods:',
     '',
-    renderOverview(info.membersByType['function']),
-    ...printOrder.map((p) => renderMembers(name, info.membersByType[p])),
+    renderOverview(info.membersByType['function'],info.membersByType),
+    ...printOrder.map((p) => renderMembers(p.title, name, info.membersByType[p.name])),
   ];
   return output
     .flat(Infinity)
@@ -185,12 +196,17 @@ function renderContract(source, name, info) {
 }
 
 module.exports = async function (outputDirectory, data) {
+
   if (!fs.existsSync(outputDirectory)) {
     fs.mkdirSync(outputDirectory, { recursive: true });
   }
+  
   for (const c in data) {
+    
     const [sourceFileName, contractName] = c.split(':');
+  
     const buildInfo = processBuildInfo(sourceFileName, contractName, data[c]);
+
     const text = renderContract(sourceFileName, contractName, buildInfo);
     const dirName = path.join(outputDirectory, path.dirname(sourceFileName));
     if (!fs.existsSync(dirName)) {

@@ -40,7 +40,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
 
     uint256 totalUnstakeable;
     uint256 totalRedeemable;
-    uint256 totalExtra;         // extra tokens minted by factory when staked
+    //uint256 totalExtra;         // extra tokens minted by factory when staked
 
     mapping(address => mapping(
         address => mapping(
@@ -72,8 +72,8 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
     //EnumerableSet.AddressSet private rewardTokensList;
-    mapping(address => uint256) public rewardTokenRatios;
-    mapping(address => uint256) public unstakeable;
+    //mapping(address => uint256) public rewardTokenRatios;
+    mapping(address => uint256) internal unstakeable;
 
 
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
@@ -90,6 +90,12 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         _;
     }
 
+    /**
+    * @notice contructor
+    * @param impl address of pool(StakingContract) implementation
+    * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
+    * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+    */
     constructor(
         address impl,
         address hook_,
@@ -113,16 +119,29 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-   
+
+    /**
+    * @dev view amount of created instances
+    * @return amount amount instances
+    * @custom:shortd view amount of created instances
+    */
     function instancesCount()
         external 
         override 
         view 
-        returns (uint) 
+        returns (uint256 amount) 
     {
-        return instances.length;
+        amount = instances.length;
     }
 
+    /**
+    * @notice method to distribute tokens after user stake. called externally onle by pool contract
+    * @param account address of user that tokens will mint for
+    * @param amount token's amount
+    * @param priceBeforeStake price that was before adding liquidity in pool
+    * @custom:calledby staking-pool
+    * @custom:shortd distibute wallet tokens
+    */
     function issueWalletTokens(
         address account, 
         uint256 amount, 
@@ -144,7 +163,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
             bonusAmount = hook.bonusCalculation(instance, account, _instanceInfos[instance].duration, amount);
         }
 
-        totalExtra += bonusAmount;
+        //totalExtra += bonusAmount;
         
         unstakeable[account] += amount;
         totalUnstakeable += amount;
@@ -161,16 +180,23 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     }
 
     /**
-    * @notice used to catch when used try to redeem by sending shares directly to contract
+    * @notice used to catch when used try to redeem by sending wallet tokens directly to contract
     * see more in {IERC777RecipientUpgradeable::tokensReceived}
+    * @param operator address operator requesting the transfer
+    * @param from address token holder address
+    * @param to address recipient address
+    * @param amount uint256 amount of tokens to transfer
+    * @param userData bytes extra information provided by the token holder (if any)
+    * @param operatorData bytes extra information provided by the operator (if any)
+    * @custom:shortd part of {IERC777RecipientUpgradeable}
     */
     function tokensReceived(
         address operator,
         address from,
         address to,
         uint256 amount,
-        bytes calldata /*userData*/,
-        bytes calldata /*operatorData*/
+        bytes calldata userData,
+        bytes calldata operatorData
     ) 
         external 
         override
@@ -179,9 +205,9 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
 
             // here we will already receive token to address(this)
             uint256 totalSupplyBefore = totalSupply();
-            // so burn it already from contract 
+            // so burn it
             _burn(address(this), amount, "", "");
-
+            // then redeem
             _redeem(from, amount, new address[](0), totalSupplyBefore);
         }
     }
@@ -190,6 +216,15 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+
+    /**
+    * @dev function has overloaded. it's simple version for create instance pool.
+    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken address of traded token. usual it intercoin investor token
+    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @return instance address of created instance pool `StakingContract`
+    * @custom:shortd creation instance with simple options
+    */
     function produce(
         address reserveToken, 
         address tradedToken, 
@@ -199,6 +234,18 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         return _produce(reserveToken, tradedToken, duration, 0, 0, 1000);
     }
     
+    /**
+    * @dev function has overloaded. it's simple version for create instance pool.
+    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken address of traded token. usual it intercoin investor token
+    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param reserveTokenClaimFraction fraction of reserved token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize}
+    * @param tradedTokenClaimFraction fraction of traded token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize}
+    * @param lpClaimFraction fraction of LP token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize}
+    * @return instance address of created instance pool `StakingContract`
+    * @custom:calledby owner
+    * @custom:shortd creation instance with extended options
+    */
     function produce(
         address reserveToken, 
         address tradedToken, 
@@ -210,17 +257,31 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         return _produce(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);
     }
     
+    /**
+    * @dev note that `duration` is 365 and `LOCKUP_INTERVAL` is 86400 (seconds) means that tokens locked up for an year
+    * @notice view instance info by reserved/traded tokens and duration
+    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken address of traded token. usual it intercoin investor token
+    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @custom:shortd view instance info
+    */
     function getInstanceInfo(
         address reserveToken, 
         address tradedToken, 
         uint64 duration
-    ) public view returns(InstanceInfo memory) {
+    ) 
+        public 
+        view 
+        returns(InstanceInfo memory) 
+    {
         address instance = getInstance[reserveToken][tradedToken][duration];
         return _instanceInfos[instance];
     }
 
     /**
-    * @notice method like redeem but can applicable only for own staked tokens. so no need to have redeem role for this
+    * @notice method like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
+    * @param amount The number of wallet tokens that will be unstaked.
+    * @custom:shortd unstake own tokens
     */
     function unstake(
         uint256 amount
@@ -235,9 +296,6 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         
         uint256 locked = _getMinimum(account);
         uint256 remainingAmount = balance - amount;
-// console.log("locked=", locked);
-// console.log("balanceOf(account)=", balanceOf(account));
-// console.log("remainingAmount=", remainingAmount);
         require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
 
         uint256 totalSupplyBefore = totalSupply();
@@ -248,6 +306,106 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         
     }
 
+    /**
+    * @dev function has overloaded. wallet tokens will be redeemed from pools in order from deployed
+    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+    * @param amount The number of wallet tokens that will be redeemed.
+    * @custom:shortd redeem tokens
+    */
+    function redeem(
+        uint256 amount
+    ) 
+        public
+    {
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeem(account, amount, new address[](0), totalSupplyBefore);
+    }
+
+    /**
+    * @dev function has overloaded. wallet tokens will be redeemed from pools in order from `preferredInstances`. tx reverted if amoutn is unsufficient even if it is enough in other pools
+    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+    * @param amount The number of wallet tokens that will be redeemed.
+    * @param preferredInstances preferred instances for redeem first
+    * @custom:shortd redeem tokens
+    */
+    function redeem(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        public
+    {
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeem(account, amount, preferredInstances, totalSupplyBefore);
+    }
+
+    /**
+    * @dev function has overloaded. wallet tokens will be redeemed from pools in order from deployed
+    * @notice way to redeem and remove liquidity via approve/transferFrom wallet tokens. User will obtain reserve and traded tokens back
+    * @param amount The number of wallet tokens that will be redeemed.
+    * @custom:shortd redeem tokens and remove liquidity
+    */
+    function redeemAndRemoveLiquidity(
+        uint256 amount
+    ) 
+        public
+    {
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeemAndRemoveLiquidity(msg.sender, amount, new address[](0), totalSupplyBefore);
+    }
+
+    /**
+    * @dev function has overloaded. wallet tokens will be redeemed from pools in order from `preferredInstances`. tx reverted if amoutn is unsufficient even if it is enough in other pools
+    * @notice way to redeem and remove liquidity via approve/transferFrom wallet tokens. User will obtain reserve and traded tokens back
+    * @param amount The number of wallet tokens that will be redeemed.
+    * @param preferredInstances preferred instances for redeem first
+    * @custom:shortd redeem tokens and remove liquidity
+    */
+    function redeemAndRemoveLiquidity(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        public
+    {
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances, totalSupplyBefore);
+    }
+
+    /**
+    * @notice way to view locked tokens that still can be unstakeable by user
+    * @param account address
+    * @custom:shortd view locked tokens
+    */
+    function viewLockedWalletTokens(
+        address account
+    ) 
+        public 
+        view 
+        returns (uint256 amount) 
+    {
+        amount = _getMinimum(account);
+    }   
+
+    ////////////////////////////////////////////////////////////////////////
+    // internal section ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+    
+    
     function _unstake(
         address account,
         uint256 amount,
@@ -268,89 +426,6 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
             }
         }
     }
-    
-    function redeem(
-        uint256 amount
-    ) 
-        public
-    {
-        address account = msg.sender;
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
-        _burn(account, amount, "", "");
-
-        _redeem(account, amount, new address[](0), totalSupplyBefore);
-    }
-
-    /**
-    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
-    * @param amount The number of shares that will be redeemed.
-    * @param preferredInstances preferred instances for redeem first
-    */
-    function redeem(
-        uint256 amount,
-        address[] memory preferredInstances
-    ) 
-        public
-    {
-        address account = msg.sender;
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
-        _burn(account, amount, "", "");
-
-        _redeem(account, amount, preferredInstances, totalSupplyBefore);
-    }
-
-    /**
-    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
-    * @param amount The number of shares that will be redeemed.
-    */
-    function redeemAndRemoveLiquidity(
-        uint256 amount
-    ) 
-        public
-    {
-        address account = msg.sender;
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
-        _burn(account, amount, "", "");
-
-        _redeemAndRemoveLiquidity(msg.sender, amount, new address[](0), totalSupplyBefore);
-    }
-
-    /**
-    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
-    * @param amount The number of shares that will be redeemed.
-    * @param preferredInstances preferred instances for redeem first
-    */
-    function redeemAndRemoveLiquidity(
-        uint256 amount,
-        address[] memory preferredInstances
-    ) 
-        public
-    {
-        address account = msg.sender;
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
-        _burn(account, amount, "", "");
-
-        _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances, totalSupplyBefore);
-    }
-
-     
-    function viewLockedWalletTokens(
-        address account
-    ) 
-        public 
-        view 
-        returns (uint256 amount) 
-    {
-        amount = _getMinimum(account);
-    }   
-    ////////////////////////////////////////////////////////////////////////
-    // internal section ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-    
 
     function _produce(
         address reserveToken,
@@ -463,13 +538,14 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
             // LPTokens =  WalletTokens * ratio;
             // ratio = A / (A + B * discountSensitivity);
             // где 
-            // discountSensitivity - константа которая указывается в фабрике FactoryContract
+            // discountSensitivity - constant set in constructor
             // A = totalRedeemable across all pools
             // B = totalSupply - A - totalUnstakeable
             uint256 A = totalRedeemable;
             uint256 B = totalSupplyBefore - A - totalUnstakeable;
-            uint256 ratio = A / (A + B * discountSensitivity);
-            amountLeft =  amount * ratio; // LPTokens =  WalletTokens * ratio;
+            // uint256 ratio = A / (A + B * discountSensitivity);
+            // amountLeft =  amount * ratio; // LPTokens =  WalletTokens * ratio;
+            amountLeft = amount * A / (A + B * discountSensitivity / FRACTION);
         } else {
             amountLeft = amount;
         }

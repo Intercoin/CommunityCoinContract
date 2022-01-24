@@ -29,26 +29,20 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     uint64 public lpClaimFraction;
     // slot 3
     address private _token1;
-    uint64 internal constant MULTIPLIER = 100000;
-    
-    //address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
+    uint64 internal constant FRACTION = 100000;
     // slot 4
     address internal constant uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     // slot 5
     address internal constant uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
     // slot 6
     address internal WETH;
-    
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
     // slot 7
     IUniswapV2Router02 internal UniswapV2Router02;
     // slot 8
     IUniswapV2Pair public uniswapV2Pair;
-    // // slot 9
-    // EnumerableSetUpgradeable.AddressSet private rewardTokensList;
-    // mapping(address => uint256) public rewardTokenRatios;
-        
+    // slot 9
     // factory address
     address internal factory;
     
@@ -98,11 +92,6 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
         external 
         override
     {
-        // if (_msgSender() == address(this) && to == address(this)) {
-        //     uint256 totalSharesBalanceBefore = totalSupply();
-        //     _burn(address(this), amount, "", "");
-        //     _redeem(from, amount, totalSharesBalanceBefore);
-        // }
     }
     
     ////////////////////////////////////////////////////////////////////////
@@ -198,8 +187,8 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
         (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
         uint256 priceBeforeStake = (
             _token0 == reserveToken
-                ? MULTIPLIER * reserve0 / reserve1
-                : MULTIPLIER * reserve1 / reserve0
+                ? FRACTION * reserve0 / reserve1
+                : FRACTION * reserve1 / reserve0
         );
         _stake(msg.sender, lpAmount, priceBeforeStake);
     }
@@ -213,9 +202,9 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     * @notice initialize method. Called once by the factory at time of deployment
     * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
     * @param tradedToken_ address of traded token. ie investor token - ITR
-    * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `MULTIPLIER`. 
-    * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `MULTIPLIER`. 
-    * @param lpClaimFraction_ fraction of LP token multiplied by `MULTIPLIER`. 
+    * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `FRACTION`. 
+    * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `FRACTION`. 
+    * @param lpClaimFraction_ fraction of LP token multiplied by `FRACTION`. 
     */
     function initialize(
         address reserveToken_,
@@ -279,7 +268,7 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     {
         bool fractionSendOnly_ = (to_ == address(0));
         remainingAfterFractionSend = 0;
-        if (fraction_ == MULTIPLIER) {
+        if (fraction_ == FRACTION) {
             IERC20Upgradeable(token_).transfer(fractionAddr_, amount_);
             // if (fractionSendOnly_) {} else {}
         } else if (fraction_ == 0) {
@@ -289,7 +278,7 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
                 IERC20Upgradeable(token_).transfer(to_, amount_);
             }
         } else {
-            uint256 adjusted = amount_ * fraction_ / MULTIPLIER;
+            uint256 adjusted = amount_ * fraction_ / FRACTION;
             IERC20Upgradeable(token_).transfer(fractionAddr_, adjusted);
             remainingAfterFractionSend = amount_ - adjusted;
             if (!fractionSendOnly_) {
@@ -352,8 +341,8 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
         require (reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
         uint256 priceBeforeStake = (
             _token0 == reserveToken
-                ? MULTIPLIER * reserve0 / reserve1
-                : MULTIPLIER * reserve1 / reserve0
+                ? FRACTION * reserve0 / reserve1
+                : FRACTION * reserve1 / reserve0
         );
         //Then the amount they would want to swap is
         // r3 = sqrt( (r1 + r2) * r1 ) - r1
