@@ -8,7 +8,7 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
-|<a href="#bonusCalculation">bonusCalculation</a>|everyone||
+|<a href="#bonusCalculation">bonusCalculation</a>|everyone|everyone|
 ## *Functions*
 ### bonusCalculation
 

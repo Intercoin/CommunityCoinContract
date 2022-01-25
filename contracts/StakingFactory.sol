@@ -124,6 +124,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     * @dev view amount of created instances
     * @return amount amount instances
     * @custom:shortd view amount of created instances
+    * @custom:calledby view amount of created instances
     */
     function instancesCount()
         external 
@@ -162,7 +163,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         if (address(hook) != address(0)) {
             bonusAmount = hook.bonusCalculation(instance, account, _instanceInfos[instance].duration, amount);
         }
-
+        
         //totalExtra += bonusAmount;
         
         unstakeable[account] += amount;
@@ -201,15 +202,16 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         external 
         override
     {
-        if (_msgSender() == address(this) && to == address(this)) {
 
-            // here we will already receive token to address(this)
-            uint256 totalSupplyBefore = totalSupply();
-            // so burn it
-            _burn(address(this), amount, "", "");
-            // then redeem
-            _redeem(from, amount, new address[](0), totalSupplyBefore);
-        }
+        require((_msgSender() == address(this) && to == address(this)), "can't receive any other tokens except own");
+        
+        // here we will already receive token to address(this)
+        uint256 totalSupplyBefore = totalSupply();
+        // so burn it
+        _burn(address(this), amount, "", "");
+        // then redeem
+        _redeem(from, amount, new address[](0), totalSupplyBefore);
+        
     }
 
 
@@ -673,11 +675,21 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         virtual 
         override 
     {
+
+
+       
         if (from !=address(0)) { // otherwise minted
             if (from == address(this) && to == address(0)) { // burnt by contract itself
 
             } else { 
-    
+                // todo 0:   add transferhook
+                //  can return true/false
+                // true = revert ;  false -pass tx 
+                
+                if (address(hook) != address(0)) {
+                    require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
+                }
+
                 uint256 balance = balanceOf(from);
 
                 if (balance >= amount) {

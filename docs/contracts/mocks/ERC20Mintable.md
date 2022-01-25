@@ -10,18 +10,18 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
-|<a href="#allowance">allowance</a>|everyone||
-|<a href="#approve">approve</a>|everyone||
-|<a href="#balanceOf">balanceOf</a>|everyone||
-|<a href="#decimals">decimals</a>|everyone||
-|<a href="#decreaseAllowance">decreaseAllowance</a>|everyone||
-|<a href="#increaseAllowance">increaseAllowance</a>|everyone||
-|<a href="#mint">mint</a>|everyone||
-|<a href="#name">name</a>|everyone||
-|<a href="#symbol">symbol</a>|everyone||
-|<a href="#totalSupply">totalSupply</a>|everyone||
-|<a href="#transfer">transfer</a>|everyone||
-|<a href="#transferFrom">transferFrom</a>|everyone||
+|<a href="#allowance">allowance</a>|everyone|everyone|
+|<a href="#approve">approve</a>|everyone|everyone|
+|<a href="#balanceOf">balanceOf</a>|everyone|everyone|
+|<a href="#decimals">decimals</a>|everyone|everyone|
+|<a href="#decreaseAllowance">decreaseAllowance</a>|everyone|everyone|
+|<a href="#increaseAllowance">increaseAllowance</a>|everyone|everyone|
+|<a href="#mint">mint</a>|everyone|everyone|
+|<a href="#name">name</a>|everyone|everyone|
+|<a href="#symbol">symbol</a>|everyone|everyone|
+|<a href="#totalSupply">totalSupply</a>|everyone|everyone|
+|<a href="#transfer">transfer</a>|everyone|everyone|
+|<a href="#transferFrom">transferFrom</a>|everyone|everyone|
 ## *Constructor*
 
 

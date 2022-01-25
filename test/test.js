@@ -60,11 +60,13 @@ describe("Staking contract tests", function () {
     var implementation;
     var mockHook;
     var stakingFactory;
+    var stakingFactoryWithHook;
     var erc20;
     var erc777;
     var erc20TradedToken;
     var erc20ReservedToken;
     var erc20Reward;
+    
     
     beforeEach("deploying", async() => {
         const StakingFactoryF = await ethers.getContractFactory("StakingFactory");
@@ -79,6 +81,8 @@ describe("Staking contract tests", function () {
 
         stakingFactory = await StakingFactoryF.deploy(implementation.address, ZERO_ADDRESS, discountSensitivity);
 
+        stakingFactoryWithHook = await StakingFactoryF.deploy(implementation.address, mockHook.address, discountSensitivity);
+
         erc20 = await ERC20Factory.deploy("ERC20 Token", "ERC20");
         erc777 = await ERC20Factory.deploy("ERC777 Token", "ERC777");
         erc20TradedToken = await ERC20Factory.deploy("ERC20 Traded Token", "ERC20-TRD");
@@ -88,7 +92,7 @@ describe("Staking contract tests", function () {
         //console.log("before each №1");
     });
 
-    xit("sqrt coverage", async() => {
+    it("sqrt coverage", async() => {
         const MockSrqtCoverageFactory = await ethers.getContractFactory("MockSrqtCoverage");
         let mockSrqtCoverageInstance = await MockSrqtCoverageFactory.deploy();
 
@@ -131,7 +135,7 @@ describe("Staking contract tests", function () {
         
     }); 
 
-    xit("shouldnt create with uniswap pair exists", async() => {
+    it("shouldnt create with uniswap pair exists", async() => {
         await expect(stakingFactory["produce(address,address,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
@@ -142,7 +146,7 @@ describe("Staking contract tests", function () {
         )).to.be.revertedWith("NO_UNISWAP_V2_PAIR");
     });
 
-    xit("shouldnt create staking with the same token pairs", async() => {
+    it("shouldnt create staking with the same token pairs", async() => {
         await expect(stakingFactory["produce(address,address,uint64,uint64,uint64,uint64)"](
             erc20.address,
             erc20.address,
@@ -154,7 +158,7 @@ describe("Staking contract tests", function () {
         
     });
 
-    xit("shouldnt create staking with the Zero token", async() => {
+    it("shouldnt create staking with the Zero token", async() => {
         await expect(stakingFactory["produce(address,address,uint64,uint64,uint64,uint64)"](
             ZERO_ADDRESS,
             erc20.address,
@@ -173,7 +177,7 @@ describe("Staking contract tests", function () {
         )).to.be.revertedWith("StakingFactory: ZERO_ADDRESS");
     });
 
-    xit("shouldnt create with wrong fractions", async() => {
+    it("shouldnt create with wrong fractions", async() => {
         await expect(stakingFactory["produce(address,address,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
@@ -192,6 +196,137 @@ describe("Staking contract tests", function () {
         )).to.be.revertedWith("StakingFactory: WRONG_CLAIM_FRACTION");
     });
     
+    
+    describe("Hook tests", function () {   
+        var uniswapRouterFactoryInstance;
+        var uniswapRouterInstance;
+        var stakingInstanceWithHook;
+
+        var walletTokens;
+        var lptokens;
+
+        beforeEach("deploying", async() => {
+            uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
+            uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+            await uniswapRouterFactoryInstance.createPair(erc20ReservedToken.address, erc20TradedToken.address);
+        
+            let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20ReservedToken.address, erc20TradedToken.address);
+
+            pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
+
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+
+            const ts = await time.latest();
+            const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                erc20ReservedToken.address,
+                erc20TradedToken.address,
+                ONE_ETH.mul(SEVEN),
+                ONE_ETH.mul(SEVEN),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+                          
+            let tx = await stakingFactoryWithHook.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64)"](
+                erc20ReservedToken.address,
+                erc20TradedToken.address,
+                lockupIntervalCount,
+                reserveTokenClaimFraction,
+                tradedTokenClaimFraction,
+                lpClaimFraction 
+            )
+
+            const rc = await tx.wait(); // 0ms, as tx is already confirmed
+            const event = rc.events.find(event => event.event === 'InstanceCreated');
+            const [tokenA, tokenB, instance, instancesCount] = event.args;
+            
+            stakingInstanceWithHook = await ethers.getContractAt("StakingContract",instance);
+            
+            // create pair Token2 => WETH
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidityETH(
+                erc20ReservedToken.address,
+                ONE_ETH.mul(SEVEN),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil,
+                {value: ONE_ETH.mul(SEVEN) }
+            );
+
+            
+
+
+        });
+
+        it("test bonus tokens if not set", async() => {
+                await mockHook.setupVars(ZERO,true);
+                await stakingInstanceWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                
+                walletTokens = await stakingFactoryWithHook.balanceOf(bob.address);
+                lptokens = await pairInstance.balanceOf(stakingInstanceWithHook.address);
+
+                expect(lptokens).not.to.be.eq(ZERO);
+                expect(lptokens).to.be.eq(walletTokens);
+               
+        });
+        it("test bonus tokens if set", async() => {
+                await mockHook.setupVars(TEN,true);
+                await stakingInstanceWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                
+                walletTokens = await stakingFactoryWithHook.balanceOf(bob.address);
+                lptokens = await pairInstance.balanceOf(stakingInstanceWithHook.address);
+
+                expect(lptokens).not.to.be.eq(ZERO);
+                expect(walletTokens.sub(lptokens)).to.be.eq(TEN);
+               
+        });
+        describe("test transferHook ", function () {   
+            beforeEach("before each", async() => {
+                await stakingInstanceWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                
+                walletTokens = await stakingFactoryWithHook.balanceOf(bob.address);
+                lptokens = await pairInstance.balanceOf(stakingInstanceWithHook.address);
+                
+            });
+            it("should prevent transfer if disabled via hook contract", async() => {
+                
+                // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
+                expect(lptokens).not.to.be.eq(ZERO);
+                expect(lptokens).to.be.eq(walletTokens);
+
+                await mockHook.setupVars(ZERO,false);
+
+                await expect(stakingFactoryWithHook.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWith("HOOK: TRANSFER_PREVENT");
+                
+            });
+
+            it("should allow transfer if enabled via hook contract", async() => {
+                
+                // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
+                expect(lptokens).not.to.be.eq(ZERO);
+                expect(lptokens).to.be.eq(walletTokens);
+
+                await mockHook.setupVars(ZERO,true);
+
+                await expect(stakingFactoryWithHook.connect(bob).transfer(alice.address, walletTokens)).not.to.be.revertedWith("HOOK: TRANSFER_PREVENT");
+                
+            });
+        }); 
+        
+
+
+
+    });
     //    require(instance == address(0), "StakingFactory: PAIR_ALREADY_EXISTS");
     describe("Instance tests", function () {
         var uniswapRouterFactoryInstance;
@@ -247,7 +382,7 @@ describe("Staking contract tests", function () {
             
         });
 
-        xit("shouldnt create another pair with equal tokens", async() => {
+        it("shouldnt create another pair with equal tokens", async() => {
             await expect(stakingFactory["produce(address,address,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
@@ -258,7 +393,7 @@ describe("Staking contract tests", function () {
             )).to.be.revertedWith("StakingFactory: PAIR_ALREADY_EXISTS");
         });
 
-        xit("should set symbol and name with prefix", async() => {
+        it("should set symbol and name with prefix", async() => {
             const nameSuffix= " Staking Token";
             const symbolSuffix= ".STAKE";
 
@@ -272,7 +407,7 @@ describe("Staking contract tests", function () {
             
         });
 
-        xit("should revert if pair does not exists", async() => {
+        it("should revert if pair does not exists", async() => {
             // revert if uniswap pair(token vs anothertoken) does not exists yet
             await expect(stakingInstance.connect(bob)['buyLiquidityAndStake(address,uint256)'](erc20.address, ONE_ETH.mul(ONE))).to.be.reverted;
             
@@ -298,7 +433,7 @@ describe("Staking contract tests", function () {
                     stakingBalanceToken2After = await erc20TradedToken.balanceOf(stakingInstance.address);
                 });
 
-                xit("buyAddLiquidityAndStake", async () => {
+                it("buyAddLiquidityAndStake", async () => {
             
                     let walletTokens = await stakingFactory.balanceOf(bob.address);
                     let lptokens = await pairInstance.balanceOf(stakingInstance.address);
@@ -309,7 +444,7 @@ describe("Staking contract tests", function () {
                 
                 }); 
 
-                xit("shouldnt unstake if not unlocked yet", async () => {
+                it("shouldnt unstake if not unlocked yet", async () => {
                 
                     let walletTokens = await stakingFactory.balanceOf(bob.address);
 
@@ -321,7 +456,7 @@ describe("Staking contract tests", function () {
                     
                 });  
 
-                xit("shouldnt redeem if not unlocked yet", async () => {
+                it("shouldnt redeem if not unlocked yet", async () => {
                     
                     let walletTokens = await stakingFactory.balanceOf(bob.address);
 
@@ -341,7 +476,7 @@ describe("Staking contract tests", function () {
                     
                 }); 
 
-                xit("should transfer wallet tokens after stake", async() => {
+                it("should transfer wallet tokens after stake", async() => {
                     
                     let bobSharesAfter = await stakingFactory.balanceOf(bob.address);
 
@@ -365,7 +500,7 @@ describe("Staking contract tests", function () {
                     
                 });
 
-                xit("should consume all traded tokens when buying liquidity", async () => {
+                it("should consume all traded tokens when buying liquidity", async () => {
                     
                     await expect(
                         BigNumber.from(stakingBalanceToken2Before).lte(BigNumber.from(percentLimitLeftTokenB*ONE_ETH))
@@ -417,7 +552,7 @@ describe("Staking contract tests", function () {
                     stakingBalanceToken2After = await erc20TradedToken.balanceOf(stakingInstance.address);
                 });
 
-                xit("should consume all traded tokens when buying liquidity", async () => {
+                it("should consume all traded tokens when buying liquidity", async () => {
                     await expect(
                         BigNumber.from(stakingBalanceToken2Before).lte(BigNumber.from(percentLimitLeftTokenB*ONE_ETH))
                     ).to.be.eq(true);
@@ -456,7 +591,7 @@ describe("Staking contract tests", function () {
                 );
             });
 
-            xit("buyAddLiquidityAndStake", async () => {
+            it("buyAddLiquidityAndStake", async () => {
         
                 // now addinig liquidity through paying token will be successful
                 await stakingInstance.connect(bob)['buyLiquidityAndStake(address,uint256)'](erc20.address, ONE_ETH.mul(ONE))
@@ -493,7 +628,7 @@ describe("Staking contract tests", function () {
             
             });
             
-            xit("buyAddLiquidityAndStake", async () => {
+            it("buyAddLiquidityAndStake", async () => {
                 
                 await stakingInstance.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
                 
@@ -508,7 +643,7 @@ describe("Staking contract tests", function () {
         });
 
         describe("factory tests", function() {
-            xit("should return instance info", async () => {
+            it("should return instance info", async () => {
                 
                 let data = await await stakingFactory.connect(bob).getInstanceInfo(erc20ReservedToken.address, erc20TradedToken.address, lockupIntervalCount);
                 
@@ -518,13 +653,12 @@ describe("Staking contract tests", function () {
                 
             }); 
             
-            xit("should return correct instance length", async () => {
+            it("should return correct instance length", async () => {
                 let data = await await stakingFactory.connect(bob).instancesCount();
                 await expect(data).to.be.eq(ONE);
             }); 
         }); 
-
-           
+ 
         describe("unstake/redeem/redeem-and-remove-liquidity tests", function () {
             var shares;
             beforeEach("before each callback", async() => {
@@ -535,16 +669,31 @@ describe("Staking contract tests", function () {
                 shares = await stakingFactory.balanceOf(bob.address);
             });
 
-            xit("should wallet tokens appear and not equal zero", async () => {
+            it("should wallet tokens appear and not equal zero", async () => {
                 await expect(shares).to.not.equal(ZERO);
+            });
+
+            it("should burn tokens without descreasing any 'redeem' variables", async () => {
+
+                var uniswapV2PairAddress;
+                var uniswapV2PairInstance;
+
+                uniswapV2PairAddress = await stakingInstance.uniswapV2Pair();
+                uniswapV2PairInstance = await ethers.getContractAt("ERC20Mintable",uniswapV2PairAddress);
+
+                let bobLPTokenBefore = await uniswapV2PairInstance.balanceOf(bob.address);
+                await stakingFactory.connect(bob).burn(shares, []);
+                let bobLPTokenAfter = await uniswapV2PairInstance.balanceOf(bob.address);
+
+                await expect(bobLPTokenAfter).equal(bobLPTokenBefore);
             });
 
             describe("unstake tests", function () {
                 describe("shouldnt unstake", function () {
-                    xit("if not unlocked yet", async () => {
+                    it("if not unlocked yet", async () => {
                         await expect(stakingFactory.connect(bob)["unstake(uint256)"](shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
                     });
-                    xit("if amount more than balance", async () => {
+                    it("if amount more than balance", async () => {
                         // pass some mtime
                         await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
@@ -552,13 +701,10 @@ describe("Staking contract tests", function () {
                     });
                 });
                 describe("should unstake", function () {
-                    xit("successfull", async () => {
-// console.log('lockupIntervalCount=',lockupIntervalCount);
-// console.log('dayInSeconds=',dayInSeconds);
+                    it("successfull", async () => {
                         // pass some mtime
                         await time.increase(lockupIntervalCount*dayInSeconds+9);    
                         
-
                         let bobReservedTokenBefore = await erc20ReservedToken.balanceOf(bob.address);
                         let bobTradedTokenBefore = await erc20TradedToken.balanceOf(bob.address);
 
@@ -576,96 +722,79 @@ describe("Staking contract tests", function () {
             describe("redeem tests", function () {
 
                 describe("shouldnt redeem", function () {
-                    describe("without approve before", function () {
-                        it("without approve", async () => {
-                            await expect(stakingFactory.connect(bob)["redeem(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
-                        });
-                        it("if increase totalRedeemable", async () => {
-                            await stakingFactory.connect(bob).transfer(alice.address, shares);
-                            await expect(stakingFactory.connect(alice)["redeem(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
-                        });
-                    });  
-                    describe("with approve before", function () {  
-                        beforeEach("before each callback", async() => {
-                            //approve
-                            await stakingFactory.connect(bob).approve(stakingFactory.address, shares);
-                        });    
-                        it("without redeem role", async () => {
+                    
+                    it("if anyone didn't transfer tokens to you before", async () => {
+                        await expect(stakingFactory.connect(bob)["redeem(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
+                    });
                         
-                            await expect(stakingFactory.connect(bob)["redeem(uint256)"](shares)).to.be.revertedWith(
-                                [
-                                    "AccessControl: account ",
-                                    (bob.address).toLowerCase(),
-                                    " is missing role ",
-                                    "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                ].join("")
-                            );
+                    it("but without transfer to some one", async () => {
+                        // means that bob have tokens(after stake), he have redeem role, but totalRedeemable are zero
+                        // here it raise a erc777 
+                        
+                        await stakingFactory.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
+                        await stakingFactory.connect(bob).approve(stakingFactory.address, shares);
 
-                            // transfer from bob to alice
+                        await expect(stakingFactory.connect(bob)["redeem(uint256)"](shares)).to.be.revertedWith("INSUFFICIENT_BALANCE");
+                    });
+
+                    describe("after someone transfer", function () {  
+                        beforeEach("before each callback", async() => {
                             await stakingFactory.connect(bob).transfer(alice.address, shares);
-                            await expect(stakingFactory.connect(alice)["redeem(uint256)"](shares)).to.be.revertedWith(
-                                [
-                                    "AccessControl: account ",
-                                    (bob.address).toLowerCase(),
-                                    " is missing role ",
-                                    "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                ].join("")
-                            );
+                        });  
+                        describe("without approve before", function () {  
+                            it("without redeem role", async () => {
+                                await expect(stakingFactory.connect(alice)["redeem(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
+                            });
+                            it("without redeem role even if passed time", async () => {
+                                // pass some mtime
+                                await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                                await expect(stakingFactory.connect(alice)["redeem(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
+                            });
+                        });  
+                        describe("with approve before", function () {  
+                            beforeEach("before each callback", async() => {
+                                await stakingFactory.connect(alice).approve(stakingFactory.address, shares);
+                            });  
+                            it("without redeem role", async () => {
+                                await expect(stakingFactory.connect(alice)["redeem(uint256)"](shares)).to.be.revertedWith(
+                                    [
+                                        "AccessControl: account ",
+                                        (alice.address).toLowerCase(),
+                                        " is missing role ",
+                                        "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
+                                    ].join("")
+                                );
+                            });
+                            it("without redeem role even if passed time", async () => {
+                                // pass some mtime
+                                await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
-                        });
-                        it("without redeem role even if passed time", async () => {
-                            // pass some mtime
-                            await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                                await expect(stakingFactory.connect(alice)["redeem(uint256)"](shares)).to.be.revertedWith(
+                                    [
+                                        "AccessControl: account ",
+                                        (alice.address).toLowerCase(),
+                                        " is missing role ",
+                                        "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
+                                    ].join("")
+                                );
 
-                            await expect(stakingFactory.connect(bob)["redeem(uint256)"](shares)).to.be.revertedWith(
-                                [
-                                    "AccessControl: account ",
-                                    (bob.address).toLowerCase(),
-                                    " is missing role ",
-                                    "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                ].join("")
-                            );
+                            });
+                        });  
 
-                            // transfer from bob to alice
-                            await stakingFactory.connect(bob).transfer(alice.address, shares);
-                            await expect(stakingFactory.connect(alice)["redeem(uint256)"](shares)).to.be.revertedWith(
-                                [
-                                    "AccessControl: account ",
-                                    (bob.address).toLowerCase(),
-                                    " is missing role ",
-                                    "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                ].join("")
-                            );
-
-                        });
+                        
                         describe("if grant role", function () {
                             beforeEach("before each callback", async() => {
-                                // even if grant role
-                                await stakingFactory.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
+                                // grant role to alice
                                 await stakingFactory.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
                             });
-                        });
-                    });
-                    
-                    
-                    
 
-                    describe("even if grant role", function () {
-                        
-                        it("but without pass", async () => {
-                            // bob have tokens
-                            await expect(stakingFactory.connect(bob)["redeem(uint256)"](shares)).to.be.revertedWith(
-                                
-                            );
-                            //approve
-                        //await stakingFactory.connect(bob).approve(stakingFactory.address, shares);
-
-                            await expect(stakingFactory.connect(bob)["redeem(uint256)"](shares)).to.be.revertedWith("INSUFFICIENT_BALANCE");
+                            it("without approve", async () => {
+                                await expect(stakingFactory.connect(bob)["redeem(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
+                            });
+                           
                         });
-                        
-                    }); 
-                    
-                    
+                    });         
+
                 });
                 describe("should redeem", function () {
                     var uniswapV2PairAddress;
@@ -688,7 +817,7 @@ describe("Staking contract tests", function () {
 
                         aliceLPTokenBefore = await uniswapV2PairInstance.balanceOf(alice.address);
                     });
-                    xit("via redeem method", async () => {
+                    it("via redeem method", async () => {
                         
                         await stakingFactory.connect(alice).approve(stakingFactory.address, shares);
                         await stakingFactory.connect(alice)["redeem(uint256)"](shares);
@@ -697,62 +826,97 @@ describe("Staking contract tests", function () {
 
                         await expect(aliceLPTokenAfter).gt(aliceLPTokenBefore);
                     });
-                    xit("via directly send to contract", async () => {
-                        console.log("alice =", alice.address);
-                        console.log("stakingFactory.address =", stakingFactory.address);
+                    it("via directly send to contract", async () => {
+
                         await stakingFactory.connect(alice).transfer(stakingFactory.address, shares);
 
                         aliceLPTokenAfter = await uniswapV2PairInstance.balanceOf(alice.address);
 
                         await expect(aliceLPTokenAfter).gt(aliceLPTokenBefore);
                     });
-                     
+                  
                 });
             });
+            
+            
             describe("redeem and remove liquidity(RRL) tests", function () {
                 describe("shouldnt RRL", function () {
-                    xit("without redeem role", async () => {
-                        await expect(stakingFactory.connect(bob)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith(
-                            [
-                                "AccessControl: account ",
-                                (bob.address).toLowerCase(),
-                                " is missing role ",
-                                "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                            ].join("")
-                        );
-
+                    
+                    it("if anyone didn't transfer tokens to you before", async () => {
+                        await expect(stakingFactory.connect(bob)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
                     });
-                    xit("without redeem role even if passed time", async () => {
-                        // pass some mtime
-                        await time.increase(lockupIntervalCount*dayInSeconds+9);    
-                        await expect(stakingFactory.connect(bob)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith(
-                            [
-                                "AccessControl: account ",
-                                (bob.address).toLowerCase(),
-                                " is missing role ",
-                                "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                            ].join("")
-                        );
-
-                    });
-                    xit("with redeem role but without enougn balance or without approve", async () => {
-                        // even if grant role
+                        
+                    it("but without transfer to some one", async () => {
+                        // means that bob have tokens(after stake), he have redeem role, but totalRedeemable are zero
+                        // here it raise a erc777 
+                        
                         await stakingFactory.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
-                        await expect(stakingFactory.connect(bob)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith("INSUFFICIENT_BALANCE");
-                    });
-
-                    xit("with redeem role but without enougn balance", async () => {
-                        // even if grant role
-                        await stakingFactory.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
-                        await expect(stakingFactory.connect(bob)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith("INSUFFICIENT_BALANCE");
-
-                        // even if approve before
                         await stakingFactory.connect(bob).approve(stakingFactory.address, shares);
+
                         await expect(stakingFactory.connect(bob)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith("INSUFFICIENT_BALANCE");
                     });
+
+                    describe("after someone transfer", function () {  
+                        beforeEach("before each callback", async() => {
+                            await stakingFactory.connect(bob).transfer(alice.address, shares);
+                        });  
+                        describe("without approve before", function () {  
+                            it("without redeem role", async () => {
+                                await expect(stakingFactory.connect(alice)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
+                            });
+                            it("without redeem role even if passed time", async () => {
+                                // pass some mtime
+                                await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                                await expect(stakingFactory.connect(alice)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
+                            });
+                        });  
+                        describe("with approve before", function () {  
+                            beforeEach("before each callback", async() => {
+                                await stakingFactory.connect(alice).approve(stakingFactory.address, shares);
+                            });  
+                            it("without redeem role", async () => {
+                                await expect(stakingFactory.connect(alice)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith(
+                                    [
+                                        "AccessControl: account ",
+                                        (alice.address).toLowerCase(),
+                                        " is missing role ",
+                                        "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
+                                    ].join("")
+                                );
+                            });
+                            it("without redeem role even if passed time", async () => {
+                                // pass some mtime
+                                await time.increase(lockupIntervalCount*dayInSeconds+9);    
+
+                                await expect(stakingFactory.connect(alice)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith(
+                                    [
+                                        "AccessControl: account ",
+                                        (alice.address).toLowerCase(),
+                                        " is missing role ",
+                                        "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
+                                    ].join("")
+                                );
+
+                            });
+                        });  
+
+                        
+                        describe("if grant role", function () {
+                            beforeEach("before each callback", async() => {
+                                // grant role to alice
+                                await stakingFactory.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
+                            });
+
+                            it("without approve", async () => {
+                                await expect(stakingFactory.connect(bob)["redeemAndRemoveLiquidity(uint256)"](shares)).to.be.revertedWith("Amount exceeds allowance");
+                            });
+                           
+                        });
+                    });         
+
                 });
                 describe("should RRL", function () {
-                    xit("successfull", async () => {
+                    it("successfull", async () => {
                         // pass some mtime
                         await time.increase(lockupIntervalCount*dayInSeconds+9);    
                         // grant role
@@ -780,90 +944,6 @@ describe("Staking contract tests", function () {
             });
            
         });      
-               
-
-/*                
-                describe("redeem via approve and call redeem", function() {
-                    xit("shouldnt redeem until time expire", async () => {
-                        await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("Amount exceeds allowance");
-                        await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
-                        await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
-                    });
-                    xit("redeem tokens", async () => {
-                    
-                        // pass some mtime
-                        await time.increase(DaysCount*dayInSeconds+9);
-                        await expect(stakingInstance.connect(bob).redeem(shares)).to.be.revertedWith("Amount exceeds allowance");
-                        await stakingInstance.connect(bob).approve(stakingInstance.address, shares);
-                        await stakingInstance.connect(bob).redeem(shares);
-                        
-                    });    
-                    
-
-                }); 
-               
-
-    */
-
-                    
-    
-
-            // left for erc777
-            // xit('buyAddLiquidityAndStake ERC777 tokensReceived', async () => {
-                
-            //     await UniswapRouterFactoryInstance.createPair(ERC20MintableInstanceToken1.address, ERC777MintableInstanceToken1.address);
-                
-            //     let pairAddress = await UniswapRouterFactoryInstance.getPair(ERC20MintableInstanceToken1.address, ERC777MintableInstanceToken1.address);
-                
-            //     pairInstance = await ERC20Mintable.at(pairAddress);
-                
-            //     await ERC20MintableInstanceToken1.mint(accountFive, oneToken07);
-            //     await ERC777MintableInstanceToken1.mint(accountFive, oneToken07);
-            //     await ERC20MintableInstanceToken1.approve(UniswapRouterInstance.address, oneToken07, { from: accountFive });
-            //     await ERC777MintableInstanceToken1.approve(UniswapRouterInstance.address, oneToken07, { from: accountFive });
-                
-            //     await UniswapRouterInstance.addLiquidity(
-            //         ERC20MintableInstanceToken1.address,
-            //         ERC777MintableInstanceToken1.address,
-            //         oneToken07,
-            //         oneToken07,
-            //         0,
-            //         0,
-            //         accountFive,
-            //         Math.floor(Date.now()/1000)+(lockupIntervalCount*interval)
-            //         , { from: accountFive }
-            //     );
-                
-            //     //tmpTr = await StakingFactoryInstance.produce(ERC20MintableInstanceToken2.address, ERC20MintableInstanceToken1.address, lockupIntervalCount, {from: accountFive });
-            //     tmpTr = await StakingFactoryInstance.methods['produce(address,address,uint256)'](ERC777MintableInstanceToken1.address, ERC20MintableInstanceToken1.address, lockupIntervalCount, {from: accountFive });
-                
-                
-            //     let StakingContractInstance_ERC20_777 = await StakingContract.at(getArgs(tmpTr, "InstanceCreated").instance);
-                
-            //     await ERC777MintableInstanceToken1.mint(accountTwo, oneToken);
-                
-            //     // approve and buyLiquidityAndStake
-            //     await ERC777MintableInstanceToken1.transfer(StakingContractInstance_ERC20_777.address, oneToken, { from: accountTwo });
-                
-            //     let shares = await StakingContractInstance_ERC20_777.balanceOf(accountTwo);
-            //     let lptokens = await pairInstance.balanceOf(StakingContractInstance_ERC20_777.address);
-            //     // console.log('after Adding liquidity        = ',BigNumber(lptokens).toString());
-            //     // console.log('after Adding liquidity shares = ',BigNumber(shares).toString());
-                
-            //     // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
-            //     assert.equal(BigNumber(lptokens).toString(), BigNumber(shares).toString(), "error");
-                
-            //     //----------
-            //     await ERC777MintableInstanceToken1.mint(accountTwo, oneToken);
-            //     await ERC777MintableInstanceToken1.approve(StakingContractInstance_ERC20_777.address, oneToken, { from: accountTwo });
-            //     await StakingContractInstance_ERC20_777.methods['buyLiquidityAndStake(uint256)'](oneToken, { from: accountTwo });
-                
-            //     let shares2 = await StakingContractInstance_ERC20_777.balanceOf(accountTwo);
-                
-            //     console.log('shares=',shares.toString());
-            //     console.log('shares2=',shares2.toString());
-            // });    
-
         
     });
 

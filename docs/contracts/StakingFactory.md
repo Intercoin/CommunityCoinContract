@@ -8,53 +8,50 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
-|<a href="#ADMIN_ROLE">ADMIN_ROLE</a>|everyone||
-|<a href="#DEFAULT_ADMIN_ROLE">DEFAULT_ADMIN_ROLE</a>|everyone||
-|<a href="#REDEEM_ROLE">REDEEM_ROLE</a>|everyone||
-|<a href="#allowance">allowance</a>|everyone||
-|<a href="#approve">approve</a>|everyone||
-|<a href="#authorizeOperator">authorizeOperator</a>|everyone||
-|<a href="#balanceOf">balanceOf</a>|everyone||
-|<a href="#burn">burn</a>|everyone||
-|<a href="#decimals">decimals</a>|everyone||
-|<a href="#defaultOperators">defaultOperators</a>|everyone||
-|<a href="#discountSensitivity">discountSensitivity</a>|everyone||
-|<a href="#getInstance">getInstance</a>|everyone||
+|<a href="#allowance">allowance</a>|everyone|everyone|
+|<a href="#approve">approve</a>|everyone|part of ERC777:approve|
+|<a href="#authorizeOperator">authorizeOperator</a>|everyone|everyone|
+|<a href="#balanceOf">balanceOf</a>|everyone|everyone|
+|<a href="#burn">burn</a>|everyone|everyone|
+|<a href="#decimals">decimals</a>|everyone|everyone|
+|<a href="#defaultOperators">defaultOperators</a>|everyone|everyone|
+|<a href="#discountSensitivity">discountSensitivity</a>|everyone|everyone|
+|<a href="#getInstance">getInstance</a>|everyone|everyone|
 |<a href="#getInstanceInfo">getInstanceInfo</a>|everyone|view instance info|
-|<a href="#getRoleAdmin">getRoleAdmin</a>|everyone||
-|<a href="#getRoleMember">getRoleMember</a>|everyone||
-|<a href="#getRoleMemberCount">getRoleMemberCount</a>|everyone||
-|<a href="#grantRole">grantRole</a>|everyone||
-|<a href="#granularity">granularity</a>|everyone||
-|<a href="#hasRole">hasRole</a>|everyone||
-|<a href="#hook">hook</a>|everyone||
-|<a href="#implementation">implementation</a>|everyone||
-|<a href="#instances">instances</a>|everyone||
-|<a href="#instancesCount">instancesCount</a>|everyone|view amount of created instances|
-|<a href="#isOperatorFor">isOperatorFor</a>|everyone||
+|<a href="#getRoleAdmin">getRoleAdmin</a>|everyone|everyone|
+|<a href="#getRoleMember">getRoleMember</a>|everyone|everyone|
+|<a href="#getRoleMemberCount">getRoleMemberCount</a>|everyone|everyone|
+|<a href="#grantRole">grantRole</a>|everyone|everyone|
+|<a href="#granularity">granularity</a>|everyone|everyone|
+|<a href="#hasRole">hasRole</a>|everyone|everyone|
+|<a href="#hook">hook</a>|everyone|everyone|
+|<a href="#implementation">implementation</a>|everyone|everyone|
+|<a href="#instances">instances</a>|everyone|everyone|
+|<a href="#instancesCount">instancesCount</a>|view amount of created instances|view amount of created instances|
+|<a href="#isOperatorFor">isOperatorFor</a>|everyone|everyone|
 |<a href="#issueWalletTokens">issueWalletTokens</a>|staking-pool|distibute wallet tokens|
-|<a href="#name">name</a>|everyone||
-|<a href="#operatorBurn">operatorBurn</a>|everyone||
-|<a href="#operatorSend">operatorSend</a>|everyone||
-|<a href="#owner">owner</a>|everyone||
+|<a href="#name">name</a>|everyone|everyone|
+|<a href="#operatorBurn">operatorBurn</a>|everyone|everyone|
+|<a href="#operatorSend">operatorSend</a>|everyone|everyone|
+|<a href="#owner">owner</a>|everyone|everyone|
 |<a href="#produce">produce</a>|everyone|creation instance with simple options|
 |<a href="#produce">produce</a>|owner|creation instance with extended options|
 |<a href="#redeem">redeem</a>|everyone|redeem tokens|
 |<a href="#redeem">redeem</a>|everyone|redeem tokens|
 |<a href="#redeemAndRemoveLiquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity|
 |<a href="#redeemAndRemoveLiquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity|
-|<a href="#renounceOwnership">renounceOwnership</a>|everyone||
-|<a href="#renounceRole">renounceRole</a>|everyone||
-|<a href="#revokeOperator">revokeOperator</a>|everyone||
-|<a href="#revokeRole">revokeRole</a>|everyone||
-|<a href="#send">send</a>|everyone||
-|<a href="#supportsInterface">supportsInterface</a>|everyone||
-|<a href="#symbol">symbol</a>|everyone||
+|<a href="#renounceOwnership">renounceOwnership</a>|everyone|everyone|
+|<a href="#renounceRole">renounceRole</a>|everyone|everyone|
+|<a href="#revokeOperator">revokeOperator</a>|everyone|everyone|
+|<a href="#revokeRole">revokeRole</a>|everyone|everyone|
+|<a href="#send">send</a>|everyone|everyone|
+|<a href="#supportsInterface">supportsInterface</a>|everyone|everyone|
+|<a href="#symbol">symbol</a>|everyone|everyone|
 |<a href="#tokensReceived">tokensReceived</a>|everyone|part of {IERC777RecipientUpgradeable}|
-|<a href="#totalSupply">totalSupply</a>|everyone||
-|<a href="#transfer">transfer</a>|everyone||
-|<a href="#transferFrom">transferFrom</a>|everyone||
-|<a href="#transferOwnership">transferOwnership</a>|everyone||
+|<a href="#totalSupply">totalSupply</a>|everyone|everyone|
+|<a href="#transfer">transfer</a>|everyone|everyone|
+|<a href="#transferFrom">transferFrom</a>|everyone|everyone|
+|<a href="#transferOwnership">transferOwnership</a>|everyone|everyone|
 |<a href="#unstake">unstake</a>|everyone|unstake own tokens|
 |<a href="#viewLockedWalletTokens">viewLockedWalletTokens</a>|everyone|view locked tokens|
 ## *Constructor*
@@ -256,36 +253,6 @@ Arguments
 
 
 ## *Functions*
-### ADMIN_ROLE
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | bytes32 |  |
-
-
-
-### DEFAULT_ADMIN_ROLE
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | bytes32 |  |
-
-
-
-### REDEEM_ROLE
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | bytes32 |  |
-
-
-
 ### allowance
 
 > Details: See {IERC20-allowance}. Note that operator and allowance concepts are orthogonal: operators may not have allowance, and accounts with allowance may not be operators themselves.

@@ -1,6 +1,9 @@
 const path = require('path');
 const fs = require('fs');
 
+const dcmExtend = require('../docgen-custom-markdown-extend.js');
+
+
 function processBuildInfo(source, name, data) {
   const { abi, devdoc = {}, userdoc = {} } = data.output.contracts[source][name];
 
@@ -105,7 +108,12 @@ const renderMembers = (p, name, members) => {
     output = [
       //(p !== 'contractConstructor') ? `## ${p}` : `## *constructor*`,
       `## *${p}*`,
-    ...Object.values(members).map(function(m) { return [
+    ...Object.values(members).filter(function(m) {
+        if (additionally.exclude.indexOf(m.name) !== -1 ) {
+          return false; // skip
+        }
+        return true;
+      }).map(function(m) { return [
       m.type === 'contractConstructor'
         ? [
           '',
@@ -143,13 +151,29 @@ const renderMembers = (p, name, members) => {
     }
     return output;
   };
-const renderOverview = (members) => [
 
+// k - tagname
+// m - obj
+const smartView = (k,m) => {
+  return (
+    (typeof(additionally.fix[m.name]) === 'undefined' || typeof(additionally.fix[m.name][k]) === 'undefined')
+    ?
+    (typeof(m[k]) === 'undefined'? "everyone" : m[k])
+    :
+    additionally.fix[m.name][k]
+  )
+}
+const renderOverview = (members) => [
   '| **method name** | **called by** | **description** |',
   '|-|-|-|',
   members &&
   Object.keys(members).length > 0 &&
-  Object.values(members).map((m) => [
+  Object.values(members).filter(function(m) {
+    if (additionally.exclude.indexOf(m.name) !== -1 ) {
+      return false; // skip
+    }
+    return true;
+  }).map((m) => [
     m.type === 'contractConstructor'
       ? [
         `<a href="#сonstructor">сonstructor</a>`,
@@ -159,8 +183,8 @@ const renderOverview = (members) => [
       ].join('|')
       : '|'+[
         `<a href="#${m.name}">${m.name}</a>`,
-        typeof(m["custom:calledby"]) === 'undefined'? "everyone" : m["custom:calledby"] ,
-        typeof(m["custom:shortd"]) === 'undefined'? "" : m["custom:shortd"] ,
+        smartView("custom:calledby", m),
+        smartView("custom:shortd", m),
         // `***${name}.${m.name}(${renderArgumentList(
         //   m.inputs || []
         // )})${renderAttrs(m).filter((x) => x)}***`,
@@ -186,7 +210,7 @@ function renderContract(source, name, info) {
     '',
     'Once installed will be use methods:',
     '',
-    renderOverview(info.membersByType['function'],info.membersByType),
+    renderOverview(info.membersByType['function']),
     ...printOrder.map((p) => renderMembers(p.title, name, info.membersByType[p.name])),
   ];
   return output
@@ -195,16 +219,22 @@ function renderContract(source, name, info) {
     .join('\n');
 }
 
+
+var additionally;
+
 module.exports = async function (outputDirectory, data) {
 
   if (!fs.existsSync(outputDirectory)) {
     fs.mkdirSync(outputDirectory, { recursive: true });
   }
+  let dcmExtendData = dcmExtend();
   
   for (const c in data) {
     
     const [sourceFileName, contractName] = c.split(':');
-  
+
+    additionally = (typeof(dcmExtendData[sourceFileName]) === 'undefined' || Object.keys(dcmExtendData[sourceFileName]).length === 0) ? {'exclude':[],'fix':{}} : dcmExtendData[sourceFileName];
+    
     const buildInfo = processBuildInfo(sourceFileName, contractName, data[c]);
 
     const text = renderContract(sourceFileName, contractName, buildInfo);

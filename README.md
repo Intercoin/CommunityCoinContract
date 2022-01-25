@@ -7,3 +7,9 @@ TBD
 ## Contracts MD
 [StakingFactory.md](docs/contracts/StakingFactory.md)<br>
 [StakingContract.md](docs/contracts/StakingContract.md)<br>
+
+## dev notes
+ways to redeem:
+- burn tokens via ERC777::burn
+- send tokens directly to factory contract
+- call redeem method

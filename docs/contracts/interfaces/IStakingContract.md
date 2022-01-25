@@ -8,9 +8,9 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
-|<a href="#initialize">initialize</a>|everyone||
-|<a href="#redeem">redeem</a>|everyone||
-|<a href="#redeemAndRemoveLiquidity">redeemAndRemoveLiquidity</a>|everyone||
+|<a href="#initialize">initialize</a>|everyone|everyone|
+|<a href="#redeem">redeem</a>|everyone|everyone|
+|<a href="#redeemAndRemoveLiquidity">redeemAndRemoveLiquidity</a>|everyone|everyone|
 ## *Functions*
 ### initialize
 

@@ -10,25 +10,25 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
-|<a href="#allowance">allowance</a>|everyone||
-|<a href="#approve">approve</a>|everyone||
-|<a href="#authorizeOperator">authorizeOperator</a>|everyone||
-|<a href="#balanceOf">balanceOf</a>|everyone||
-|<a href="#burn">burn</a>|everyone||
-|<a href="#decimals">decimals</a>|everyone||
-|<a href="#defaultOperators">defaultOperators</a>|everyone||
-|<a href="#granularity">granularity</a>|everyone||
-|<a href="#isOperatorFor">isOperatorFor</a>|everyone||
-|<a href="#mint">mint</a>|everyone||
-|<a href="#name">name</a>|everyone||
-|<a href="#operatorBurn">operatorBurn</a>|everyone||
-|<a href="#operatorSend">operatorSend</a>|everyone||
-|<a href="#revokeOperator">revokeOperator</a>|everyone||
-|<a href="#send">send</a>|everyone||
-|<a href="#symbol">symbol</a>|everyone||
-|<a href="#totalSupply">totalSupply</a>|everyone||
-|<a href="#transfer">transfer</a>|everyone||
-|<a href="#transferFrom">transferFrom</a>|everyone||
+|<a href="#allowance">allowance</a>|everyone|everyone|
+|<a href="#approve">approve</a>|everyone|everyone|
+|<a href="#authorizeOperator">authorizeOperator</a>|everyone|everyone|
+|<a href="#balanceOf">balanceOf</a>|everyone|everyone|
+|<a href="#burn">burn</a>|everyone|everyone|
+|<a href="#decimals">decimals</a>|everyone|everyone|
+|<a href="#defaultOperators">defaultOperators</a>|everyone|everyone|
+|<a href="#granularity">granularity</a>|everyone|everyone|
+|<a href="#isOperatorFor">isOperatorFor</a>|everyone|everyone|
+|<a href="#mint">mint</a>|everyone|everyone|
+|<a href="#name">name</a>|everyone|everyone|
+|<a href="#operatorBurn">operatorBurn</a>|everyone|everyone|
+|<a href="#operatorSend">operatorSend</a>|everyone|everyone|
+|<a href="#revokeOperator">revokeOperator</a>|everyone|everyone|
+|<a href="#send">send</a>|everyone|everyone|
+|<a href="#symbol">symbol</a>|everyone|everyone|
+|<a href="#totalSupply">totalSupply</a>|everyone|everyone|
+|<a href="#transfer">transfer</a>|everyone|everyone|
+|<a href="#transferFrom">transferFrom</a>|everyone|everyone|
 ## *Constructor*
 
 

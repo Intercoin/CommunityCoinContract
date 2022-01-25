@@ -8,10 +8,10 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
-|<a href="#getInstance">getInstance</a>|everyone||
-|<a href="#instances">instances</a>|everyone||
-|<a href="#instancesCount">instancesCount</a>|everyone||
-|<a href="#issueWalletTokens">issueWalletTokens</a>|everyone||
+|<a href="#getInstance">getInstance</a>|everyone|everyone|
+|<a href="#instances">instances</a>|everyone|everyone|
+|<a href="#instancesCount">instancesCount</a>|everyone|everyone|
+|<a href="#issueWalletTokens">issueWalletTokens</a>|everyone|everyone|
 ## *Events*
 ### InstanceCreated
 
