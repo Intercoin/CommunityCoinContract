@@ -8,39 +8,40 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
-|<a href="#allowance">allowance</a>|everyone|everyone|
-|<a href="#approve">approve</a>|everyone|everyone|
-|<a href="#authorizeOperator">authorizeOperator</a>|everyone|everyone|
-|<a href="#balanceOf">balanceOf</a>|everyone|everyone|
-|<a href="#burn">burn</a>|everyone|everyone|
-|<a href="#buyLiquidityAndStake">buyLiquidityAndStake</a>|everyone|everyone|
-|<a href="#buyLiquidityAndStake">buyLiquidityAndStake</a>|everyone|everyone|
-|<a href="#buyLiquidityAndStake">buyLiquidityAndStake</a>|everyone|everyone|
-|<a href="#calculateSqrt">calculateSqrt</a>|everyone|everyone|
-|<a href="#decimals">decimals</a>|everyone|everyone|
-|<a href="#defaultOperators">defaultOperators</a>|everyone|everyone|
-|<a href="#granularity">granularity</a>|everyone|everyone|
-|<a href="#initialize">initialize</a>|everyone|everyone|
-|<a href="#isOperatorFor">isOperatorFor</a>|everyone|everyone|
-|<a href="#lpClaimFraction">lpClaimFraction</a>|everyone|everyone|
-|<a href="#name">name</a>|everyone|everyone|
-|<a href="#operatorBurn">operatorBurn</a>|everyone|everyone|
-|<a href="#operatorSend">operatorSend</a>|everyone|everyone|
-|<a href="#redeem">redeem</a>|everyone|everyone|
-|<a href="#redeemAndRemoveLiquidity">redeemAndRemoveLiquidity</a>|everyone|everyone|
-|<a href="#reserveToken">reserveToken</a>|everyone|everyone|
-|<a href="#reserveTokenClaimFraction">reserveTokenClaimFraction</a>|everyone|everyone|
-|<a href="#revokeOperator">revokeOperator</a>|everyone|everyone|
-|<a href="#send">send</a>|everyone|everyone|
-|<a href="#stakeLiquidity">stakeLiquidity</a>|everyone|everyone|
-|<a href="#symbol">symbol</a>|everyone|everyone|
-|<a href="#tokensReceived">tokensReceived</a>|everyone|everyone|
-|<a href="#totalSupply">totalSupply</a>|everyone|everyone|
-|<a href="#tradedToken">tradedToken</a>|everyone|everyone|
-|<a href="#tradedTokenClaimFraction">tradedTokenClaimFraction</a>|everyone|everyone|
-|<a href="#transfer">transfer</a>|everyone|everyone|
-|<a href="#transferFrom">transferFrom</a>|everyone|everyone|
-|<a href="#uniswapV2Pair">uniswapV2Pair</a>|everyone|everyone|
+|<a href="#fraction">FRACTION</a>|everyone||
+|<a href="#allowance">allowance</a>|everyone||
+|<a href="#approve">approve</a>|everyone||
+|<a href="#authorizeoperator">authorizeOperator</a>|everyone||
+|<a href="#balanceof">balanceOf</a>|everyone||
+|<a href="#burn">burn</a>|everyone||
+|<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via paying token|
+|<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via reserveToken|
+|<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via ETH|
+|<a href="#calculatesqrt">calculateSqrt</a>|everyone||
+|<a href="#decimals">decimals</a>|everyone||
+|<a href="#defaultoperators">defaultOperators</a>|everyone||
+|<a href="#granularity">granularity</a>|everyone||
+|<a href="#initialize">initialize</a>|everyone|initialize method. Called once by the factory at time of deployment|
+|<a href="#isoperatorfor">isOperatorFor</a>|everyone||
+|<a href="#lpclaimfraction">lpClaimFraction</a>|everyone||
+|<a href="#name">name</a>|everyone||
+|<a href="#operatorburn">operatorBurn</a>|everyone||
+|<a href="#operatorsend">operatorSend</a>|everyone||
+|<a href="#redeem">redeem</a>|factory|redeem lp tokens|
+|<a href="#redeemandremoveliquidity">redeemAndRemoveLiquidity</a>|factory|redeem and remove liquidity|
+|<a href="#reservetoken">reserveToken</a>|everyone||
+|<a href="#reservetokenclaimfraction">reserveTokenClaimFraction</a>|everyone||
+|<a href="#revokeoperator">revokeOperator</a>|everyone||
+|<a href="#send">send</a>|everyone||
+|<a href="#stakeliquidity">stakeLiquidity</a>|everyone|way to stake LP tokens|
+|<a href="#symbol">symbol</a>|everyone||
+|<a href="#tokensreceived">tokensReceived</a>|everyone||
+|<a href="#totalsupply">totalSupply</a>|everyone||
+|<a href="#tradedtoken">tradedToken</a>|everyone||
+|<a href="#tradedtokenclaimfraction">tradedTokenClaimFraction</a>|everyone||
+|<a href="#transfer">transfer</a>|everyone||
+|<a href="#transferfrom">transferFrom</a>|everyone||
+|<a href="#uniswapv2pair">uniswapV2Pair</a>|everyone||
 ## *Events*
 ### Approval
 
@@ -167,6 +168,18 @@ Arguments
 
 
 ## *Functions*
+### FRACTION
+
+> Notice: `FRACTION` constant - 100000
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | uint64 |  |
+
+
+
 ### allowance
 
 > Details: See {IERC20-allowance}. Note that operator and allowance concepts are orthogonal: operators may not have allowance, and accounts with allowance may not be operators themselves.
@@ -368,6 +381,8 @@ Outputs
 
 ### lpClaimFraction
 
+> Notice: fraction of LP token multiplied by `FRACTION`
+
 Outputs
 
 | **name** | **type** | **description** |
@@ -427,8 +442,8 @@ Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
-| account | address |  |
-| amount | uint256 | The number of shares that will be redeemed. |
+| account | address | account address will redeemed from!!! |
+| amount | uint256 | The number of shares that will be redeemed.!!!! |
 
 
 
@@ -440,12 +455,14 @@ Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
-| account | address |  |
+| account | address | account address will redeemed from |
 | amount | uint256 | The number of shares that will be redeemed. |
 
 
 
 ### reserveToken
+
+> Notice: address of reserve token. ie WETH,USDC,USDT,etc
 
 Outputs
 
@@ -456,6 +473,8 @@ Outputs
 
 
 ### reserveTokenClaimFraction
+
+> Notice: fraction of reserved token multiplied by `FRACTION`
 
 Outputs
 
@@ -548,6 +567,8 @@ Outputs
 
 ### tradedToken
 
+> Notice: address of traded token. ie investor token - ITR
+
 Outputs
 
 | **name** | **type** | **description** |
@@ -557,6 +578,8 @@ Outputs
 
 
 ### tradedTokenClaimFraction
+
+> Notice: fraction of traded token multiplied by `FRACTION`
 
 Outputs
 
@@ -606,6 +629,8 @@ Outputs
 
 
 ### uniswapV2Pair
+
+> Notice: uniswap v2 pair
 
 Outputs
 

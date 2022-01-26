@@ -17,19 +17,47 @@ import "./interfaces/IStakingFactory.sol";
 contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, IStakingContract/*, IERC777SenderUpgradeable*/ {
  
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
-    
+
     // slot 0
+    /**
+    * @custom:shortd address of traded token. ie investor token - ITR
+    * @notice address of traded token. ie investor token - ITR
+    */
     address public tradedToken;
+    /**
+    * @custom:shortd fraction of traded token multiplied by `FRACTION`
+    * @notice fraction of traded token multiplied by `FRACTION`
+    */
     uint64 public tradedTokenClaimFraction;
+
     // slot 1
+    /**
+    * @custom:shortd address of reserve token. ie WETH,USDC,USDT,etc
+    * @notice address of reserve token. ie WETH,USDC,USDT,etc
+    */
     address public reserveToken;
+    /**
+    * @custom:shortd fraction of reserved token multiplied by `FRACTION`
+    * @notice fraction of reserved token multiplied by `FRACTION`
+    */
     uint64 public reserveTokenClaimFraction;
+
     // slot 2
     address private _token0;
+    /**
+    * @custom:shortd fraction of LP token multiplied by `FRACTION`
+    * @notice fraction of LP token multiplied by `FRACTION`
+    */
     uint64 public lpClaimFraction;
+
     // slot 3
     address private _token1;
-    uint64 internal constant FRACTION = 100000;
+    /**
+    * @custom:shortd `FRACTION` constant - 100000
+    * @notice `FRACTION` constant - 100000
+    */
+    uint64 public constant FRACTION = 100000;
+
     // slot 4
     address internal constant uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     // slot 5
@@ -41,6 +69,10 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     // slot 7
     IUniswapV2Router02 internal UniswapV2Router02;
     // slot 8
+    /**
+    * @custom:shortd uniswap v2 pair
+    * @notice uniswap v2 pair
+    */
     IUniswapV2Pair public uniswapV2Pair;
     // slot 9
     // factory address
@@ -58,7 +90,9 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
 
-    /// @notice Special function receive ether
+    /**
+    * @notice Special function receive ether
+    */
     receive() external payable {
     }
 
@@ -94,110 +128,7 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     {
     }
     
-    ////////////////////////////////////////////////////////////////////////
-    // public section //////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
-    /**
-    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
-    * @param amount The number of shares that will be redeemed.
-    */
-    function redeem(
-        address account,
-        uint256 amount
-    ) 
-        external
-        override 
-        onlyFactory
-    {
-        uint256 amount2Redeem = __redeem(account, amount);
-        uniswapV2Pair.transfer(account, amount2Redeem);
-    }
-
-    /**
-    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
-    * @param amount The number of shares that will be redeemed.
-    */
-    function redeemAndRemoveLiquidity(
-        address account,
-        uint256 amount
-    ) 
-        external
-        override 
-        onlyFactory 
-    {
-        __redeemAndRemoveLiquidity(account, amount);
-    }
-
-    /** 
-    * @notice payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap. 
-    * Finally will add to liquidity pool and stake it. User will obtain shares 
-    */
-    function buyLiquidityAndStake(
-    ) 
-        public 
-        payable 
-    {
-        require(msg.value>0, "INSUFFICIENT_BALANCE");
-        uint256 amountETH = msg.value;
-        IWETH(WETH).deposit{value: amountETH}();
-        uint256 amountReserveToken = doSwapOnUniswap(WETH, reserveToken, amountETH);
-        _buyLiquidityAndStake(msg.sender, amountReserveToken);
-    }
     
-    /** 
-    * @notice method will receive payingToken token, exchange to reserve token via uniswap. 
-    * Finally will add to liquidity pool and stake it. User will obtain shares 
-    */
-    function buyLiquidityAndStake(
-        address payingToken, 
-        uint256 amount
-    ) 
-        public 
-    {
-        IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
-        uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
-        _buyLiquidityAndStake(msg.sender, amountReserveToken);
-    }
-    
-    /** 
-    * @notice method will receive reserveToken token then will add to liquidity pool and stake it. User will obtain shares 
-    */
-    function buyLiquidityAndStake(
-        uint256 tokenBAmount
-    ) 
-        public 
-    {
-        IERC20Upgradeable(reserveToken).transferFrom(msg.sender, address(this), tokenBAmount);
-        _buyLiquidityAndStake(msg.sender, tokenBAmount);
-    }
-       
-    /**
-    * @notice way to stake LP tokens of current pool(traded/reserve tokens)
-    * @dev keep in mind that user can redeem lp token from other staking contract with same pool but different duration and use here.
-    * @param lpAmount liquidity tokens's amount
-    */
-    function stakeLiquidity(
-        uint256 lpAmount
-    ) public {
-        require (lpAmount > 0, "AMOUNT_EMPTY" );
-        IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(
-            msg.sender, address(this), lpAmount
-        );
-        (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
-        uint256 priceBeforeStake = (
-            _token0 == reserveToken
-                ? FRACTION * reserve0 / reserve1
-                : FRACTION * reserve1 / reserve0
-        );
-        _stake(msg.sender, lpAmount, priceBeforeStake);
-    }
-
-    ////////////////////////////////////////////////////////////////////////
-    // internal section ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
-
     /**
     * @notice initialize method. Called once by the factory at time of deployment
     * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
@@ -205,6 +136,7 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `FRACTION`. 
     * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `FRACTION`. 
     * @param lpClaimFraction_ fraction of LP token multiplied by `FRACTION`. 
+    * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function initialize(
         address reserveToken_,
@@ -242,6 +174,121 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
         _token1 = uniswapV2Pair.token1();
 
     }
+
+    ////////////////////////////////////////////////////////////////////////
+    // public section //////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+
+    /**
+    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+    * @param account account address will redeemed from!!!
+    * @param amount The number of shares that will be redeemed.!!!!
+    * @custom:calledby factory
+    * @custom:shortd redeem lp tokens
+    */
+    function redeem(
+        address account,
+        uint256 amount
+    ) 
+        external
+        override 
+        onlyFactory
+    {
+        uint256 amount2Redeem = __redeem(account, amount);
+        uniswapV2Pair.transfer(account, amount2Redeem);
+    }
+
+    /**
+    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
+    * @param account account address will redeemed from
+    * @param amount The number of shares that will be redeemed.
+    * @custom:calledby factory
+    * @custom:shortd redeem and remove liquidity
+    */
+    function redeemAndRemoveLiquidity(
+        address account,
+        uint256 amount
+    ) 
+        external
+        override 
+        onlyFactory 
+    {
+        __redeemAndRemoveLiquidity(account, amount);
+    }
+
+    /** 
+    * @notice payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap. 
+    * Finally will add to liquidity pool and stake it. User will obtain shares 
+    * @custom:shortd  the way to buy liquidity and stake via ETH
+    */
+    function buyLiquidityAndStake(
+    ) 
+        public 
+        payable 
+    {
+        require(msg.value>0, "INSUFFICIENT_BALANCE");
+        uint256 amountETH = msg.value;
+        IWETH(WETH).deposit{value: amountETH}();
+        uint256 amountReserveToken = doSwapOnUniswap(WETH, reserveToken, amountETH);
+        _buyLiquidityAndStake(msg.sender, amountReserveToken);
+    }
+    
+    /** 
+    * @notice method will receive payingToken token, exchange to reserve token via uniswap. 
+    * Finally will add to liquidity pool and stake it. User will obtain shares 
+    * @custom:shortd  the way to buy liquidity and stake via paying token
+    */
+    function buyLiquidityAndStake(
+        address payingToken, 
+        uint256 amount
+    ) 
+        public 
+    {
+        IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
+        uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
+        _buyLiquidityAndStake(msg.sender, amountReserveToken);
+    }
+    
+    /** 
+    * @notice method will receive reserveToken token then will add to liquidity pool and stake it. User will obtain shares 
+    * @custom:shortd  the way to buy liquidity and stake via reserveToken
+    */
+    function buyLiquidityAndStake(
+        uint256 tokenBAmount
+    ) 
+        public 
+    {
+        IERC20Upgradeable(reserveToken).transferFrom(msg.sender, address(this), tokenBAmount);
+        _buyLiquidityAndStake(msg.sender, tokenBAmount);
+    }
+       
+    /**
+    * @notice way to stake LP tokens of current pool(traded/reserve tokens)
+    * @dev keep in mind that user can redeem lp token from other staking contract with same pool but different duration and use here.
+    * @param lpAmount liquidity tokens's amount
+    * @custom:shortd way to stake LP tokens
+    */
+    function stakeLiquidity(
+        uint256 lpAmount
+    ) 
+        public 
+    {
+        require (lpAmount > 0, "AMOUNT_EMPTY" );
+        IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(
+            msg.sender, address(this), lpAmount
+        );
+        (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
+        uint256 priceBeforeStake = (
+            _token0 == reserveToken
+                ? FRACTION * reserve0 / reserve1
+                : FRACTION * reserve1 / reserve0
+        );
+        _stake(msg.sender, lpAmount, priceBeforeStake);
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    // internal section ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
 
     function _redeem(
         address sender, 

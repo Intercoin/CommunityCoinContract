@@ -35,7 +35,9 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     bytes32 public constant REDEEM_ROLE = "redeem";
 
     address public immutable implementation;
+
     IHook public hook; // hook used to bonus calculation
+
     uint256 public immutable discountSensitivity;
 
     uint256 totalUnstakeable;
@@ -64,10 +66,9 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
         uint64 lpClaimFraction;
         bool exists;
     }
+
     mapping(address => InstanceInfo) private _instanceInfos;
 
-    ////////////////////
-    
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
@@ -91,7 +92,6 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     }
 
     /**
-    * @notice contructor
     * @param impl address of pool(StakingContract) implementation
     * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
@@ -124,7 +124,6 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     * @dev view amount of created instances
     * @return amount amount instances
     * @custom:shortd view amount of created instances
-    * @custom:calledby view amount of created instances
     */
     function instancesCount()
         external 
@@ -332,7 +331,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
     * @param amount The number of wallet tokens that will be redeemed.
     * @param preferredInstances preferred instances for redeem first
-    * @custom:shortd redeem tokens
+    * @custom:shortd redeem tokens with preferredInstances
     */
     function redeem(
         uint256 amount,
@@ -372,7 +371,7 @@ contract StakingFactory is IStakingFactory, Ownable,  AccessControlEnumerable, E
     * @notice way to redeem and remove liquidity via approve/transferFrom wallet tokens. User will obtain reserve and traded tokens back
     * @param amount The number of wallet tokens that will be redeemed.
     * @param preferredInstances preferred instances for redeem first
-    * @custom:shortd redeem tokens and remove liquidity
+    * @custom:shortd redeem tokens and remove liquidity with preferredInstances
     */
     function redeemAndRemoveLiquidity(
         uint256 amount,

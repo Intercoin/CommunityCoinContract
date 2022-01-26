@@ -1,6 +1,6 @@
 # StakingFactory
 
-contracts/StakingFactory.sol
+This it ERC777 contract "WalletTokens".<br>Providing a functionality to create StakingContract (pools) and way to redeem WalletTokens from this pools where user can stake own tokens.
 
 # Overview
 
@@ -8,52 +8,47 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
-|<a href="#allowance">allowance</a>|everyone|everyone|
-|<a href="#approve">approve</a>|everyone|part of ERC777:approve|
-|<a href="#authorizeOperator">authorizeOperator</a>|everyone|everyone|
-|<a href="#balanceOf">balanceOf</a>|everyone|everyone|
-|<a href="#burn">burn</a>|everyone|everyone|
-|<a href="#decimals">decimals</a>|everyone|everyone|
-|<a href="#defaultOperators">defaultOperators</a>|everyone|everyone|
-|<a href="#discountSensitivity">discountSensitivity</a>|everyone|everyone|
-|<a href="#getInstance">getInstance</a>|everyone|everyone|
-|<a href="#getInstanceInfo">getInstanceInfo</a>|everyone|view instance info|
-|<a href="#getRoleAdmin">getRoleAdmin</a>|everyone|everyone|
-|<a href="#getRoleMember">getRoleMember</a>|everyone|everyone|
-|<a href="#getRoleMemberCount">getRoleMemberCount</a>|everyone|everyone|
-|<a href="#grantRole">grantRole</a>|everyone|everyone|
-|<a href="#granularity">granularity</a>|everyone|everyone|
-|<a href="#hasRole">hasRole</a>|everyone|everyone|
-|<a href="#hook">hook</a>|everyone|everyone|
-|<a href="#implementation">implementation</a>|everyone|everyone|
-|<a href="#instances">instances</a>|everyone|everyone|
-|<a href="#instancesCount">instancesCount</a>|view amount of created instances|view amount of created instances|
-|<a href="#isOperatorFor">isOperatorFor</a>|everyone|everyone|
-|<a href="#issueWalletTokens">issueWalletTokens</a>|staking-pool|distibute wallet tokens|
-|<a href="#name">name</a>|everyone|everyone|
-|<a href="#operatorBurn">operatorBurn</a>|everyone|everyone|
-|<a href="#operatorSend">operatorSend</a>|everyone|everyone|
-|<a href="#owner">owner</a>|everyone|everyone|
+|<a href="#allowance">allowance</a>|everyone|part of ERC20|
+|<a href="#approve">approve</a>|everyone|part of ERC20|
+|<a href="#balanceof">balanceOf</a>|everyone|part of ERC777|
+|<a href="#burn">burn</a>|everyone|part of ERC777|
+|<a href="#discountsensitivity">discountSensitivity</a>|everyone|view fraction of discount applied in redeem groups|
+|<a href="#getinstance">getInstance</a>|everyone|instances list|
+|<a href="#getinstanceinfo">getInstanceInfo</a>|everyone|view instance info|
+|<a href="#getroleadmin">getRoleAdmin</a>|everyone|returns the admin role that controls `role`.|
+|<a href="#getrolemember">getRoleMember</a>|everyone|returns one of the accounts that have `role`|
+|<a href="#getrolemembercount">getRoleMemberCount</a>|everyone|returns the number of accounts that have `role`|
+|<a href="#grantrole">grantRole</a>|everyone|grants `role` to `account`|
+|<a href="#granularity">granularity</a>|everyone|part of ERC777|
+|<a href="#hasrole">hasRole</a>|everyone|returns `true` if `account` has been granted `role`|
+|<a href="#hook">hook</a>|everyone|view address of hook contract|
+|<a href="#implementation">implementation</a>|everyone|view address of pool implementation|
+|<a href="#instances">instances</a>|everyone|public list of created instances|
+|<a href="#instancescount">instancesCount</a>|everyone|view amount of created instances|
+|<a href="#isoperatorfor">isOperatorFor</a>|everyone|part of ERC777|
+|<a href="#issuewallettokens">issueWalletTokens</a>|staking-pool|distibute wallet tokens|
+|<a href="#name">name</a>|everyone|name of WalletToken|
+|<a href="#operatorburn">operatorBurn</a>|everyone|part of ERC777|
+|<a href="#operatorsend">operatorSend</a>|everyone|part of ERC777|
+|<a href="#owner">owner</a>|everyone|contract factory's owner |
 |<a href="#produce">produce</a>|everyone|creation instance with simple options|
 |<a href="#produce">produce</a>|owner|creation instance with extended options|
+|<a href="#redeem">redeem</a>|everyone|redeem tokens with preferredInstances|
 |<a href="#redeem">redeem</a>|everyone|redeem tokens|
-|<a href="#redeem">redeem</a>|everyone|redeem tokens|
-|<a href="#redeemAndRemoveLiquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity|
-|<a href="#redeemAndRemoveLiquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity|
-|<a href="#renounceOwnership">renounceOwnership</a>|everyone|everyone|
-|<a href="#renounceRole">renounceRole</a>|everyone|everyone|
-|<a href="#revokeOperator">revokeOperator</a>|everyone|everyone|
-|<a href="#revokeRole">revokeRole</a>|everyone|everyone|
-|<a href="#send">send</a>|everyone|everyone|
-|<a href="#supportsInterface">supportsInterface</a>|everyone|everyone|
-|<a href="#symbol">symbol</a>|everyone|everyone|
-|<a href="#tokensReceived">tokensReceived</a>|everyone|part of {IERC777RecipientUpgradeable}|
-|<a href="#totalSupply">totalSupply</a>|everyone|everyone|
-|<a href="#transfer">transfer</a>|everyone|everyone|
-|<a href="#transferFrom">transferFrom</a>|everyone|everyone|
-|<a href="#transferOwnership">transferOwnership</a>|everyone|everyone|
+|<a href="#redeemandremoveliquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity|
+|<a href="#redeemandremoveliquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity with preferredInstances|
+|<a href="#renounceownership">renounceOwnership</a>|owner|leaves the contract without owner and owner role|
+|<a href="#renouncerole">renounceRole</a>|owner|revokes `role` from the calling account.|
+|<a href="#revokeoperator">revokeOperator</a>|everyone|part of ERC777|
+|<a href="#revokerole">revokeRole</a>|owner|evokes `role` from `account`|
+|<a href="#send">send</a>|everyone|part of ERC777|
+|<a href="#symbol">symbol</a>|everyone|symbol of WalletToken|
+|<a href="#totalsupply">totalSupply</a>|everyone|total amount of WalletToken|
+|<a href="#transfer">transfer</a>|everyone|part of ERC777|
+|<a href="#transferfrom">transferFrom</a>|everyone|part of ERC777|
+|<a href="#transferownership">transferOwnership</a>|everyone|transfers ownership of the contract to a new account|
 |<a href="#unstake">unstake</a>|everyone|unstake own tokens|
-|<a href="#viewLockedWalletTokens">viewLockedWalletTokens</a>|everyone|view locked tokens|
+|<a href="#viewlockedwallettokens">viewLockedWalletTokens</a>|everyone|view locked tokens|
 ## *Constructor*
 
 
@@ -61,9 +56,9 @@ Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
-| impl | address |  |
-| hook_ | address |  |
-| discountSensitivity_ | uint256 |  |
+| impl | address | address of pool(StakingContract) implementation |
+| hook_ | address | address of contract implemented IHook interface and used to calculation bonus tokens amount |
+| discountSensitivity_ | uint256 | discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default) |
 
 
 
@@ -291,18 +286,6 @@ Outputs
 
 
 
-### authorizeOperator
-
-> Details: See {IERC777-authorizeOperator}.
-
-Arguments
-
-| **name** | **type** | **description** |
-|-|-|-|
-| operator | address |  |
-
-
-
 ### balanceOf
 
 > Details: Returns the amount of tokens owned by an account (`tokenHolder`).
@@ -334,31 +317,9 @@ Arguments
 
 
 
-### decimals
-
-> Details: See {ERC20-decimals}. Always returns 18, as per the [ERC777 EIP](https://eips.ethereum.org/EIPS/eip-777#backward-compatibility).
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | uint8 |  |
-
-
-
-### defaultOperators
-
-> Details: See {IERC777-defaultOperators}.
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | address[] |  |
-
-
-
 ### discountSensitivity
+
+> Details: view fraction of discount applied in redeem groups
 
 Outputs
 
@@ -369,6 +330,8 @@ Outputs
 
 
 ### getInstance
+
+> Details: instances list
 
 Arguments
 
@@ -509,6 +472,8 @@ Outputs
 
 ### hook
 
+> Details: view address of hook contract
+
 Outputs
 
 | **name** | **type** | **description** |
@@ -519,6 +484,8 @@ Outputs
 
 ### implementation
 
+> Details: view address of pool implementation
+
 Outputs
 
 | **name** | **type** | **description** |
@@ -528,6 +495,8 @@ Outputs
 
 
 ### instances
+
+> Details: public list of created instances
 
 Arguments
 
@@ -802,24 +771,6 @@ Arguments
 
 
 
-### supportsInterface
-
-> Details: See {IERC165-supportsInterface}.
-
-Arguments
-
-| **name** | **type** | **description** |
-|-|-|-|
-| interfaceId | bytes4 |  |
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | bool |  |
-
-
-
 ### symbol
 
 > Details: See {IERC777-symbol}.
@@ -829,23 +780,6 @@ Outputs
 | **name** | **type** | **description** |
 |-|-|-|
 | -/- | string |  |
-
-
-
-### tokensReceived
-
-> Notice: used to catch when used try to redeem by sending wallet tokens directly to contract see more in {IERC777RecipientUpgradeable::tokensReceived}
-
-Arguments
-
-| **name** | **type** | **description** |
-|-|-|-|
-| operator | address | address operator requesting the transfer |
-| from | address | address token holder address |
-| to | address | address recipient address |
-| amount | uint256 | uint256 amount of tokens to transfer |
-| userData | bytes | bytes extra information provided by the token holder (if any) |
-| operatorData | bytes | bytes extra information provided by the operator (if any) |
 
 
 
