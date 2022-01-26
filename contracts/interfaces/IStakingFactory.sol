@@ -9,4 +9,6 @@ interface IStakingFactory {
     function instances(uint index) external view returns (address instance);
     function instancesCount() external view returns (uint);
 
+    function issueWalletTokens(address account, uint256 amount, uint256 priceBeforeStake) external;
+
 }
