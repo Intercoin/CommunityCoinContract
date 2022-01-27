@@ -367,7 +367,7 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
         internal 
         returns(uint256 amountOut) 
     {
-        require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "approve failed.");
+        require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
         address[] memory path = new address[](2);
         path[0] = address(tokenIn);
         path[1] = address(tokenOut);
