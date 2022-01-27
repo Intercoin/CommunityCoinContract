@@ -1,8 +1,8 @@
 # StakingContract
 Contracts to let people stake various tokens and use the trust that was built up in Intercoin's factory code.
 
-## Diagram to represent usercase
-TBD
+## Diagrams
+[Sequence](https://github.com/Intercoin/StakingContract/wiki/Diagrams/sequence)
 
 ## Contracts MD
 [StakingFactory.md](docs/contracts/StakingFactory.md)<br>
