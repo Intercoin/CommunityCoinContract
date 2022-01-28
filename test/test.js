@@ -73,7 +73,7 @@ describe("Staking contract tests", function () {
         const StakingContractF = await ethers.getContractFactory("StakingContract");
         const MockHookF = await ethers.getContractFactory("MockHook");
         const ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
-        const ERC777Factory = await ethers.getContractFactory("ERC777Mintable");
+        
         
 
         implementation = await StakingContractF.deploy();
@@ -391,20 +391,6 @@ describe("Staking contract tests", function () {
                 tradedTokenClaimFraction,
                 lpClaimFraction 
             )).to.be.revertedWith("StakingFactory: PAIR_ALREADY_EXISTS");
-        });
-
-        it("should set symbol and name with prefix", async() => {
-            const nameSuffix= " Staking Token";
-            const symbolSuffix= ".STAKE";
-
-            const stakingName = await stakingInstance.name();
-            const stakingSymbol = await stakingInstance.symbol();
-            const tradedName = await erc20TradedToken.name();
-            const tradedSymbol = await erc20TradedToken.symbol();
-            
-            expect(stakingName).to.be.eq(tradedName.concat(nameSuffix));
-            expect(stakingSymbol).to.be.eq(tradedSymbol.concat(symbolSuffix));
-            
         });
 
         it("should revert if pair does not exists", async() => {

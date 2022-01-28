@@ -9,12 +9,16 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 //import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
+//import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
 import "./interfaces/IStakingContract.sol";
 import "./interfaces/IStakingFactory.sol";
 //import "hardhat/console.sol";
 
-contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, IStakingContract/*, IERC777SenderUpgradeable*/ {
+contract StakingContract is /*ERC777Upgradeable,*/Initializable, ContextUpgradeable, IERC777RecipientUpgradeable, IStakingContract/*, IERC777SenderUpgradeable*/ {
  
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
@@ -78,6 +82,8 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
     // factory address
     address internal factory;
     
+    IERC1820RegistryUpgradeable internal constant _ERC1820_REGISTRY = IERC1820RegistryUpgradeable(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+
     modifier onlyFactory() {
         require(factory == msg.sender);
         _;
@@ -150,15 +156,17 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
         override 
     {
         factory = msg.sender;
-        string memory otherName = ERC777Upgradeable(tradedToken_).name();
-        string memory otherSymbol = ERC777Upgradeable(tradedToken_).symbol();
+        // string memory otherName = ERC777Upgradeable(tradedToken_).name();
+        // string memory otherSymbol = ERC777Upgradeable(tradedToken_).symbol();
 
-        string memory name = string(abi.encodePacked(otherName, " Staking Token"));
-        string memory symbol = string(abi.encodePacked(otherSymbol, ".STAKE"));
+        // string memory name = string(abi.encodePacked(otherName, " Staking Token"));
+        // string memory symbol = string(abi.encodePacked(otherSymbol, ".STAKE"));
 
-        __ERC777_init(name, symbol, (new address[](0)));
+        // __ERC777_init(name, symbol, (new address[](0)));
 
         // register interfaces
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777Token"), address(this));
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC20Token"), address(this));
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
 
         (tradedToken, reserveToken, tradedTokenClaimFraction, reserveTokenClaimFraction, lpClaimFraction)
@@ -344,19 +352,6 @@ contract StakingContract is ERC777Upgradeable, IERC777RecipientUpgradeable, ISta
         virtual 
     {
         IStakingFactory(factory).issueWalletTokens(addr, amount, priceBeforeStake);
-    }
-    
-    function _beforeTokenTransfer(
-        address operator,
-        address from,
-        address to,
-        uint256 amount
-    ) 
-        internal 
-        virtual 
-        override 
-    {
-        //---
     }
     
     function doSwapOnUniswap(
