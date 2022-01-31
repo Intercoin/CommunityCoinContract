@@ -1,517 +1,769 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
-//import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
-//import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-
+import "./interfaces/IHook.sol";
 import "./interfaces/IStakingContract.sol";
-import "./interfaces/IStakingFactory.sol";
+import "./interfaces/IStakingPool.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
+
+//import "./lib/PackedMapping32.sol";
+
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+//import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
+import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
+
+
 //import "hardhat/console.sol";
 
-contract StakingContract is /*ERC777Upgradeable,*/Initializable, ContextUpgradeable, IERC777RecipientUpgradeable, IStakingContract/*, IERC777SenderUpgradeable*/ {
- 
-    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
+contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControlEnumerableUpgradeable, ERC777Upgradeable, MinimumsBaseUpgradeable, IERC777RecipientUpgradeable {
+    using ClonesUpgradeable for address;
+    // using PackedMapping32 for PackedMapping32.Map;
+    //using EnumerableSet for EnumerableSet.AddressSet;
 
-    // slot 0
     /**
-    * @custom:shortd address of traded token. ie investor token - ITR
-    * @notice address of traded token. ie investor token - ITR
+    * strategy ENUM VARS used in calculation algos
     */
-    address public tradedToken;
-    /**
-    * @custom:shortd fraction of traded token multiplied by `FRACTION`
-    * @notice fraction of traded token multiplied by `FRACTION`
-    */
-    uint64 public tradedTokenClaimFraction;
+    enum Strategy{ UNSTAKE, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
+    
+    uint32 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
+    uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
-    // slot 1
-    /**
-    * @custom:shortd address of reserve token. ie WETH,USDC,USDT,etc
-    * @notice address of reserve token. ie WETH,USDC,USDT,etc
-    */
-    address public reserveToken;
-    /**
-    * @custom:shortd fraction of reserved token multiplied by `FRACTION`
-    * @notice fraction of reserved token multiplied by `FRACTION`
-    */
-    uint64 public reserveTokenClaimFraction;
+    bytes32 public constant ADMIN_ROLE = "admin";
+    bytes32 public constant REDEEM_ROLE = "redeem";
 
-    // slot 2
-    address private _token0;
-    /**
-    * @custom:shortd fraction of LP token multiplied by `FRACTION`
-    * @notice fraction of LP token multiplied by `FRACTION`
-    */
-    uint64 public lpClaimFraction;
+    address public implementation;
 
-    // slot 3
-    address private _token1;
-    /**
-    * @custom:shortd `FRACTION` constant - 100000
-    * @notice `FRACTION` constant - 100000
-    */
-    uint64 public constant FRACTION = 100000;
+    IHook public hook; // hook used to bonus calculation
 
-    // slot 4
-    address internal constant uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-    // slot 5
-    address internal constant uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
-    // slot 6
-    address internal WETH;
+    uint256 public discountSensitivity;
+
+    uint256 totalUnstakeable;
+    uint256 totalRedeemable;
+    //uint256 totalExtra;         // extra tokens minted by factory when staked
+
+    mapping(address => mapping(
+        address => mapping(
+            uint256 => address
+        )
+    )) public override getInstance;
+
+    address[] public override instances;
+    mapping(address => uint256) private _instanceIndexes;
+    mapping(address => address) private _instanceCreators;
+
+    // staked balance in instances. increase when stakes, descrease when unstake/redeem
+    mapping(address => uint256) private _instanceStaked;
+    
+    struct InstanceInfo {
+        address reserveToken;
+        uint64 duration;
+        address tradedToken;
+        uint64 reserveTokenClaimFraction;
+        uint64 tradedTokenClaimFraction;
+        uint64 lpClaimFraction;
+        bool exists;
+    }
+
+    mapping(address => InstanceInfo) private _instanceInfos;
+
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
-    // slot 7
-    IUniswapV2Router02 internal UniswapV2Router02;
-    // slot 8
-    /**
-    * @custom:shortd uniswap v2 pair
-    * @notice uniswap v2 pair
-    */
-    IUniswapV2Pair public uniswapV2Pair;
-    // slot 9
-    // factory address
-    address internal factory;
-    
-    IERC1820RegistryUpgradeable internal constant _ERC1820_REGISTRY = IERC1820RegistryUpgradeable(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
-    modifier onlyFactory() {
-        require(factory == msg.sender);
-        _;
-    }
+    //EnumerableSet.AddressSet private rewardTokensList;
+    //mapping(address => uint256) public rewardTokenRatios;
+    mapping(address => uint256) internal unstakeable;
+
+
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
-    
-    ////////////////////////////////////////////////////////////////////////
-    // external section ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
 
-    /**
-    * @notice Special function receive ether
-    */
-    receive() external payable {
+    modifier onlyStakingPool() {
+        require(_instanceInfos[msg.sender].exists == true);
+        _;
     }
 
-    // left when will be implemented
-    // function tokensToSend(
-    //     address operator,
-    //     address from,
-    //     address to,
-    //     uint256 amount,
-    //     bytes calldata userData,
-    //     bytes calldata operatorData
-    // )   override
-    //     virtual
-    //     external
-    // {
-    // }
-
-    
-    /**
-    * @notice used to catch when used try to redeem by sending shares directly to contract
-    * see more in {IERC777RecipientUpgradeable::tokensReceived}
-    */
-    function tokensReceived(
-        address /*operator*/,
-        address from,
-        address to,
-        uint256 amount,
-        bytes calldata /*userData*/,
-        bytes calldata /*operatorData*/
-    ) 
-        external 
-        override
-    {
+    modifier onlyRoleWithAccount(bytes32 role, address account) {
+        _checkRole(role, account);
+        _;
     }
-    
-    
+
     /**
-    * @notice initialize method. Called once by the factory at time of deployment
-    * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
-    * @param tradedToken_ address of traded token. ie investor token - ITR
-    * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `FRACTION`. 
-    * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `FRACTION`. 
-    * @param lpClaimFraction_ fraction of LP token multiplied by `FRACTION`. 
-    * @custom:shortd initialize method. Called once by the factory at time of deployment
+    * @param impl address of StakingContract implementation
+    * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
+    * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
     */
     function initialize(
-        address reserveToken_,
-        address tradedToken_, 
-        uint64 tradedTokenClaimFraction_, 
-        uint64 reserveTokenClaimFraction_,
-        uint64 lpClaimFraction_
+        address impl,
+        address hook_,
+        uint256 discountSensitivity_
     ) 
         initializer 
         external 
         override 
     {
-        factory = msg.sender;
-        // string memory otherName = ERC777Upgradeable(tradedToken_).name();
-        // string memory otherSymbol = ERC777Upgradeable(tradedToken_).symbol();
+        __Ownable_init();
+        __ERC777_init("Staking Tokens", "STAKE", (new address[](0)));
+        __MinimumsBaseUpgradeable_init(LOCKUP_INTERVAL);
+        __AccessControlEnumerable_init();
 
-        // string memory name = string(abi.encodePacked(otherName, " Staking Token"));
-        // string memory symbol = string(abi.encodePacked(otherSymbol, ".STAKE"));
+        implementation = impl;
 
-        // __ERC777_init(name, symbol, (new address[](0)));
+        hook = IHook(hook_);
 
+        discountSensitivity = discountSensitivity_;
+        
+        _grantRole(ADMIN_ROLE, msg.sender);
+        _setRoleAdmin(REDEEM_ROLE, ADMIN_ROLE);
         // register interfaces
-        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777Token"), address(this));
-        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC20Token"), address(this));
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
+    }
 
-        (tradedToken, reserveToken, tradedTokenClaimFraction, reserveTokenClaimFraction, lpClaimFraction)
-        = (tradedToken_, reserveToken_, tradedTokenClaimFraction_, reserveTokenClaimFraction_, lpClaimFraction_);
+    function transferOwnership(address newOwner) public virtual override onlyOwner {
+        super.transferOwnership(newOwner);
+        _revokeRole(ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, newOwner);
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////
+    // external section ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+
+    /**
+    * @dev view amount of created instances
+    * @return amount amount instances
+    * @custom:shortd view amount of created instances
+    */
+    function instancesCount()
+        external 
+        override 
+        view 
+        returns (uint256 amount) 
+    {
+        amount = instances.length;
+    }
+
+    /**
+    * @notice method to distribute tokens after user stake. called externally onle by pool contract
+    * @param account address of user that tokens will mint for
+    * @param amount token's amount
+    * @param priceBeforeStake price that was before adding liquidity in pool
+    * @custom:calledby staking-pool
+    * @custom:shortd distibute wallet tokens
+    */
+    function issueWalletTokens(
+        address account, 
+        uint256 amount, 
+        uint256 priceBeforeStake
+    ) 
+        external 
+        override
+        onlyStakingPool
+    {
+        //_issueWalletTokens(msg.sender, account, amount, duration, priceBeforeStake);
+        //_addToRatioBalance(_instanceIndexes[msg.sender], account, amount);
+
+        address instance = msg.sender;
+        _instanceStaked[instance] += amount;
+
+        // logic "how much bonus user will obtain"
+        uint256 bonusAmount = 0; 
+        if (address(hook) != address(0)) {
+            bonusAmount = hook.bonusCalculation(instance, account, _instanceInfos[instance].duration, amount);
+        }
         
-        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
-        WETH = UniswapV2Router02.WETH();
+        //totalExtra += bonusAmount;
         
-        address pair =  IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
-        require(pair != address(0), "NO_UNISWAP_V2_PAIR");
-        uniswapV2Pair = IUniswapV2Pair(pair);
-        _token0 = uniswapV2Pair.token0();
-        _token1 = uniswapV2Pair.token1();
+        unstakeable[account] += amount;
+        totalUnstakeable += amount;
+        
+        // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
+        // also keep in mind that user can unstake only unstakeable[account] which saved w/o bonusTokens, but minimums and mint with it.
+        // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
+        amount += bonusAmount;
+
+        _mint(account, amount, "", "");
+        emit Staked(account, amount, priceBeforeStake);
+        _minimumsAdd(account, amount, _instanceInfos[instance].duration, false);
 
     }
+
+    /**
+    * @notice used to catch when used try to redeem by sending wallet tokens directly to contract
+    * see more in {IERC777RecipientUpgradeable::tokensReceived}
+    * @param operator address operator requesting the transfer
+    * @param from address token holder address
+    * @param to address recipient address
+    * @param amount uint256 amount of tokens to transfer
+    * @param userData bytes extra information provided by the token holder (if any)
+    * @param operatorData bytes extra information provided by the operator (if any)
+    * @custom:shortd part of {IERC777RecipientUpgradeable}
+    */
+    function tokensReceived(
+        address operator,
+        address from,
+        address to,
+        uint256 amount,
+        bytes calldata userData,
+        bytes calldata operatorData
+    ) 
+        external 
+        override
+    {
+
+        require((_msgSender() == address(this) && to == address(this)), "can't receive any other tokens except own");
+        
+        // here we will already receive token to address(this)
+        uint256 totalSupplyBefore = totalSupply();
+        // so burn it
+        _burn(address(this), amount, "", "");
+        // then redeem
+        _redeem(from, amount, new address[](0), totalSupplyBefore);
+        
+    }
+
 
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
 
     /**
+    * @dev function has overloaded. it's simple version for create instance pool.
+    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken address of traded token. usual it intercoin investor token
+    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @return instance address of created instance pool `StakingContract`
+    * @custom:shortd creation instance with simple options
+    */
+    function produce(
+        address reserveToken, 
+        address tradedToken, 
+        uint64 duration
+    ) public returns (address instance) {
+         // 1% from LP tokens should move to owner while user try to redeem
+        return _produce(reserveToken, tradedToken, duration, 0, 0, 1000);
+    }
+    
+    /**
+    * @dev function has overloaded. it's simple version for create instance pool.
+    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken address of traded token. usual it intercoin investor token
+    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param reserveTokenClaimFraction fraction of reserved token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize}
+    * @param tradedTokenClaimFraction fraction of traded token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize}
+    * @param lpClaimFraction fraction of LP token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize}
+    * @return instance address of created instance pool `StakingContract`
+    * @custom:calledby owner
+    * @custom:shortd creation instance with extended options
+    */
+    function produce(
+        address reserveToken, 
+        address tradedToken, 
+        uint64 duration, 
+        uint64 reserveTokenClaimFraction, 
+        uint64 tradedTokenClaimFraction, 
+        uint64 lpClaimFraction
+    ) public onlyOwner() returns (address instance) {
+        return _produce(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);
+    }
+    
+    /**
+    * @dev note that `duration` is 365 and `LOCKUP_INTERVAL` is 86400 (seconds) means that tokens locked up for an year
+    * @notice view instance info by reserved/traded tokens and duration
+    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken address of traded token. usual it intercoin investor token
+    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @custom:shortd view instance info
+    */
+    function getInstanceInfo(
+        address reserveToken, 
+        address tradedToken, 
+        uint64 duration
+    ) 
+        public 
+        view 
+        returns(InstanceInfo memory) 
+    {
+        address instance = getInstance[reserveToken][tradedToken][duration];
+        return _instanceInfos[instance];
+    }
+
+    /**
+    * @notice method like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
+    * @param amount The number of wallet tokens that will be unstaked.
+    * @custom:shortd unstake own tokens
+    */
+    function unstake(
+        uint256 amount
+    ) 
+        public 
+    {
+        address account = msg.sender;
+
+        uint256 balance = balanceOf(account);
+        
+        require (amount <= balance, "INSUFFICIENT_BALANCE");
+        
+        uint256 locked = _getMinimum(account);
+        uint256 remainingAmount = balance - amount;
+        require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
+
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _unstake(account, amount, totalSupplyBefore);
+        
+    }
+
+    /**
+    * @dev function has overloaded. wallet tokens will be redeemed from pools in order from deployed
     * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
-    * @param account account address will redeemed from!!!
-    * @param amount The number of shares that will be redeemed.!!!!
-    * @custom:calledby factory
-    * @custom:shortd redeem lp tokens
+    * @param amount The number of wallet tokens that will be redeemed.
+    * @custom:shortd redeem tokens
     */
     function redeem(
-        address account,
         uint256 amount
     ) 
-        external
-        override 
-        onlyFactory
+        public
     {
-        uint256 amount2Redeem = __redeem(account, amount);
-        uniswapV2Pair.transfer(account, amount2Redeem);
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeem(account, amount, new address[](0), totalSupplyBefore);
     }
 
     /**
-    * @notice way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
-    * @param account account address will redeemed from
-    * @param amount The number of shares that will be redeemed.
-    * @custom:calledby factory
-    * @custom:shortd redeem and remove liquidity
+    * @dev function has overloaded. wallet tokens will be redeemed from pools in order from `preferredInstances`. tx reverted if amoutn is unsufficient even if it is enough in other pools
+    * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+    * @param amount The number of wallet tokens that will be redeemed.
+    * @param preferredInstances preferred instances for redeem first
+    * @custom:shortd redeem tokens with preferredInstances
+    */
+    function redeem(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        public
+    {
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeem(account, amount, preferredInstances, totalSupplyBefore);
+    }
+
+    /**
+    * @dev function has overloaded. wallet tokens will be redeemed from pools in order from deployed
+    * @notice way to redeem and remove liquidity via approve/transferFrom wallet tokens. User will obtain reserve and traded tokens back
+    * @param amount The number of wallet tokens that will be redeemed.
+    * @custom:shortd redeem tokens and remove liquidity
     */
     function redeemAndRemoveLiquidity(
-        address account,
         uint256 amount
     ) 
-        external
-        override 
-        onlyFactory 
+        public
     {
-        __redeemAndRemoveLiquidity(account, amount);
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeemAndRemoveLiquidity(msg.sender, amount, new address[](0), totalSupplyBefore);
     }
 
-    /** 
-    * @notice payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap. 
-    * Finally will add to liquidity pool and stake it. User will obtain shares 
-    * @custom:shortd  the way to buy liquidity and stake via ETH
-    */
-    function buyLiquidityAndStake(
-    ) 
-        public 
-        payable 
-    {
-        require(msg.value>0, "INSUFFICIENT_BALANCE");
-        uint256 amountETH = msg.value;
-        IWETH(WETH).deposit{value: amountETH}();
-        uint256 amountReserveToken = doSwapOnUniswap(WETH, reserveToken, amountETH);
-        _buyLiquidityAndStake(msg.sender, amountReserveToken);
-    }
-    
-    /** 
-    * @notice method will receive payingToken token, exchange to reserve token via uniswap. 
-    * Finally will add to liquidity pool and stake it. User will obtain shares 
-    * @custom:shortd  the way to buy liquidity and stake via paying token
-    */
-    function buyLiquidityAndStake(
-        address payingToken, 
-        uint256 amount
-    ) 
-        public 
-    {
-        IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
-        uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
-        _buyLiquidityAndStake(msg.sender, amountReserveToken);
-    }
-    
-    /** 
-    * @notice method will receive reserveToken token then will add to liquidity pool and stake it. User will obtain shares 
-    * @custom:shortd  the way to buy liquidity and stake via reserveToken
-    */
-    function buyLiquidityAndStake(
-        uint256 tokenBAmount
-    ) 
-        public 
-    {
-        IERC20Upgradeable(reserveToken).transferFrom(msg.sender, address(this), tokenBAmount);
-        _buyLiquidityAndStake(msg.sender, tokenBAmount);
-    }
-       
     /**
-    * @notice way to stake LP tokens of current pool(traded/reserve tokens)
-    * @dev keep in mind that user can redeem lp token from other staking contract with same pool but different duration and use here.
-    * @param lpAmount liquidity tokens's amount
-    * @custom:shortd way to stake LP tokens
+    * @dev function has overloaded. wallet tokens will be redeemed from pools in order from `preferredInstances`. tx reverted if amoutn is unsufficient even if it is enough in other pools
+    * @notice way to redeem and remove liquidity via approve/transferFrom wallet tokens. User will obtain reserve and traded tokens back
+    * @param amount The number of wallet tokens that will be redeemed.
+    * @param preferredInstances preferred instances for redeem first
+    * @custom:shortd redeem tokens and remove liquidity with preferredInstances
     */
-    function stakeLiquidity(
-        uint256 lpAmount
+    function redeemAndRemoveLiquidity(
+        uint256 amount,
+        address[] memory preferredInstances
+    ) 
+        public
+    {
+        address account = msg.sender;
+        uint256 totalSupplyBefore = totalSupply();
+        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        _burn(account, amount, "", "");
+
+        _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances, totalSupplyBefore);
+    }
+
+    /**
+    * @notice way to view locked tokens that still can be unstakeable by user
+    * @param account address
+    * @custom:shortd view locked tokens
+    */
+    function viewLockedWalletTokens(
+        address account
     ) 
         public 
+        view 
+        returns (uint256 amount) 
     {
-        require (lpAmount > 0, "AMOUNT_EMPTY" );
-        IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(
-            msg.sender, address(this), lpAmount
-        );
-        (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
-        uint256 priceBeforeStake = (
-            _token0 == reserveToken
-                ? FRACTION * reserve0 / reserve1
-                : FRACTION * reserve1 / reserve0
-        );
-        _stake(msg.sender, lpAmount, priceBeforeStake);
-    }
+        amount = _getMinimum(account);
+    }   
 
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-
-    function _redeem(
-        address sender, 
-        uint256 amount
-    ) 
-        internal 
-    {  
-        
-    }
     
-    /**
-     * method will send `fraction_` of `amount_` of token `token_` to address `fractionAddr_`.
-     * if `fractionSendOnly_` == false , all that remaining will send to address `to`
-     */
-    function _fractionAmountSend(
-        address token_, 
-        uint256 amount_, 
-        uint256 fraction_, 
-        address fractionAddr_, 
-        address to_
+    
+    function _unstake(
+        address account,
+        uint256 amount,
+        uint256 totalSupplyBefore
     ) 
         internal 
-        returns(uint256 remainingAfterFractionSend) 
     {
-        bool fractionSendOnly_ = (to_ == address(0));
-        remainingAfterFractionSend = 0;
-        if (fraction_ == FRACTION) {
-            IERC20Upgradeable(token_).transfer(fractionAddr_, amount_);
-            // if (fractionSendOnly_) {} else {}
-        } else if (fraction_ == 0) {
-            if (fractionSendOnly_) {
-                remainingAfterFractionSend = amount_;
-            } else {
-                IERC20Upgradeable(token_).transfer(to_, amount_);
+        (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE, totalSupplyBefore);
+        for (uint256 i = 0; i < len; i++) {
+            try IStakingPool(instancesList[i]).redeemAndRemoveLiquidity(
+                account, 
+                values[i]
+            ) {
+                _instanceStaked[instancesList[i]] -= values[i];
             }
-        } else {
-            uint256 adjusted = amount_ * fraction_ / FRACTION;
-            IERC20Upgradeable(token_).transfer(fractionAddr_, adjusted);
-            remainingAfterFractionSend = amount_ - adjusted;
-            if (!fractionSendOnly_) {
-                IERC20Upgradeable(token_).transfer(to_, remainingAfterFractionSend);
-                remainingAfterFractionSend = 0;
+            catch {
+                revert("Error when unstake");
             }
         }
     }
+
+    function _produce(
+        address reserveToken,
+        address tradedToken,
+        uint64 duration,
+        uint64 reserveTokenClaimFraction,
+        uint64 tradedTokenClaimFraction,
+        uint64 lpClaimFraction
+    ) internal returns (address instance) {
+        _createInstanceValidate(
+            reserveToken, tradedToken, duration, 
+            reserveTokenClaimFraction, tradedTokenClaimFraction
+        );
+
+        address instanceCreated = _createInstance(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);    
+
+        require(instanceCreated != address(0), "StakingContract: INSTANCE_CREATION_FAILED");
+        require(duration != 0, "cant be zero duration");
+        // if (duration == 0) {
+        //     IStakingTransferRules(instanceCreated).initialize(
+        //         reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+        //     );
+        // } else {
+            IStakingPool(instanceCreated).initialize(
+                reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+            );
+        // }
+        
+        //Ownable(instanceCreated).transferOwnership(_msgSender());
+        instance = instanceCreated;        
+    }
     
-    function _stake(
-        address addr, 
-        uint256 amount, 
-        uint256 priceBeforeStake
+    function _createInstanceValidate(
+        address reserveToken, 
+        address tradedToken, 
+        uint64 duration, 
+        uint64 tradedClaimFraction, 
+        uint64 reserveClaimFraction
+    ) internal view {
+        require(reserveToken != tradedToken, "StakingContract: IDENTICAL_ADDRESSES");
+        require(reserveToken != address(0) && tradedToken != address(0), "StakingContract: ZERO_ADDRESS");
+        require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "StakingContract: WRONG_CLAIM_FRACTION");
+        address instance = getInstance[reserveToken][tradedToken][duration];
+        require(instance == address(0), "StakingContract: PAIR_ALREADY_EXISTS");
+    }
+        
+    function _createInstance(
+        address reserveToken, 
+        address tradedToken, 
+        uint64 duration, 
+        uint64 reserveTokenClaimFraction, 
+        uint64 tradedTokenClaimFraction, 
+        uint64 lpClaimFraction
+    ) internal returns (address instance) {
+
+        instance = implementation.clone();
+        
+        getInstance[reserveToken][tradedToken][duration] = instance;
+        
+        _instanceIndexes[instance] = instances.length;
+        instances.push(instance);
+
+        _instanceCreators[instance] = msg.sender;
+        _instanceInfos[instance] = InstanceInfo(
+            reserveToken,
+            duration, 
+            tradedToken,
+            reserveTokenClaimFraction,
+            tradedTokenClaimFraction,
+            lpClaimFraction,
+            true
+        );
+        emit InstanceCreated(reserveToken, tradedToken, instance, instances.length);
+    }
+
+    // create map of instance->amount or LP tokens that need to redeem
+    function _poolStakesAvailable(
+        address account,
+        uint256 amount,
+        address[] memory preferredInstances,
+        Strategy strategy,
+        uint256 totalSupplyBefore
+    ) 
+        internal 
+        returns(
+            address[] memory instancesAddress, 
+            uint256[] memory values,
+            uint256 len
+        ) 
+    {
+
+       
+
+        if (preferredInstances.length == 0) {
+            preferredInstances = instances;
+        }
+// console.log("preferredInstances.length=", preferredInstances.length);
+        instancesAddress = new address[](preferredInstances.length);
+        values = new uint256[](preferredInstances.length);
+        len = 0;
+        uint256 amountLeft = amount;
+        uint256 amountToRedeem;
+        
+
+        if (
+            strategy == Strategy.REDEEM || 
+            strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
+        ) {
+            
+            // LPTokens =  WalletTokens * ratio;
+            // ratio = A / (A + B * discountSensitivity);
+            // где 
+            // discountSensitivity - constant set in constructor
+            // A = totalRedeemable across all pools
+            // B = totalSupply - A - totalUnstakeable
+            uint256 A = totalRedeemable;
+            uint256 B = totalSupplyBefore - A - totalUnstakeable;
+            // uint256 ratio = A / (A + B * discountSensitivity);
+            // amountLeft =  amount * ratio; // LPTokens =  WalletTokens * ratio;
+            amountLeft = amount * A / (A + B * discountSensitivity / FRACTION);
+        } else {
+            amountLeft = amount;
+        }
+
+        for (uint256 i = 0; i < preferredInstances.length; i++) {
+            
+            if (_instanceStaked[preferredInstances[i]] > 0) {
+                if (strategy == Strategy.UNSTAKE) {
+                    amountToRedeem = 
+                        amountLeft > _instanceStaked[preferredInstances[i]]
+                        ? 
+                            _instanceStaked[preferredInstances[i]] > unstakeable[account]
+                            ? 
+                            unstakeable[account]
+                            :
+                            _instanceStaked[preferredInstances[i]]
+                        : 
+                        amountLeft;
+                
+                } else if (
+                    strategy == Strategy.REDEEM || 
+                    strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
+                ) {
+                    amountToRedeem = 
+                        amountLeft > _instanceStaked[preferredInstances[i]] 
+                        ? 
+                        _instanceStaked[preferredInstances[i]] 
+                        : 
+                        amountLeft
+                        ;
+                }
+                
+                if (amountToRedeem > 0) {
+                    instancesAddress[len] = preferredInstances[i]; 
+                    values[len] = amountToRedeem;
+                    len += 1;
+
+                    amountLeft -= amountToRedeem;
+                }
+            }
+
+            
+        }
+        
+        require(amountLeft == 0, "insufficient amount");
+
+    }
+
+    function _redeem(
+        address account,
+        uint256 amount,
+        address[] memory preferredInstances,
+        uint256 totalSupplyBefore
+    ) 
+        internal 
+        onlyRoleWithAccount(REDEEM_ROLE, account)
+    {
+        require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
+        
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM, totalSupplyBefore);
+        for (uint256 i = 0; i < len; i++) {
+            if (_instanceStaked[instancesToRedeem[i]] > 0) {
+                try IStakingPool(instancesToRedeem[i]).redeem(
+                    account, 
+                    valuesToRedeem[i]
+                ) {
+                    _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                    totalRedeemable -= valuesToRedeem[i];
+                }
+                catch {
+                    revert("Error when redeem in an instance");
+                }
+            }
+        }
+    }
+
+    function _redeemAndRemoveLiquidity(
+        address account,
+        uint256 amount,
+        address[] memory preferredInstances,
+        uint256 totalSupplyBefore
+    ) 
+        internal 
+        onlyRoleWithAccount(REDEEM_ROLE, account)  
+    {
+        
+        require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
+
+// console.log("!preferredInstances=",preferredInstances.length);
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY, totalSupplyBefore);
+// console.log("instancesToRedeem=",instancesToRedeem.length);
+// console.log("instancesToRedeem[0]=",instancesToRedeem[0]);
+// console.log("instancesToRedeem[1]=",instancesToRedeem[1]);
+// console.log("valuesToRedeem[0]=",valuesToRedeem[0]);
+// console.log("valuesToRedeem[1]=",valuesToRedeem[1]);
+// console.log("len=",len);
+
+
+        for (uint256 i = 0; i < len; i++) {
+// console.log("i=",i);
+// console.log("instancesToRedeem[i]=",instancesToRedeem[i]);
+// console.log("valuesToRedeem[i]=",valuesToRedeem[i]);
+            if (_instanceStaked[instancesToRedeem[i]] > 0) {
+                try IStakingPool(instancesToRedeem[i]).redeemAndRemoveLiquidity(
+                    account, 
+                    valuesToRedeem[i]
+                ) {
+                    _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                    totalRedeemable -= valuesToRedeem[i];
+                }
+                catch {
+                    revert("Error when redeem");
+                }
+            }
+        }
+    }
+
+    function _beforeTokenTransfer(
+        address operator,
+        address from,
+        address to,
+        uint256 amount
     ) 
         internal 
         virtual 
+        override 
     {
-        IStakingFactory(factory).issueWalletTokens(addr, amount, priceBeforeStake);
-    }
-    
-    function doSwapOnUniswap(
-        address tokenIn, 
-        address tokenOut, 
-        uint256 amountIn
-    ) 
-        internal 
-        returns(uint256 amountOut) 
-    {
-        require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
-        address[] memory path = new address[](2);
-        path[0] = address(tokenIn);
-        path[1] = address(tokenOut);
-        // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
-        uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
-            amountIn, 0, path, address(this), block.timestamp
-        );
-        amountOut = outputAmounts[1];
-    }
-    
-    function _buyLiquidityAndStake(
-        address from, 
-        uint256 incomingReserveToken
-    ) 
-        internal 
-    {
-        (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
-        require (reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
-        uint256 priceBeforeStake = (
-            _token0 == reserveToken
-                ? FRACTION * reserve0 / reserve1
-                : FRACTION * reserve1 / reserve0
-        );
-        //Then the amount they would want to swap is
-        // r3 = sqrt( (r1 + r2) * r1 ) - r1
-        // where 
-        //  r1 - reserve at uniswap(reserve1)
-        //  r2 - incoming amount of reserve token
-        uint256 r3 = 
-            sqrt(
-                (reserve1 + incomingReserveToken)*(reserve1)
-            ) - reserve1; //    
-        require(r3 > 0 && incomingReserveToken > r3, "BAD_AMOUNT");
-        // remaining (r2-r3) we will exchange at uniswap to traded token
-        uint256 amountTradedToken = doSwapOnUniswap(reserveToken, tradedToken, r3);
-        uint256 amountReserveToken = incomingReserveToken - r3;
-        require(
-            IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken)
-            && IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken),
-            "APPROVE_FAILED"
-        );
-        (,, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
-            tradedToken,
-            reserveToken,
-            amountTradedToken,
-            amountReserveToken,
-            0, // there may be some slippage
-            0, // there may be some slippage
-            address(this),
-            block.timestamp
-        );
-        require (lpTokens > 0, "NO_LIQUIDITY");
-        _stake(from, lpTokens, priceBeforeStake);
-    }
-    
-    ////////////////////////////////////////////////////////////////////////
-    // private section /////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
 
-    function __redeemAndRemoveLiquidity(
-        address sender, 
-        uint256 amount
-    ) 
-        private 
-    {
-        
-        uint256 amount2Redeem = __redeem(sender, amount);
 
-        require(uniswapV2Pair.approve(uniswapRouter, amount2Redeem), "APPROVE_FAILED");
-        (uint amountA, uint amountB) = UniswapV2Router02.removeLiquidity(
-            tradedToken,//address tokenA,
-            reserveToken,//address tokenB,
-            amount2Redeem,//uint liquidity,
-            0,//uint amountAMin,
-            0,//uint amountBMin,
-            address(this),//address to,
-            block.timestamp//uint deadline
-        );
-        _fractionAmountSend(tradedToken, amountA, tradedTokenClaimFraction, factory, sender);
-        _fractionAmountSend(reserveToken, amountB, reserveTokenClaimFraction, factory, sender);
-    }
-    
-    function __redeem(
-        address sender, 
-        uint256 amount
-    ) 
-        private 
-        returns(uint256 amount2Redeem)
-    {
-        emit Redeemed(sender, amount);
+       
+        if (from !=address(0)) { // otherwise minted
+            if (from == address(this) && to == address(0)) { // burnt by contract itself
 
-        // validate free amount to redeem was moved to method _beforeTokenTransfer
-        // transfer and burn moved to upper level
-        amount2Redeem = _fractionAmountSend(address(uniswapV2Pair), amount, lpClaimFraction, factory, address(0));
-    }
+            } else { 
+                // todo 0:   add transferhook
+                //  can return true/false
+                // true = revert ;  false -pass tx 
+                
+                if (address(hook) != address(0)) {
+                    require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
+                }
+
+                uint256 balance = balanceOf(from);
+
+                if (balance >= amount) {
+                    
+                    // uint256 remainingAmount = balance - amount;
+
+                    // if (
+                    //     to == address(0) || // if burnt
+                    //     to == address(this) // if send directly to contract
+                    // ) {
+                    //     //it's try to redeem
+                    //     // if (locked > remainingAmount) {
+                    //     //     revert("STAKE_NOT_UNLOCKED_YET");
+                    //     // //} else {
+                            
+                    //     // }
+
+                        
+            
+                    // } else if (locked > remainingAmount) {
+                    //     // else it's just transfer
+                    //     uint256 lockedAmountToTransfer = (locked - remainingAmount);
+                    //     minimumsTransfer(from, to, lockedAmountToTransfer);
+                    //     //?????
+
+                    // }
+
+                    uint256 remainingAmount = balance - amount;
+                    
+                    if (
+                        to == address(0) || // if burnt
+                        to == address(this) // if send directly to contract
+                    ) {
+                        //require(amount <= totalRedeemable, "STAKE_NOT_UNLOCKED_YET");
+                    } else {
+                        // else it's just transfer
+                        // unstakeable[from] means as locked var. but not equal: locked can be less than unstakeable[from]
+                        
+                        
+                        uint256 locked = _getMinimum(from);
+                        //else drop locked minimum, but remove minimums even if remaining was enough
+                        //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
+                        if (locked > 0 && locked >= amount ) {
+                            minimumsTransfer(from, ZERO_ADDRESS, amount);
+                        }
+
+                        uint256 r = unstakeable[from] - remainingAmount;
+                        unstakeable[from] -= r;
+                        totalUnstakeable -= r;
+                        totalRedeemable += r;
     
-    function sqrt(
-        uint256 x
-    ) 
-        internal 
-        pure 
-        returns(uint256 result) 
-    {
-        if (x == 0) {
-            return 0;
+                    }
+                    
+                } else {
+                    // insufficient balance error would be in {ERC777::_move}
+                }
+            }
         }
-        // Calculate the square root of the perfect square of a
-        // power of two that is the closest to x.
-        uint256 xAux = uint256(x);
-        result = 1;
-        if (xAux >= 0x100000000000000000000000000000000) {
-            xAux >>= 128;
-            result <<= 64;
-        }
-        if (xAux >= 0x10000000000000000) {
-            xAux >>= 64;
-            result <<= 32;
-        }
-        if (xAux >= 0x100000000) {
-            xAux >>= 32;
-            result <<= 16;
-        }
-        if (xAux >= 0x10000) {
-            xAux >>= 16;
-            result <<= 8;
-        }
-        if (xAux >= 0x100) {
-            xAux >>= 8;
-            result <<= 4;
-        }
-        if (xAux >= 0x10) {
-            xAux >>= 4;
-            result <<= 2;
-        }
-        if (xAux >= 0x8) {
-            result <<= 1;
-        }
-        // The operations can never overflow because the result is
-        // max 2^127 when it enters this block.
-        unchecked {
-            result = (result + x / result) >> 1;
-            result = (result + x / result) >> 1;
-            result = (result + x / result) >> 1;
-            result = (result + x / result) >> 1;
-            result = (result + x / result) >> 1;
-            result = (result + x / result) >> 1;
-            result = (result + x / result) >> 1; // Seven iterations should be enough
-            uint256 roundedDownResult = x / result;
-            return result >= roundedDownResult ? roundedDownResult : result;
-        }
+        super._beforeTokenTransfer(operator, from, to, amount);
+
     }
+
+
 }
