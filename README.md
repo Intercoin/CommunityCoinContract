@@ -7,4 +7,5 @@ Contracts to let people stake various tokens and use the trust that was built up
 ## Contracts MD
 [StakingFactory.md](docs/contracts/StakingFactory.md)<br>
 [StakingContract.md](docs/contracts/StakingContract.md)<br>
+[StakingPool.md](docs/contracts/StakingPool.md)<br>
 

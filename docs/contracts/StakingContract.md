@@ -1,6 +1,6 @@
 # StakingContract
 
-This it ERC777 contract (pool).<br>Can be create by factory (StakingFactory contract).<br>Providing a functionality to buy and stake liquidity and getting in return WalletTokens(See StakingFactory contract).
+This it ERC777 contract "WalletTokens".<br>Providing a functionality to create StakingPool and way to redeem WalletTokens from this pools where user can stake own tokens.
 
 # Overview
 
@@ -12,24 +12,44 @@ Once installed will be use methods:
 |<a href="#approve">approve</a>|everyone|part of ERC20|
 |<a href="#balanceof">balanceOf</a>|everyone|part of ERC777|
 |<a href="#burn">burn</a>|everyone|part of ERC777|
-|<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via paying token|
-|<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via reserveToken|
-|<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via ETH|
+|<a href="#discountsensitivity">discountSensitivity</a>|everyone|view fraction of discount applied in redeem groups|
+|<a href="#getinstance">getInstance</a>|everyone|instances list|
+|<a href="#getinstanceinfo">getInstanceInfo</a>|everyone|view instance info|
+|<a href="#getroleadmin">getRoleAdmin</a>|everyone|returns the admin role that controls `role`.|
+|<a href="#getrolemember">getRoleMember</a>|everyone|returns one of the accounts that have `role`|
+|<a href="#getrolemembercount">getRoleMemberCount</a>|everyone|returns the number of accounts that have `role`|
+|<a href="#grantrole">grantRole</a>|everyone|grants `role` to `account`|
 |<a href="#granularity">granularity</a>|everyone|part of ERC777|
-|<a href="#initialize">initialize</a>|everyone|initialize method. Called once by the factory at time of deployment|
+|<a href="#hasrole">hasRole</a>|everyone|returns `true` if `account` has been granted `role`|
+|<a href="#hook">hook</a>|everyone|view address of hook contract|
+|<a href="#implementation">implementation</a>|everyone|view address of pool implementation|
+|<a href="#initialize">initialize</a>|StakingFactory contract |initializing contract. called by StakingFactory contract|
+|<a href="#instances">instances</a>|everyone|public list of created instances|
+|<a href="#instancescount">instancesCount</a>|everyone|view amount of created instances|
 |<a href="#isoperatorfor">isOperatorFor</a>|everyone|part of ERC777|
-|<a href="#name">name</a>|everyone|name of LP token|
+|<a href="#issuewallettokens">issueWalletTokens</a>|staking-pool|distibute wallet tokens|
+|<a href="#name">name</a>|everyone|name of WalletToken|
 |<a href="#operatorburn">operatorBurn</a>|everyone|part of ERC777|
 |<a href="#operatorsend">operatorSend</a>|everyone|part of ERC777|
-|<a href="#redeem">redeem</a>|factory|redeem lp tokens|
-|<a href="#redeemandremoveliquidity">redeemAndRemoveLiquidity</a>|factory|redeem and remove liquidity|
+|<a href="#owner">owner</a>|everyone|contract factory's owner |
+|<a href="#produce">produce</a>|everyone|creation instance with simple options|
+|<a href="#produce">produce</a>|owner|creation instance with extended options|
+|<a href="#redeem">redeem</a>|everyone|redeem tokens with preferredInstances|
+|<a href="#redeem">redeem</a>|everyone|redeem tokens|
+|<a href="#redeemandremoveliquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity|
+|<a href="#redeemandremoveliquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity with preferredInstances|
+|<a href="#renounceownership">renounceOwnership</a>|owner|leaves the contract without owner and owner role|
+|<a href="#renouncerole">renounceRole</a>|owner|revokes `role` from the calling account.|
 |<a href="#revokeoperator">revokeOperator</a>|everyone|part of ERC777|
+|<a href="#revokerole">revokeRole</a>|owner|evokes `role` from `account`|
 |<a href="#send">send</a>|everyone|part of ERC777|
-|<a href="#stakeliquidity">stakeLiquidity</a>|everyone|way to stake LP tokens|
-|<a href="#symbol">symbol</a>|everyone|symbol of LP token|
-|<a href="#totalsupply">totalSupply</a>|everyone|total amount of LP token|
+|<a href="#symbol">symbol</a>|everyone|symbol of WalletToken|
+|<a href="#totalsupply">totalSupply</a>|everyone|total amount of WalletToken|
 |<a href="#transfer">transfer</a>|everyone|part of ERC777|
 |<a href="#transferfrom">transferFrom</a>|everyone|part of ERC777|
+|<a href="#transferownership">transferOwnership</a>|everyone|transfers ownership of the contract to a new account|
+|<a href="#unstake">unstake</a>|everyone|unstake own tokens|
+|<a href="#viewlockedwallettokens">viewLockedWalletTokens</a>|everyone|view locked tokens|
 ## *Events*
 ### Approval
 
@@ -68,6 +88,19 @@ Arguments
 
 
 
+### InstanceCreated
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| tokenA | address | indexed |
+| tokenB | address | indexed |
+| instance | address | not indexed |
+| instancesCount | uint256 | not indexed |
+
+
+
 ### Minted
 
 Arguments
@@ -79,6 +112,17 @@ Arguments
 | amount | uint256 | not indexed |
 | data | bytes | not indexed |
 | operatorData | bytes | not indexed |
+
+
+
+### OwnershipTransferred
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| previousOwner | address | indexed |
+| newOwner | address | indexed |
 
 
 
@@ -113,6 +157,42 @@ Arguments
 | token | address | indexed |
 | account | address | indexed |
 | amount | uint256 | not indexed |
+
+
+
+### RoleAdminChanged
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| role | bytes32 | indexed |
+| previousAdminRole | bytes32 | indexed |
+| newAdminRole | bytes32 | indexed |
+
+
+
+### RoleGranted
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| role | bytes32 | indexed |
+| account | address | indexed |
+| sender | address | indexed |
+
+
+
+### RoleRevoked
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| role | bytes32 | indexed |
+| account | address | indexed |
+| sender | address | indexed |
 
 
 
@@ -152,84 +232,6 @@ Arguments
 | from | address | indexed |
 | to | address | indexed |
 | value | uint256 | not indexed |
-
-
-
-## *StateVariables*
-### FRACTION
-
-> Notice: `FRACTION` constant - 100000
-
-
-| **type** |
-|-|
-|uint64|
-
-
-
-### lpClaimFraction
-
-> Notice: fraction of LP token multiplied by `FRACTION`
-
-
-| **type** |
-|-|
-|uint64|
-
-
-
-### reserveToken
-
-> Notice: address of reserve token. ie WETH,USDC,USDT,etc
-
-
-| **type** |
-|-|
-|address|
-
-
-
-### reserveTokenClaimFraction
-
-> Notice: fraction of reserved token multiplied by `FRACTION`
-
-
-| **type** |
-|-|
-|uint64|
-
-
-
-### tradedToken
-
-> Notice: address of traded token. ie investor token - ITR
-
-
-| **type** |
-|-|
-|address|
-
-
-
-### tradedTokenClaimFraction
-
-> Notice: fraction of traded token multiplied by `FRACTION`
-
-
-| **type** |
-|-|
-|uint64|
-
-
-
-### uniswapV2Pair
-
-> Notice: uniswap v2 pair
-
-
-| **type** |
-|-|
-|address|
 
 
 
@@ -303,34 +305,125 @@ Arguments
 
 
 
-### buyLiquidityAndStake
+### discountSensitivity
 
-> Notice: method will receive payingToken token, exchange to reserve token via uniswap.  Finally will add to liquidity pool and stake it. User will obtain shares 
+> Details: view fraction of discount applied in redeem groups
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | uint256 |  |
+
+
+
+### getInstance
+
+> Details: instances list
 
 Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
-| payingToken | address |  |
-| amount | uint256 |  |
+| -/- | address |  |
+| -/- | address |  |
+| -/- | uint256 |  |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | address |  |
 
 
 
-### buyLiquidityAndStake
+### getInstanceInfo
 
-> Notice: method will receive reserveToken token then will add to liquidity pool and stake it. User will obtain shares 
+> Notice: view instance info by reserved/traded tokens and duration
+
+> Details: note that `duration` is 365 and `LOCKUP_INTERVAL` is 86400 (seconds) means that tokens locked up for an year
 
 Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
-| tokenBAmount | uint256 |  |
+| reserveToken | address | address of reserve token. like a WETH, USDT,USDC, etc. |
+| tradedToken | address | address of traded token. usual it intercoin investor token |
+| duration | uint64 | duration represented in amount of `LOCKUP_INTERVAL` |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | tuple |  |
 
 
 
-### buyLiquidityAndStake
+### getRoleAdmin
 
-> Notice: payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap.  Finally will add to liquidity pool and stake it. User will obtain shares 
+> Details: Returns the admin role that controls `role`. See {grantRole} and {revokeRole}. To change a role's admin, use {_setRoleAdmin}.
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| role | bytes32 |  |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | bytes32 |  |
+
+
+
+### getRoleMember
+
+> Details: Returns one of the accounts that have `role`. `index` must be a value between 0 and {getRoleMemberCount}, non-inclusive. Role bearers are not sorted in any particular way, and their ordering may change at any point. WARNING: When using {getRoleMember} and {getRoleMemberCount}, make sure you perform all queries on the same block. See the following https://forum.openzeppelin.com/t/iterating-over-elements-on-enumerableset-in-openzeppelin-contracts/2296[forum post] for more information.
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| role | bytes32 |  |
+| index | uint256 |  |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | address |  |
+
+
+
+### getRoleMemberCount
+
+> Details: Returns the number of accounts that have `role`. Can be used together with {getRoleMember} to enumerate all bearers of a role.
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| role | bytes32 |  |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | uint256 |  |
+
+
+
+### grantRole
+
+> Details: Grants `role` to `account`. If `account` had not been already granted `role`, emits a {RoleGranted} event. Requirements: - the caller must have ``role``'s admin role.
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| role | bytes32 |  |
+| account | address |  |
 
 
 
@@ -346,19 +439,88 @@ Outputs
 
 
 
-### initialize
+### hasRole
 
-> Notice: initialize method. Called once by the factory at time of deployment
+> Details: Returns `true` if `account` has been granted `role`.
 
 Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
-| reserveToken_ | address | address of reserve token. ie WETH,USDC,USDT,etc |
-| tradedToken_ | address | address of traded token. ie investor token - ITR |
-| tradedTokenClaimFraction_ | uint64 | fraction of traded token multiplied by `FRACTION`.  |
-| reserveTokenClaimFraction_ | uint64 | fraction of reserved token multiplied by `FRACTION`.  |
-| lpClaimFraction_ | uint64 | fraction of LP token multiplied by `FRACTION`.  |
+| role | bytes32 |  |
+| account | address |  |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | bool |  |
+
+
+
+### hook
+
+> Details: view address of hook contract
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | address |  |
+
+
+
+### implementation
+
+> Details: view address of pool implementation
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | address |  |
+
+
+
+### initialize
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| impl | address | address of StakingPool implementation |
+| hook_ | address | address of contract implemented IHook interface and used to calculation bonus tokens amount |
+| discountSensitivity_ | uint256 | discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default) |
+
+
+
+### instances
+
+> Details: public list of created instances
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | uint256 |  |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | address |  |
+
+
+
+### instancesCount
+
+> Details: view amount of created instances
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| amount | uint256 | amount instances |
 
 
 
@@ -378,6 +540,20 @@ Outputs
 | **name** | **type** | **description** |
 |-|-|-|
 | -/- | bool |  |
+
+
+
+### issueWalletTokens
+
+> Notice: method to distribute tokens after user stake. called externally onle by pool contract
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| account | address | address of user that tokens will mint for |
+| amount | uint256 | token's amount |
+| priceBeforeStake | uint256 | price that was before adding liquidity in pool |
 
 
 
@@ -424,29 +600,135 @@ Arguments
 
 
 
-### redeem
+### owner
 
-> Notice: way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+> Details: Returns the address of the current owner.
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | address |  |
+
+
+
+### produce
+
+> Details: function has overloaded. it's simple version for create instance pool.
 
 Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
-| account | address | account address will redeemed from!!! |
-| amount | uint256 | The number of shares that will be redeemed.!!!! |
+| reserveToken | address | address of reserve token. like a WETH, USDT,USDC, etc. |
+| tradedToken | address | address of traded token. usual it intercoin investor token |
+| duration | uint64 | duration represented in amount of `LOCKUP_INTERVAL` |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| instance | address | address of created instance pool `StakingContract` |
+
+
+
+### produce
+
+> Details: function has overloaded. it's simple version for create instance pool.
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| reserveToken | address | address of reserve token. like a WETH, USDT,USDC, etc. |
+| tradedToken | address | address of traded token. usual it intercoin investor token |
+| duration | uint64 | duration represented in amount of `LOCKUP_INTERVAL` |
+| reserveTokenClaimFraction | uint64 | fraction of reserved token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize} |
+| tradedTokenClaimFraction | uint64 | fraction of traded token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize} |
+| lpClaimFraction | uint64 | fraction of LP token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize} |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| instance | address | address of created instance pool `StakingContract` |
+
+
+
+### redeem
+
+> Notice: way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+
+> Details: function has overloaded. wallet tokens will be redeemed from pools in order from `preferredInstances`. tx reverted if amoutn is unsufficient even if it is enough in other pools
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| amount | uint256 | The number of wallet tokens that will be redeemed. |
+| preferredInstances | address[] | preferred instances for redeem first |
+
+
+
+### redeem
+
+> Notice: way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+
+> Details: function has overloaded. wallet tokens will be redeemed from pools in order from deployed
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| amount | uint256 | The number of wallet tokens that will be redeemed. |
 
 
 
 ### redeemAndRemoveLiquidity
 
-> Notice: way to redeem and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
+> Notice: way to redeem and remove liquidity via approve/transferFrom wallet tokens. User will obtain reserve and traded tokens back
+
+> Details: function has overloaded. wallet tokens will be redeemed from pools in order from deployed
 
 Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
-| account | address | account address will redeemed from |
-| amount | uint256 | The number of shares that will be redeemed. |
+| amount | uint256 | The number of wallet tokens that will be redeemed. |
+
+
+
+### redeemAndRemoveLiquidity
+
+> Notice: way to redeem and remove liquidity via approve/transferFrom wallet tokens. User will obtain reserve and traded tokens back
+
+> Details: function has overloaded. wallet tokens will be redeemed from pools in order from `preferredInstances`. tx reverted if amoutn is unsufficient even if it is enough in other pools
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| amount | uint256 | The number of wallet tokens that will be redeemed. |
+| preferredInstances | address[] | preferred instances for redeem first |
+
+
+
+### renounceOwnership
+
+> Details: Leaves the contract without owner. It will not be possible to call `onlyOwner` functions anymore. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby removing any functionality that is only available to the owner.
+
+
+
+### renounceRole
+
+> Details: Revokes `role` from the calling account. Roles are often managed via {grantRole} and {revokeRole}: this function's purpose is to provide a mechanism for accounts to lose their privileges if they are compromised (such as when a trusted device is misplaced). If the calling account had been revoked `role`, emits a {RoleRevoked} event. Requirements: - the caller must be `account`.
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| role | bytes32 |  |
+| account | address |  |
 
 
 
@@ -462,6 +744,19 @@ Arguments
 
 
 
+### revokeRole
+
+> Details: Revokes `role` from `account`. If `account` had been granted `role`, emits a {RoleRevoked} event. Requirements: - the caller must have ``role``'s admin role.
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| role | bytes32 |  |
+| account | address |  |
+
+
+
 ### send
 
 > Details: See {IERC777-send}. Also emits a {IERC20-Transfer} event for ERC20 compatibility.
@@ -473,20 +768,6 @@ Arguments
 | recipient | address |  |
 | amount | uint256 |  |
 | data | bytes |  |
-
-
-
-### stakeLiquidity
-
-> Notice: way to stake LP tokens of current pool(traded/reserve tokens)
-
-> Details: keep in mind that user can redeem lp token from other staking contract with same pool but different duration and use here.
-
-Arguments
-
-| **name** | **type** | **description** |
-|-|-|-|
-| lpAmount | uint256 | liquidity tokens's amount |
 
 
 
@@ -550,5 +831,47 @@ Outputs
 | **name** | **type** | **description** |
 |-|-|-|
 | -/- | bool |  |
+
+
+
+### transferOwnership
+
+> Details: Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| newOwner | address |  |
+
+
+
+### unstake
+
+> Notice: method like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| amount | uint256 | The number of wallet tokens that will be unstaked. |
+
+
+
+### viewLockedWalletTokens
+
+> Notice: way to view locked tokens that still can be unstakeable by user
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| account | address | address |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| amount | uint256 |  |
 
 

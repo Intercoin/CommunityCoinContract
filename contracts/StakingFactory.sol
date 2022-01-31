@@ -8,7 +8,15 @@ import "./interfaces/IStakingContract.sol";
 contract StakingFactory is Ownable {
     using Clones for address;
 
+    /**
+    * @custom:shortd StakingContract implementation address
+    * @notice StakingContract implementation address
+    */
     address public immutable stakingContractImplementation;
+    /**
+    * @custom:shortd StakingPool implementation address
+    * @notice StakingPool implementation address
+    */
     address public immutable stakingPoolImplementation;
 
     address[] public instances;

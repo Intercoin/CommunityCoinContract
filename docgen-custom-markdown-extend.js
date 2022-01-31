@@ -1,9 +1,9 @@
 module.exports = function dataExtend() {
     return {
-        'contracts/StakingFactory.sol': {
+        'contracts/StakingContract.sol': {
             'description': [
                 'This it ERC777 contract "WalletTokens".',
-                'Providing a functionality to create StakingContract (pools) and way to redeem WalletTokens from this pools where user can stake own tokens.'
+                'Providing a functionality to create StakingPool and way to redeem WalletTokens from this pools where user can stake own tokens.'
             ].join("<br>"),
             //'constructor':{'custom:shortd': 'part of ERC20'},
             'exclude': [
@@ -48,7 +48,7 @@ module.exports = function dataExtend() {
                 
             },
         },
-        'contracts/StakingContract.sol': {
+        'contracts/StakingPool.sol': {
             'description': [
                 'This it ERC777 contract (pool).',
                 'Can be created by factory (StakingFactory contract).',
@@ -79,6 +79,22 @@ module.exports = function dataExtend() {
                 'transferFrom': {'custom:shortd': 'part of ERC777'},
                 
             }
+        },
+        'contracts/StakingFactory.sol': {
+            'description': [
+                'This it factory contract.',
+                'Provide a functionality to create StakingContract'
+            ].join("<br>"),
+            'exclude': [],
+            'fix': {
+                'getInstance': {'custom:shortd': 'instances list'},
+                'instances': {'custom:shortd': 'public list of created instances'},
+                'owner': {'custom:shortd': 'owner of staking contract. Part of `Ownable` contract'},
+                'renounceOwnership': {'custom:shortd': 'Part of `Ownable` contract'},
+              //  'stakingcontractimplementation': {'custom:shortd': 'StakingContract implementation address'},
+                //'stakingpoolimplementation': {'custom:shortd': 'StakingPool implementation address'},
+                'transferOwnership': {'custom:shortd': 'Part of `Ownable` contract'},
+            },
         },
     };
 }

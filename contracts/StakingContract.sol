@@ -93,9 +93,11 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
     }
 
     /**
-    * @param impl address of StakingContract implementation
+    * @param impl address of StakingPool implementation
     * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+    * @custom:calledby StakingFactory contract 
+    * @custom:shortd initializing contract. called by StakingFactory contract
     */
     function initialize(
         address impl,
