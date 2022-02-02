@@ -12,12 +12,13 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgrade
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import "./interfaces/IStakingPool.sol";
 import "./interfaces/IStakingContract.sol";
 //import "hardhat/console.sol";
 
-contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777RecipientUpgradeable/*, IERC777SenderUpgradeable*/ {
+contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777RecipientUpgradeable, ReentrancyGuardUpgradeable/*, IERC777SenderUpgradeable*/ {
  
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
@@ -155,6 +156,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
     {
         stakingProducedBy = msg.sender;
 
+        __ReentrancyGuard_init();
         // __ERC777_init(name, symbol, (new address[](0)));
 
         // register interfaces
@@ -226,6 +228,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
     ) 
         public 
         payable 
+        nonReentrant
     {
         require(msg.value>0, "INSUFFICIENT_BALANCE");
         uint256 amountETH = msg.value;
@@ -244,6 +247,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         uint256 amount
     ) 
         public 
+        nonReentrant
     {
         IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
         uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
@@ -258,6 +262,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         uint256 tokenBAmount
     ) 
         public 
+        nonReentrant
     {
         IERC20Upgradeable(reserveToken).transferFrom(msg.sender, address(this), tokenBAmount);
         _buyLiquidityAndStake(msg.sender, tokenBAmount);
@@ -273,6 +278,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         uint256 lpAmount
     ) 
         public 
+        nonReentrant
     {
         require (lpAmount > 0, "AMOUNT_EMPTY" );
         IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(

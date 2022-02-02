@@ -7,7 +7,7 @@ import "./interfaces/IStakingPool.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
-
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 //import "./lib/PackedMapping32.sol";
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
@@ -19,7 +19,8 @@ import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 
 //import "hardhat/console.sol";
 
-contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControlEnumerableUpgradeable, ERC777Upgradeable, MinimumsBaseUpgradeable, IERC777RecipientUpgradeable {
+contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControlEnumerableUpgradeable, 
+    ERC777Upgradeable, MinimumsBaseUpgradeable, IERC777RecipientUpgradeable, ReentrancyGuardUpgradeable {
     using ClonesUpgradeable for address;
     // using PackedMapping32 for PackedMapping32.Map;
     //using EnumerableSet for EnumerableSet.AddressSet;
@@ -112,6 +113,7 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
         __ERC777_init("Staking Tokens", "STAKE", (new address[](0)));
         __MinimumsBaseUpgradeable_init(LOCKUP_INTERVAL);
         __AccessControlEnumerable_init();
+        __ReentrancyGuard_init();
 
         implementation = impl;
 
@@ -304,6 +306,7 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
         uint256 amount
     ) 
         public 
+        nonReentrant
     {
         address account = msg.sender;
 
@@ -333,6 +336,7 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
         uint256 amount
     ) 
         public
+        nonReentrant
     {
         address account = msg.sender;
         uint256 totalSupplyBefore = totalSupply();
@@ -354,6 +358,7 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
         address[] memory preferredInstances
     ) 
         public
+        nonReentrant
     {
         address account = msg.sender;
         uint256 totalSupplyBefore = totalSupply();
@@ -373,6 +378,7 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
         uint256 amount
     ) 
         public
+        nonReentrant
     {
         address account = msg.sender;
         uint256 totalSupplyBefore = totalSupply();
@@ -394,6 +400,7 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
         address[] memory preferredInstances
     ) 
         public
+        nonReentrant
     {
         address account = msg.sender;
         uint256 totalSupplyBefore = totalSupply();
