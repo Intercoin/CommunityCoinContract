@@ -34,9 +34,6 @@ Tokens that was transfered can be redeemed by users with Redeem role. Such role 
 
 ![Truly decentralized system](https://github.com/Intercoin/StakingContract/blob/assets/images/whitepapers/truly-decentralized-system.jpg)
 ![Staking liquidity in community](https://github.com/Intercoin/StakingContract/blob/assets/images/whitepapers/staking-liquidity-in-community.jpg)
-![Current token distributions](https://github.com/Intercoin/StakingContract/blob/assets/images/whitepapers/current-token-distributions.jpg)
-![Remaining token distributions](https://github.com/Intercoin/StakingContract/blob/assets/images/whitepapers/remaining-token-distributions.jpg)
-
   
 ## Diagrams
 [Sequence](https://github.com/Intercoin/StakingContract/wiki/Diagrams/sequence)  
