@@ -562,7 +562,13 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
             uint256 B = totalSupplyBefore - A - totalUnstakeable;
             // uint256 ratio = A / (A + B * discountSensitivity);
             // amountLeft =  amount * ratio; // LPTokens =  WalletTokens * ratio;
-            amountLeft = amount * A / (A + B * discountSensitivity / FRACTION);
+
+            // --- proposal from audit to keep precision after division
+            // amountLeft = amount * A / (A + B * discountSensitivity / FRACTION);
+            amountLeft = amount * A * FRACTION;
+            amountLeft = amountLeft / (A + B * discountSensitivity / FRACTION);
+            amountLeft = amountLeft / FRACTION;
+            //----
         } else {
             amountLeft = amount;
         }
