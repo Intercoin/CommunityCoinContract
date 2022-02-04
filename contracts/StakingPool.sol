@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
 import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
@@ -221,7 +221,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
 
     /** 
     * @notice payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap. 
-    * Finally will add to liquidity pool and stake it. User will obtain shares 
+    * Finally will add to liquidity pool and stake it. Sender will obtain shares 
     * @custom:shortd  the way to buy liquidity and stake via ETH
     */
     function buyLiquidityAndStake(
@@ -239,7 +239,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
     
     /** 
     * @notice method will receive payingToken token, exchange to reserve token via uniswap. 
-    * Finally will add to liquidity pool and stake it. User will obtain shares 
+    * Finally will add to liquidity pool and stake it. Sender will obtain shares 
     * @custom:shortd  the way to buy liquidity and stake via paying token
     */
     function buyLiquidityAndStake(
@@ -255,7 +255,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
     }
     
     /** 
-    * @notice method will receive reserveToken token then will add to liquidity pool and stake it. User will obtain shares 
+    * @notice method will receive reserveToken token then will add to liquidity pool and stake it. Sender will obtain shares 
     * @custom:shortd  the way to buy liquidity and stake via reserveToken
     */
     function buyLiquidityAndStake(
@@ -266,6 +266,58 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
     {
         IERC20Upgradeable(reserveToken).transferFrom(msg.sender, address(this), tokenBAmount);
         _buyLiquidityAndStake(msg.sender, tokenBAmount);
+    }
+
+    /** 
+    * @notice payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap. 
+    * Finally will add to liquidity pool and stake it. Beneficiary will obtain shares 
+    * @custom:shortd  the way to buy liquidity and stake via ETH. Beneficiary will obtain shares 
+    */
+    function buyLiquidityAndStake(
+        address beneficiary
+    ) 
+        public 
+        payable 
+        nonReentrant
+    {
+        require(msg.value>0, "INSUFFICIENT_BALANCE");
+        uint256 amountETH = msg.value;
+        IWETH(WETH).deposit{value: amountETH}();
+        uint256 amountReserveToken = doSwapOnUniswap(WETH, reserveToken, amountETH);
+        _buyLiquidityAndStake(beneficiary, amountReserveToken);
+    }
+    
+    /** 
+    * @notice method will receive payingToken token, exchange to reserve token via uniswap. 
+    * Finally will add to liquidity pool and stake it. Beneficiary will obtain shares 
+    * @custom:shortd  the way to buy liquidity and stake via paying token. Beneficiary will obtain shares 
+    */
+    function buyLiquidityAndStake(
+        address payingToken, 
+        uint256 amount,
+        address beneficiary
+    ) 
+        public 
+        nonReentrant
+    {
+        IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
+        uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
+        _buyLiquidityAndStake(beneficiary, amountReserveToken);
+    }
+    
+    /** 
+    * @notice method will receive reserveToken token then will add to liquidity pool and stake it. Beneficiary will obtain shares 
+    * @custom:shortd  the way to buy liquidity and stake via reserveToken. Beneficiary will obtain shares 
+    */
+    function buyLiquidityAndStake(
+        uint256 tokenBAmount,
+        address beneficiary
+    ) 
+        public 
+        nonReentrant
+    {
+        IERC20Upgradeable(reserveToken).transferFrom(msg.sender, address(this), tokenBAmount);
+        _buyLiquidityAndStake(beneficiary, tokenBAmount);
     }
        
     /**

@@ -421,14 +421,42 @@ describe("Staking contract tests", function () {
         });
 
         describe("through erc20ReservedToken", function () {
+            it("beneficiary test", async () => {
+            
+                await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
+                await erc20ReservedToken.connect(bob).approve(stakingInstance.address, ONE_ETH.mul(ONE));
+
+                let walletTokensBefore = await StakingContract.balanceOf(charlie.address);
+                let lptokensBefore = await pairInstance.balanceOf(stakingInstance.address);
+                
+                await stakingInstance.connect(bob)['buyLiquidityAndStake(uint256,address)'](ONE_ETH.mul(ONE), charlie.address);
+
+                let walletTokens = await StakingContract.balanceOf(charlie.address);
+                let lptokens = await pairInstance.balanceOf(stakingInstance.address);
+                
+                // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
+                expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
+                expect(lptokens).to.be.eq(walletTokens);
+
+                expect(walletTokensBefore).not.to.be.eq(walletTokens);
+                expect(lptokens).not.to.be.eq(lptokensBefore);
+            
+            }); 
             describe("when uniswap reserves in pools are equal", function () {
                 var stakingBalanceToken1Before;
                 var stakingBalanceToken2Before;
                 var stakingBalanceToken1After;
                 var stakingBalanceToken2After;
+
+                var bobWalletTokensBefore;
+                var bobLptokensBefore;
+
                 beforeEach("deploying", async() => {
                     await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
                     await erc20ReservedToken.connect(bob).approve(stakingInstance.address, ONE_ETH.mul(ONE));
+
+                    bobWalletTokensBefore = await StakingContract.balanceOf(bob.address);
+                    bobLptokensBefore = await pairInstance.balanceOf(stakingInstance.address);
 
                     stakingBalanceToken1Before = await erc20ReservedToken.balanceOf(stakingInstance.address);
                     stakingBalanceToken2Before = await erc20TradedToken.balanceOf(stakingInstance.address);
@@ -445,6 +473,9 @@ describe("Staking contract tests", function () {
                     // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                     expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
                     expect(lptokens).to.be.eq(walletTokens);
+
+                    expect(bobWalletTokensBefore).not.to.be.eq(walletTokens);
+                    expect(bobLptokensBefore).not.to.be.eq(lptokens);
                 
                 }); 
 
@@ -609,7 +640,29 @@ describe("Staking contract tests", function () {
                 expect(lptokens).to.be.eq(walletTokens);
             
             });    
+            it("buyAddLiquidityAndStake (beneficiary)", async () => {
+        
+                let walletTokensBefore = await StakingContract.balanceOf(charlie.address);
+                let lptokensBefore = await pairInstance.balanceOf(stakingInstance.address);
+
+                // now addinig liquidity through paying token will be successful
+                await stakingInstance.connect(bob)['buyLiquidityAndStake(address,uint256,address)'](erc20.address, ONE_ETH.mul(ONE), charlie.address);
+            
+                let walletTokens = await StakingContract.balanceOf(charlie.address);
+                let lptokens = await pairInstance.balanceOf(stakingInstance.address);
+                    
+                // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
+
+                expect(lptokens).not.to.be.eq(ZERO);
+                expect(lptokens).to.be.eq(walletTokens);
+
+                expect(walletTokensBefore).not.to.be.eq(walletTokens);
+                expect(lptokensBefore).not.to.be.eq(lptokens);
+            
+            });    
         });
+
+        
 
         describe("through ETH", function () {
             beforeEach("deploying", async() => {
@@ -644,6 +697,22 @@ describe("Staking contract tests", function () {
                 expect(lptokens).to.be.eq(walletTokens);
                 
             });    
+            it("buyAddLiquidityAndStake", async () => {
+                let walletTokensBefore = await StakingContract.balanceOf(charlie.address);
+                let lptokensBefore = await pairInstance.balanceOf(stakingInstance.address);
+
+                await stakingInstance.connect(bob)['buyLiquidityAndStake(address)'](charlie.address, {value: ONE_ETH.mul(ONE) });
+                
+                let walletTokens = await StakingContract.balanceOf(charlie.address);
+                let lptokens = await pairInstance.balanceOf(stakingInstance.address);
+                
+                // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
+                expect(lptokens).not.to.be.eq(ZERO);
+                expect(lptokens).to.be.eq(walletTokens);
+                
+                expect(walletTokensBefore).not.to.be.eq(walletTokens);
+                expect(lptokensBefore).not.to.be.eq(lptokens);
+            });   
         });
 
         describe("factory tests", function() {

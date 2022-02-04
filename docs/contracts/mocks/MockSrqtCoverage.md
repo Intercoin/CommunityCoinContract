@@ -11,7 +11,10 @@ Once installed will be use methods:
 |<a href="#fraction">FRACTION</a>|everyone||
 |<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via paying token|
 |<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via reserveToken|
+|<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via reserveToken. Beneficiary will obtain shares |
 |<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via ETH|
+|<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via ETH. Beneficiary will obtain shares |
+|<a href="#buyliquidityandstake">buyLiquidityAndStake</a>|everyone|the way to buy liquidity and stake via paying token. Beneficiary will obtain shares |
 |<a href="#calculatesqrt">calculateSqrt</a>|everyone||
 |<a href="#initialize">initialize</a>|everyone|initialize method. Called once by the factory at time of deployment|
 |<a href="#lpclaimfraction">lpClaimFraction</a>|everyone||
@@ -75,7 +78,7 @@ Outputs
 
 ### buyLiquidityAndStake
 
-> Notice: method will receive payingToken token, exchange to reserve token via uniswap.  Finally will add to liquidity pool and stake it. User will obtain shares 
+> Notice: method will receive payingToken token, exchange to reserve token via uniswap.  Finally will add to liquidity pool and stake it. Sender will obtain shares 
 
 Arguments
 
@@ -88,7 +91,7 @@ Arguments
 
 ### buyLiquidityAndStake
 
-> Notice: method will receive reserveToken token then will add to liquidity pool and stake it. User will obtain shares 
+> Notice: method will receive reserveToken token then will add to liquidity pool and stake it. Sender will obtain shares 
 
 Arguments
 
@@ -100,7 +103,46 @@ Arguments
 
 ### buyLiquidityAndStake
 
-> Notice: payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap.  Finally will add to liquidity pool and stake it. User will obtain shares 
+> Notice: method will receive reserveToken token then will add to liquidity pool and stake it. Beneficiary will obtain shares 
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| tokenBAmount | uint256 |  |
+| beneficiary | address |  |
+
+
+
+### buyLiquidityAndStake
+
+> Notice: payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap.  Finally will add to liquidity pool and stake it. Sender will obtain shares 
+
+
+
+### buyLiquidityAndStake
+
+> Notice: payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap.  Finally will add to liquidity pool and stake it. Beneficiary will obtain shares 
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| beneficiary | address |  |
+
+
+
+### buyLiquidityAndStake
+
+> Notice: method will receive payingToken token, exchange to reserve token via uniswap.  Finally will add to liquidity pool and stake it. Beneficiary will obtain shares 
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| payingToken | address |  |
+| amount | uint256 |  |
+| beneficiary | address |  |
 
 
 
