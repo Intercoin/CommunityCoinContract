@@ -27,6 +27,7 @@ Once installed will be use methods:
 |<a href="#instances">instances</a>|everyone|public list of created instances|
 |<a href="#instancescount">instancesCount</a>|everyone|view amount of created instances|
 |<a href="#isoperatorfor">isOperatorFor</a>|everyone|part of ERC777|
+|<a href="#istrustedforwarder">isTrustedForwarder</a>|everyone||
 |<a href="#issuewallettokens">issueWalletTokens</a>|staking-pool|distibute wallet tokens|
 |<a href="#name">name</a>|everyone|name of WalletToken|
 |<a href="#operatorburn">operatorBurn</a>|everyone|part of ERC777|
@@ -43,6 +44,7 @@ Once installed will be use methods:
 |<a href="#revokeoperator">revokeOperator</a>|everyone|part of ERC777|
 |<a href="#revokerole">revokeRole</a>|owner|evokes `role` from `account`|
 |<a href="#send">send</a>|everyone|part of ERC777|
+|<a href="#settrustedforwarder">setTrustedForwarder</a>|everyone||
 |<a href="#symbol">symbol</a>|everyone|symbol of WalletToken|
 |<a href="#totalsupply">totalSupply</a>|everyone|total amount of WalletToken|
 |<a href="#transfer">transfer</a>|everyone|part of ERC777|
@@ -543,6 +545,24 @@ Outputs
 
 
 
+### isTrustedForwarder
+
+> Details: checking if forwarder is trusted
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| forwarder | address | trustedforwarder's address to check |
+
+Outputs
+
+| **name** | **type** | **description** |
+|-|-|-|
+| -/- | bool |  |
+
+
+
 ### issueWalletTokens
 
 > Notice: method to distribute tokens after user stake. called externally onle by pool contract
@@ -768,6 +788,18 @@ Arguments
 | recipient | address |  |
 | amount | uint256 |  |
 | data | bytes |  |
+
+
+
+### setTrustedForwarder
+
+> Details: setup trusted forwarder address
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| forwarder | address | trustedforwarder's address to set |
 
 
 

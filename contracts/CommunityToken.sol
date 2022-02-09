@@ -4,7 +4,8 @@ pragma solidity 0.8.11;
 import "./interfaces/IHook.sol";
 import "./interfaces/ICommunityToken.sol";
 import "./interfaces/IStakingPool.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+//import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "./access/TrustedForwarder.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -16,11 +17,18 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgrade
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 
-
 //import "hardhat/console.sol";
 
-contract CommunityToken is ICommunityToken, OwnableUpgradeable,  AccessControlEnumerableUpgradeable, 
-    ERC777Upgradeable, MinimumsBaseUpgradeable, IERC777RecipientUpgradeable, ReentrancyGuardUpgradeable {
+contract CommunityToken is 
+    //OwnableUpgradeable, 
+    TrustedForwarder,
+    ICommunityToken, 
+    AccessControlEnumerableUpgradeable, 
+    ERC777Upgradeable, 
+    MinimumsBaseUpgradeable, 
+    IERC777RecipientUpgradeable, 
+    ReentrancyGuardUpgradeable
+{
     using ClonesUpgradeable for address;
     // using PackedMapping32 for PackedMapping32.Map;
     //using EnumerableSet for EnumerableSet.AddressSet;
@@ -78,7 +86,6 @@ contract CommunityToken is ICommunityToken, OwnableUpgradeable,  AccessControlEn
     //mapping(address => uint256) public rewardTokenRatios;
     mapping(address => uint256) internal unstakeable;
 
-
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
@@ -109,7 +116,8 @@ contract CommunityToken is ICommunityToken, OwnableUpgradeable,  AccessControlEn
         external 
         override 
     {
-        __Ownable_init();
+        //__Ownable_init();
+        __TrustedForwarder_init();
         __ERC777_init("Staking Tokens", "STAKE", (new address[](0)));
         __MinimumsBaseUpgradeable_init(LOCKUP_INTERVAL);
         __AccessControlEnumerable_init();
@@ -127,12 +135,20 @@ contract CommunityToken is ICommunityToken, OwnableUpgradeable,  AccessControlEn
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
 
-    function transferOwnership(address newOwner) public virtual override onlyOwner {
+    /**
+    *
+    */
+    function transferOwnership(
+        address newOwner
+    ) public 
+        virtual 
+        override 
+        onlyOwner 
+    {
         super.transferOwnership(newOwner);
         _revokeRole(ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, newOwner);
     }
-
 
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
@@ -664,20 +680,10 @@ contract CommunityToken is ICommunityToken, OwnableUpgradeable,  AccessControlEn
         
         require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
 
-// console.log("!preferredInstances=",preferredInstances.length);
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY, totalSupplyBefore);
-// console.log("instancesToRedeem=",instancesToRedeem.length);
-// console.log("instancesToRedeem[0]=",instancesToRedeem[0]);
-// console.log("instancesToRedeem[1]=",instancesToRedeem[1]);
-// console.log("valuesToRedeem[0]=",valuesToRedeem[0]);
-// console.log("valuesToRedeem[1]=",valuesToRedeem[1]);
-// console.log("len=",len);
-
 
         for (uint256 i = 0; i < len; i++) {
-// console.log("i=",i);
-// console.log("instancesToRedeem[i]=",instancesToRedeem[i]);
-// console.log("valuesToRedeem[i]=",valuesToRedeem[i]);
+
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
                 try IStakingPool(instancesToRedeem[i]).redeemAndRemoveLiquidity(
                     account, 
@@ -779,6 +785,22 @@ contract CommunityToken is ICommunityToken, OwnableUpgradeable,  AccessControlEn
         super._beforeTokenTransfer(operator, from, to, amount);
 
     }
+
+    /**
+    * @dev implemented EIP-2771
+    * @return signer return address of msg.sender. but consider EIP-2771 for trusted forwarder will return from msg.data payload
+    */
+    function _msgSender(
+    ) 
+        internal 
+        view 
+        virtual
+        override(ContextUpgradeable, TrustedForwarder)
+        returns (address signer) 
+    {
+        return TrustedForwarder._msgSender();
+    }
+
 
 
 }

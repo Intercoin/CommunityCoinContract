@@ -89,7 +89,7 @@ locked2 = 40/(100-40)*(100-70) = 20
     {
         uint256 timestampStart = getIndexInterval(block.timestamp);
         uint256 timestampEnd = timestampStart + (intervalCount * interval);
-        require(timestampEnd > timestampStart, "timestamp is less then current block.timestamp");
+        require(timestampEnd > timestampStart, "TIMESTAMP_INVALID");
         
         _minimumsClear(addr, false);
         
