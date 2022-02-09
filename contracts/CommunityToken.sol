@@ -2,7 +2,7 @@
 pragma solidity 0.8.11;
 
 import "./interfaces/IHook.sol";
-import "./interfaces/IStakingContract.sol";
+import "./interfaces/ICommunityToken.sol";
 import "./interfaces/IStakingPool.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
@@ -19,7 +19,7 @@ import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 
 //import "hardhat/console.sol";
 
-contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControlEnumerableUpgradeable, 
+contract CommunityToken is ICommunityToken, OwnableUpgradeable,  AccessControlEnumerableUpgradeable, 
     ERC777Upgradeable, MinimumsBaseUpgradeable, IERC777RecipientUpgradeable, ReentrancyGuardUpgradeable {
     using ClonesUpgradeable for address;
     // using PackedMapping32 for PackedMapping32.Map;
@@ -241,7 +241,7 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
-    * @return instance address of created instance pool `StakingContract`
+    * @return instance address of created instance pool `StakingPool`
     * @custom:shortd creation instance with simple options
     */
     function produce(
@@ -258,10 +258,10 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
-    * @param reserveTokenClaimFraction fraction of reserved token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize}
-    * @param tradedTokenClaimFraction fraction of traded token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize}
-    * @param lpClaimFraction fraction of LP token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize}
-    * @return instance address of created instance pool `StakingContract`
+    * @param reserveTokenClaimFraction fraction of reserved token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize}
+    * @param tradedTokenClaimFraction fraction of traded token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize}
+    * @param lpClaimFraction fraction of LP token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize}
+    * @return instance address of created instance pool `StakingPool`
     * @custom:calledby owner
     * @custom:shortd creation instance with extended options
     */
@@ -466,7 +466,7 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
 
         address instanceCreated = _createInstance(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);    
 
-        require(instanceCreated != address(0), "StakingContract: INSTANCE_CREATION_FAILED");
+        require(instanceCreated != address(0), "CommunityToken: INSTANCE_CREATION_FAILED");
         require(duration != 0, "cant be zero duration");
         // if (duration == 0) {
         //     IStakingTransferRules(instanceCreated).initialize(
@@ -489,11 +489,11 @@ contract StakingContract is IStakingContract, OwnableUpgradeable,  AccessControl
         uint64 tradedClaimFraction, 
         uint64 reserveClaimFraction
     ) internal view {
-        require(reserveToken != tradedToken, "StakingContract: IDENTICAL_ADDRESSES");
-        require(reserveToken != address(0) && tradedToken != address(0), "StakingContract: ZERO_ADDRESS");
-        require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "StakingContract: WRONG_CLAIM_FRACTION");
+        require(reserveToken != tradedToken, "CommunityToken: IDENTICAL_ADDRESSES");
+        require(reserveToken != address(0) && tradedToken != address(0), "CommunityToken: ZERO_ADDRESS");
+        require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "CommunityToken: WRONG_CLAIM_FRACTION");
         address instance = getInstance[reserveToken][tradedToken][duration];
-        require(instance == address(0), "StakingContract: PAIR_ALREADY_EXISTS");
+        require(instance == address(0), "CommunityToken: PAIR_ALREADY_EXISTS");
     }
         
     function _createInstance(

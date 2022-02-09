@@ -1,6 +1,6 @@
-# IStakingContract
+# ICommunityToken
 
-contracts/interfaces/IStakingContract.sol
+contracts/interfaces/ICommunityToken.sol
 
 # Overview
 

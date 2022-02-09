@@ -1,9 +1,9 @@
 module.exports = function dataExtend() {
     return {
-        'contracts/StakingContract.sol': {
+        'contracts/CommunityToken.sol': {
             'description': [
-                'This it ERC777 contract "WalletTokens".',
-                'Providing a functionality to create StakingPool and way to redeem WalletTokens from this pools where user can stake own tokens.'
+                'This it ERC777 contract "CommunityTokens".',
+                'Providing a functionality to create StakingPool and way to redeem CommunityTokens from this pools where user can stake own tokens.'
             ].join("<br>"),
             //'constructor':{'custom:shortd': 'part of ERC20'},
             'exclude': [
@@ -52,7 +52,7 @@ module.exports = function dataExtend() {
             'description': [
                 'This it ERC777 contract (pool).',
                 'Can be created by factory (StakingFactory contract).',
-                'Provide a functionality to buy and stake liquidity and getting in return WalletTokens(See StakingFactory contract).'
+                'Provide a functionality to buy and stake liquidity and getting in return CommunityTokens(See StakingFactory contract).'
             ].join("<br>"),
             'exclude': [
                 'authorizeOperator',
@@ -83,7 +83,7 @@ module.exports = function dataExtend() {
         'contracts/StakingFactory.sol': {
             'description': [
                 'This it factory contract.',
-                'Provide a functionality to create StakingContract'
+                'Provide a functionality to create CommunityToken'
             ].join("<br>"),
             'exclude': [],
             'fix': {
@@ -91,7 +91,7 @@ module.exports = function dataExtend() {
                 'instances': {'custom:shortd': 'public list of created instances'},
                 'owner': {'custom:shortd': 'owner of staking contract. Part of `Ownable` contract'},
                 'renounceOwnership': {'custom:shortd': 'Part of `Ownable` contract'},
-              //  'stakingcontractimplementation': {'custom:shortd': 'StakingContract implementation address'},
+              //  'stakingcontractimplementation': {'custom:shortd': 'CommunityTokens implementation address'},
                 //'stakingpoolimplementation': {'custom:shortd': 'StakingPool implementation address'},
                 'transferOwnership': {'custom:shortd': 'Part of `Ownable` contract'},
             },

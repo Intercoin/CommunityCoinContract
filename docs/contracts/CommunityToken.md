@@ -1,6 +1,6 @@
-# StakingContract
+# CommunityToken
 
-This it ERC777 contract "WalletTokens".<br>Providing a functionality to create StakingPool and way to redeem WalletTokens from this pools where user can stake own tokens.
+This it ERC777 contract "CommunityTokens".<br>Providing a functionality to create StakingPool and way to redeem CommunityTokens from this pools where user can stake own tokens.
 
 # Overview
 
@@ -628,7 +628,7 @@ Outputs
 
 | **name** | **type** | **description** |
 |-|-|-|
-| instance | address | address of created instance pool `StakingContract` |
+| instance | address | address of created instance pool `StakingPool` |
 
 
 
@@ -643,15 +643,15 @@ Arguments
 | reserveToken | address | address of reserve token. like a WETH, USDT,USDC, etc. |
 | tradedToken | address | address of traded token. usual it intercoin investor token |
 | duration | uint64 | duration represented in amount of `LOCKUP_INTERVAL` |
-| reserveTokenClaimFraction | uint64 | fraction of reserved token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize} |
-| tradedTokenClaimFraction | uint64 | fraction of traded token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize} |
-| lpClaimFraction | uint64 | fraction of LP token multiplied by {StakingContract::FRACTION}. See more in {StakingContract::initialize} |
+| reserveTokenClaimFraction | uint64 | fraction of reserved token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize} |
+| tradedTokenClaimFraction | uint64 | fraction of traded token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize} |
+| lpClaimFraction | uint64 | fraction of LP token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize} |
 
 Outputs
 
 | **name** | **type** | **description** |
 |-|-|-|
-| instance | address | address of created instance pool `StakingContract` |
+| instance | address | address of created instance pool `StakingPool` |
 
 
 
