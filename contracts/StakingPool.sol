@@ -16,6 +16,8 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 
 import "./interfaces/IStakingPool.sol";
 import "./interfaces/ICommunityToken.sol";
+import "./interfaces/ITrustedForwarder.sol";
+
 //import "hardhat/console.sol";
 
 contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777RecipientUpgradeable, ReentrancyGuardUpgradeable/*, IERC777SenderUpgradeable*/ {
@@ -154,7 +156,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         external 
         override 
     {
-        stakingProducedBy = msg.sender;
+        stakingProducedBy = msg.sender; //it's should ne community token
 
         __ReentrancyGuard_init();
         // __ERC777_init(name, symbol, (new address[](0)));
@@ -230,11 +232,12 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         payable 
         nonReentrant
     {
+        address account = _msgSender();
         require(msg.value>0, "INSUFFICIENT_BALANCE");
         uint256 amountETH = msg.value;
         IWETH(WETH).deposit{value: amountETH}();
         uint256 amountReserveToken = doSwapOnUniswap(WETH, reserveToken, amountETH);
-        _buyLiquidityAndStake(msg.sender, amountReserveToken);
+        _buyLiquidityAndStake(account, amountReserveToken);
     }
     
     /** 
@@ -249,9 +252,10 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         public 
         nonReentrant
     {
-        IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
+        address account = _msgSender();
+        IERC20Upgradeable(payingToken).transferFrom(account, address(this), amount);
         uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
-        _buyLiquidityAndStake(msg.sender, amountReserveToken);
+        _buyLiquidityAndStake(account, amountReserveToken);
     }
     
     /** 
@@ -264,8 +268,10 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         public 
         nonReentrant
     {
-        IERC20Upgradeable(reserveToken).transferFrom(msg.sender, address(this), tokenBAmount);
-        _buyLiquidityAndStake(msg.sender, tokenBAmount);
+
+        address account = _msgSender();
+        IERC20Upgradeable(reserveToken).transferFrom(account, address(this), tokenBAmount);
+        _buyLiquidityAndStake(account, tokenBAmount);
     }
 
     /** 
@@ -300,7 +306,10 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         public 
         nonReentrant
     {
-        IERC20Upgradeable(payingToken).transferFrom(msg.sender, address(this), amount);
+        // note that here can be magic trick
+        // trusted forwarder can be call tx as a Bob that wanted to specify alice as a beneficiary
+        address account = _msgSender();
+        IERC20Upgradeable(payingToken).transferFrom(account, address(this), amount);
         uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
         _buyLiquidityAndStake(beneficiary, amountReserveToken);
     }
@@ -457,6 +466,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
             block.timestamp
         );
         require (lpTokens > 0, "NO_LIQUIDITY");
+
         _stake(from, lpTokens, priceBeforeStake);
     }
     
@@ -499,6 +509,25 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         // validate free amount to redeem was moved to method _beforeTokenTransfer
         // transfer and burn moved to upper level
         amount2Redeem = _fractionAmountSend(address(uniswapV2Pair), amount, lpClaimFraction, stakingProducedBy, address(0));
+    }
+
+    /**
+    * @dev implemented EIP-2771
+    */
+    function _msgSender(
+    ) 
+        internal 
+        virtual
+        override
+        view 
+        returns (address signer) 
+    {
+        signer = msg.sender;
+        if (msg.data.length>=20 && ITrustedForwarder(stakingProducedBy).isTrustedForwarder(signer)) {
+            assembly {
+                signer := shr(96,calldataload(sub(calldatasize(),20)))
+            }
+        }    
     }
     
     function sqrt(

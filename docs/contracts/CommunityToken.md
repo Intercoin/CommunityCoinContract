@@ -8,6 +8,7 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
+|<a href="#addtocirculation">addToCirculation</a>|`CIRCULATION_ROLE`|distribute tokens|
 |<a href="#allowance">allowance</a>|everyone|part of ERC20|
 |<a href="#approve">approve</a>|everyone|part of ERC20|
 |<a href="#balanceof">balanceOf</a>|everyone|part of ERC777|
@@ -27,8 +28,8 @@ Once installed will be use methods:
 |<a href="#instances">instances</a>|everyone|public list of created instances|
 |<a href="#instancescount">instancesCount</a>|everyone|view amount of created instances|
 |<a href="#isoperatorfor">isOperatorFor</a>|everyone|part of ERC777|
-|<a href="#istrustedforwarder">isTrustedForwarder</a>|everyone||
-|<a href="#issuewallettokens">issueWalletTokens</a>|staking-pool|distibute wallet tokens|
+|<a href="#istrustedforwarder">isTrustedForwarder</a>|everyone|checking if forwarder is trusted|
+|<a href="#issuewallettokens">issueWalletTokens</a>|staking-pool|distribute wallet tokens|
 |<a href="#name">name</a>|everyone|name of WalletToken|
 |<a href="#operatorburn">operatorBurn</a>|everyone|part of ERC777|
 |<a href="#operatorsend">operatorSend</a>|everyone|part of ERC777|
@@ -39,17 +40,18 @@ Once installed will be use methods:
 |<a href="#redeem">redeem</a>|everyone|redeem tokens|
 |<a href="#redeemandremoveliquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity|
 |<a href="#redeemandremoveliquidity">redeemAndRemoveLiquidity</a>|everyone|redeem tokens and remove liquidity with preferredInstances|
+|<a href="#removefromcirculation">removeFromCirculation</a>|`CIRCULATION_ROLE`|remove tokens|
 |<a href="#renounceownership">renounceOwnership</a>|owner|leaves the contract without owner and owner role|
 |<a href="#renouncerole">renounceRole</a>|owner|revokes `role` from the calling account.|
 |<a href="#revokeoperator">revokeOperator</a>|everyone|part of ERC777|
 |<a href="#revokerole">revokeRole</a>|owner|evokes `role` from `account`|
 |<a href="#send">send</a>|everyone|part of ERC777|
-|<a href="#settrustedforwarder">setTrustedForwarder</a>|everyone||
+|<a href="#settrustedforwarder">setTrustedForwarder</a>|owner|setup trusted forwarder|
 |<a href="#symbol">symbol</a>|everyone|symbol of WalletToken|
 |<a href="#totalsupply">totalSupply</a>|everyone|total amount of WalletToken|
 |<a href="#transfer">transfer</a>|everyone|part of ERC777|
 |<a href="#transferfrom">transferFrom</a>|everyone|part of ERC777|
-|<a href="#transferownership">transferOwnership</a>|everyone|transfers ownership of the contract to a new account|
+|<a href="#transferownership">transferOwnership</a>|everyone|transfer ownership contract to newOwner|
 |<a href="#unstake">unstake</a>|everyone|unstake own tokens|
 |<a href="#viewlockedwallettokens">viewLockedWalletTokens</a>|everyone|view locked tokens|
 ## *Events*
@@ -238,6 +240,18 @@ Arguments
 
 
 ## *Functions*
+### addToCirculation
+
+> Notice: method to adding tokens to circulation. called externally only by `CIRCULATION_ROLE`
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| amount | uint256 | token's amount |
+
+
+
 ### allowance
 
 > Details: See {IERC20-allowance}. Note that operator and allowance concepts are orthogonal: operators may not have allowance, and accounts with allowance may not be operators themselves.
@@ -565,7 +579,7 @@ Outputs
 
 ### issueWalletTokens
 
-> Notice: method to distribute tokens after user stake. called externally onle by pool contract
+> Notice: method to distribute tokens after user stake. called externally only by pool contract
 
 Arguments
 
@@ -733,6 +747,18 @@ Arguments
 
 
 
+### removeFromCirculation
+
+> Notice: method to removing tokens from circulation. called externally only by `CIRCULATION_ROLE`
+
+Arguments
+
+| **name** | **type** | **description** |
+|-|-|-|
+| amount | uint256 | token's amount |
+
+
+
 ### renounceOwnership
 
 > Details: Leaves the contract without owner. It will not be possible to call `onlyOwner` functions anymore. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby removing any functionality that is only available to the owner.
@@ -868,7 +894,7 @@ Outputs
 
 ### transferOwnership
 
-> Details: Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
+> Details: function has overloaded. 
 
 Arguments
 

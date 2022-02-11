@@ -8,10 +8,10 @@ Once installed will be use methods:
 
 | **method name** | **called by** | **description** |
 |-|-|-|
-|<a href="#istrustedforwarder">isTrustedForwarder</a>|everyone||
+|<a href="#istrustedforwarder">isTrustedForwarder</a>|everyone|checking if forwarder is trusted|
 |<a href="#owner">owner</a>|everyone||
 |<a href="#renounceownership">renounceOwnership</a>|everyone||
-|<a href="#settrustedforwarder">setTrustedForwarder</a>|everyone||
+|<a href="#settrustedforwarder">setTrustedForwarder</a>|owner|setup trusted forwarder|
 |<a href="#transferownership">transferOwnership</a>|everyone||
 ## *Events*
 ### OwnershipTransferred

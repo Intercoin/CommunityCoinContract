@@ -7,7 +7,7 @@ module.exports = function dataExtend() {
             ].join("<br>"),
             //'constructor':{'custom:shortd': 'part of ERC20'},
             'exclude': [
-                'ADMIN_ROLE', 'DEFAULT_ADMIN_ROLE', 'REDEEM_ROLE', 
+                'ADMIN_ROLE', 'DEFAULT_ADMIN_ROLE', 'REDEEM_ROLE', 'CIRCULATION_ROLE', 'CIRCULATION_DEFAULT', 
                 'authorizeOperator',
                 'decimals',
                 'defaultOperators',
@@ -44,7 +44,7 @@ module.exports = function dataExtend() {
                 'totalSupply': {'custom:shortd': 'total amount of WalletToken'},
                 'transfer': {'custom:shortd': 'part of ERC777'},
                 'transferFrom': {'custom:shortd': 'part of ERC777'},
-                'transferOwnership': {'custom:shortd': 'transfers ownership of the contract to a new account'},
+                'transferOwnership': {'custom:shortd': 'transfer ownership contract to newOwner'},
                 
             },
         },

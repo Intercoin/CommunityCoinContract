@@ -20,5 +20,3 @@ Arguments
 | interval_ | uint32 |  |
 
 
-
-## *Functions*

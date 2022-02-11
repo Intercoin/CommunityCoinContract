@@ -43,6 +43,9 @@ contract CommunityToken is
 
     bytes32 public constant ADMIN_ROLE = "admin";
     bytes32 public constant REDEEM_ROLE = "redeem";
+    bytes32 public constant CIRCULATION_ROLE = "circulate";
+
+    //uint64 public constant CIRCULATION_DURATION = 365*24*60*60; //year by default. will be used if circulation added to minimums
 
     address public implementation;
 
@@ -91,6 +94,7 @@ contract CommunityToken is
     event Redeemed(address indexed account, uint256 amount);
 
     modifier onlyStakingPool() {
+        // here need to know that is definetely StakingPool. because with EIP-2771 forwarder can call methods as StakingPool. 
         require(_instanceInfos[msg.sender].exists == true);
         _;
     }
@@ -129,14 +133,15 @@ contract CommunityToken is
 
         discountSensitivity = discountSensitivity_;
         
-        _grantRole(ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, _msgSender());
         _setRoleAdmin(REDEEM_ROLE, ADMIN_ROLE);
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
 
     /**
-    *
+    * @dev function has overloaded. 
+    * @custom:shortd transfers ownership of the contract to a new account
     */
     function transferOwnership(
         address newOwner
@@ -146,7 +151,7 @@ contract CommunityToken is
         onlyOwner 
     {
         super.transferOwnership(newOwner);
-        _revokeRole(ADMIN_ROLE, msg.sender);
+        _revokeRole(ADMIN_ROLE, _msgSender());
         _grantRole(ADMIN_ROLE, newOwner);
     }
 
@@ -169,12 +174,12 @@ contract CommunityToken is
     }
 
     /**
-    * @notice method to distribute tokens after user stake. called externally onle by pool contract
+    * @notice method to distribute tokens after user stake. called externally only by pool contract
     * @param account address of user that tokens will mint for
     * @param amount token's amount
     * @param priceBeforeStake price that was before adding liquidity in pool
     * @custom:calledby staking-pool
-    * @custom:shortd distibute wallet tokens
+    * @custom:shortd distribute wallet tokens
     */
     function issueWalletTokens(
         address account, 
@@ -188,7 +193,7 @@ contract CommunityToken is
         //_issueWalletTokens(msg.sender, account, amount, duration, priceBeforeStake);
         //_addToRatioBalance(_instanceIndexes[msg.sender], account, amount);
 
-        address instance = msg.sender;
+        address instance = msg.sender; //here need a msg.sender as a real sender.
         _instanceStaked[instance] += amount;
 
         // logic "how much bonus user will obtain"
@@ -212,7 +217,46 @@ contract CommunityToken is
         _minimumsAdd(account, amount, _instanceInfos[instance].duration, false);
 
     }
+    
+    /**
+    * @notice method to adding tokens to circulation. called externally only by `CIRCULATION_ROLE`
+    * @param amount token's amount
+    * @custom:calledby `CIRCULATION_ROLE`
+    * @custom:shortd distribute tokens
+    */
+    function addToCirculation(
+        uint256 amount
+    ) 
+        external 
+        nonReentrant
+        onlyRole(CIRCULATION_ROLE)
+    {
+        address account = _msgSender();
 
+        _mint(account, amount, "", "");
+        //_minimumsAdd(account, amount, CIRCULATION_DEFAULT, false);
+    }
+
+    /**
+    * @notice method to removing tokens from circulation. called externally only by `CIRCULATION_ROLE`
+    * @param amount token's amount
+    * @custom:calledby `CIRCULATION_ROLE`
+    * @custom:shortd remove tokens
+    */
+    function removeFromCirculation(
+        uint256 amount
+    ) 
+        external 
+        nonReentrant
+        onlyRole(CIRCULATION_ROLE)
+    {
+        address account = _msgSender();
+
+        _burn(account, amount);
+        //or
+        //__redeem(account, account, amount, new address[](0), totalSupplyBefore, Strategy.REDEEM);
+    }
+  
     /**
     * @notice used to catch when used try to redeem by sending wallet tokens directly to contract
     * see more in {IERC777RecipientUpgradeable::tokensReceived}
@@ -238,12 +282,8 @@ contract CommunityToken is
 
         require((_msgSender() == address(this) && to == address(this)), "can't receive any other tokens except own");
         
-        // here we will already receive token to address(this)
-        uint256 totalSupplyBefore = totalSupply();
-        // so burn it
-        _burn(address(this), amount, "", "");
-        // then redeem
-        _redeem(from, amount, new address[](0), totalSupplyBefore);
+        _checkRole(REDEEM_ROLE, from);
+        __redeem(address(this), from, amount, new address[](0), Strategy.REDEEM);
         
     }
 
@@ -324,7 +364,7 @@ contract CommunityToken is
         public 
         nonReentrant
     {
-        address account = msg.sender;
+        address account = _msgSender();
 
         uint256 balance = balanceOf(account);
         
@@ -334,11 +374,7 @@ contract CommunityToken is
         uint256 remainingAmount = balance - amount;
         require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
 
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
-        _burn(account, amount, "", "");
-
-        _unstake(account, amount, totalSupplyBefore);
+        _unstake(account, amount);
         
     }
 
@@ -354,12 +390,9 @@ contract CommunityToken is
         public
         nonReentrant
     {
-        address account = msg.sender;
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
-        _burn(account, amount, "", "");
-
-        _redeem(account, amount, new address[](0), totalSupplyBefore);
+        address account = _msgSender();
+        
+        _redeem(account, amount, new address[](0), Strategy.REDEEM);
     }
 
     /**
@@ -376,12 +409,7 @@ contract CommunityToken is
         public
         nonReentrant
     {
-        address account = msg.sender;
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
-        _burn(account, amount, "", "");
-
-        _redeem(account, amount, preferredInstances, totalSupplyBefore);
+        _redeem(_msgSender(), amount, preferredInstances, Strategy.REDEEM);
     }
 
     /**
@@ -396,12 +424,7 @@ contract CommunityToken is
         public
         nonReentrant
     {
-        address account = msg.sender;
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
-        _burn(account, amount, "", "");
-
-        _redeemAndRemoveLiquidity(msg.sender, amount, new address[](0), totalSupplyBefore);
+        _redeem(_msgSender(), amount, new address[](0), Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
     }
 
     /**
@@ -418,12 +441,8 @@ contract CommunityToken is
         public
         nonReentrant
     {
-        address account = msg.sender;
-        uint256 totalSupplyBefore = totalSupply();
-        require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
-        _burn(account, amount, "", "");
 
-        _redeemAndRemoveLiquidity(msg.sender, amount, preferredInstances, totalSupplyBefore);
+        _redeem(_msgSender(), amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
     }
 
     /**
@@ -448,11 +467,12 @@ contract CommunityToken is
     
     function _unstake(
         address account,
-        uint256 amount,
-        uint256 totalSupplyBefore
+        uint256 amount
     ) 
         internal 
     {
+        uint256 totalSupplyBefore = _burn(account, amount);
+
         (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE, totalSupplyBefore);
         for (uint256 i = 0; i < len; i++) {
             try IStakingPool(instancesList[i]).redeemAndRemoveLiquidity(
@@ -528,7 +548,7 @@ contract CommunityToken is
         _instanceIndexes[instance] = instances.length;
         instances.push(instance);
 
-        _instanceCreators[instance] = msg.sender;
+        _instanceCreators[instance] = msg.sender; // real sender or trusted forwarder need to store?
         _instanceInfos[instance] = InstanceInfo(
             reserveToken,
             duration, 
@@ -557,12 +577,10 @@ contract CommunityToken is
         ) 
     {
 
-       
-
         if (preferredInstances.length == 0) {
             preferredInstances = instances;
         }
-// console.log("preferredInstances.length=", preferredInstances.length);
+
         instancesAddress = new address[](preferredInstances.length);
         values = new uint256[](preferredInstances.length);
         len = 0;
@@ -644,57 +662,71 @@ contract CommunityToken is
         address account,
         uint256 amount,
         address[] memory preferredInstances,
-        uint256 totalSupplyBefore
+        Strategy strategy
     ) 
         internal 
         onlyRoleWithAccount(REDEEM_ROLE, account)
     {
-        require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
-        
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM, totalSupplyBefore);
-        for (uint256 i = 0; i < len; i++) {
-            if (_instanceStaked[instancesToRedeem[i]] > 0) {
-                try IStakingPool(instancesToRedeem[i]).redeem(
-                    account, 
-                    valuesToRedeem[i]
-                ) {
-                    _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-                    totalRedeemable -= valuesToRedeem[i];
-                }
-                catch {
-                    revert("Error when redeem in an instance");
-                }
-            }
-        }
+        __redeem(account, account, amount, preferredInstances, strategy);
     }
 
-    function _redeemAndRemoveLiquidity(
+    function _burn(
         address account,
-        uint256 amount,
-        address[] memory preferredInstances,
-        uint256 totalSupplyBefore
+        uint256 amount
     ) 
         internal 
-        onlyRoleWithAccount(REDEEM_ROLE, account)  
+        returns(uint256 totalSupplyBefore)
     {
-        
+        totalSupplyBefore = totalSupply();
+        if (account != address(this)) {
+            require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+        }
+        _burn(account, amount, "", "");
+    }
+    
+    function __redeem(
+        address account2Burn,
+        address account2Redeem,
+        uint256 amount,
+        address[] memory preferredInstances,
+        Strategy strategy
+    ) 
+        internal 
+    {
+
+        uint256 totalSupplyBefore = _burn(account2Burn, amount);
+
         require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
-
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY, totalSupplyBefore);
-
+        
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account2Redeem, amount, preferredInstances, strategy/*Strategy.REDEEM*/, totalSupplyBefore);
         for (uint256 i = 0; i < len; i++) {
-
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
-                try IStakingPool(instancesToRedeem[i]).redeemAndRemoveLiquidity(
-                    account, 
-                    valuesToRedeem[i]
-                ) {
-                    _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-                    totalRedeemable -= valuesToRedeem[i];
+                if (strategy == Strategy.REDEEM) {
+                    try IStakingPool(instancesToRedeem[i]).redeem(
+                        account2Redeem, 
+                        valuesToRedeem[i]
+                    ) {
+                        _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                        totalRedeemable -= valuesToRedeem[i];
+                    }
+                    catch {
+                        revert("Error when redeem in an instance");
+                    }
+                } else if (strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+                    try IStakingPool(instancesToRedeem[i]).redeemAndRemoveLiquidity(
+                        account2Redeem, 
+                        valuesToRedeem[i]
+                    ) {
+                        _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                        totalRedeemable -= valuesToRedeem[i];
+                    }
+                    catch {
+                        revert("Error when redeem in an instance");
+                    }
                 }
-                catch {
-                    revert("Error when redeem");
-                }
+               
+
+               
             }
         }
     }
@@ -709,9 +741,6 @@ contract CommunityToken is
         virtual 
         override 
     {
-
-
-       
         if (from !=address(0)) { // otherwise minted
             if (from == address(this) && to == address(0)) { // burnt by contract itself
 
@@ -719,7 +748,6 @@ contract CommunityToken is
                 // todo 0:   add transferhook
                 //  can return true/false
                 // true = revert ;  false -pass tx 
-                
                 if (address(hook) != address(0)) {
                     require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
                 }
@@ -727,30 +755,7 @@ contract CommunityToken is
                 uint256 balance = balanceOf(from);
 
                 if (balance >= amount) {
-                    
-                    // uint256 remainingAmount = balance - amount;
-
-                    // if (
-                    //     to == address(0) || // if burnt
-                    //     to == address(this) // if send directly to contract
-                    // ) {
-                    //     //it's try to redeem
-                    //     // if (locked > remainingAmount) {
-                    //     //     revert("STAKE_NOT_UNLOCKED_YET");
-                    //     // //} else {
-                            
-                    //     // }
-
-                        
-            
-                    // } else if (locked > remainingAmount) {
-                    //     // else it's just transfer
-                    //     uint256 lockedAmountToTransfer = (locked - remainingAmount);
-                    //     minimumsTransfer(from, to, lockedAmountToTransfer);
-                    //     //?????
-
-                    // }
-
+               
                     uint256 remainingAmount = balance - amount;
                     
                     if (

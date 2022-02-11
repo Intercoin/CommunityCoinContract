@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts v4.4.1 (access/Ownable.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "../interfaces/ITrustedForwarder.sol";
 
-abstract contract TrustedForwarder is OwnableUpgradeable {
+abstract contract TrustedForwarder is OwnableUpgradeable, ITrustedForwarder {
 
     address private _trustedForwarder;
 
@@ -22,6 +23,8 @@ abstract contract TrustedForwarder is OwnableUpgradeable {
     /**
     * @dev setup trusted forwarder address
     * @param forwarder trustedforwarder's address to set
+    * @custom:shortd setup trusted forwarder
+    * @custom:calledby owner
     */
     function setTrustedForwarder(
         address forwarder
@@ -37,16 +40,17 @@ abstract contract TrustedForwarder is OwnableUpgradeable {
     /**
     * @dev checking if forwarder is trusted
     * @param forwarder trustedforwarder's address to check
-    *
+    * @custom:shortd checking if forwarder is trusted
     */
     function isTrustedForwarder(
         address forwarder
     ) 
-        public 
+        external
         view 
+        override
         returns(bool) 
     {
-        return forwarder == _trustedForwarder;
+        return _isTrustedForwarder(forwarder);
     }
 
     /**
@@ -61,7 +65,7 @@ abstract contract TrustedForwarder is OwnableUpgradeable {
         returns (address signer) 
     {
         signer = msg.sender;
-        if (msg.data.length>=20 && isTrustedForwarder(signer)) {
+        if (msg.data.length>=20 && _isTrustedForwarder(signer)) {
             assembly {
                 signer := shr(96,calldataload(sub(calldatasize(),20)))
             }
@@ -82,6 +86,17 @@ abstract contract TrustedForwarder is OwnableUpgradeable {
         super.transferOwnership(newOwner);
         
     }
+
+    function _isTrustedForwarder(
+        address forwarder
+    ) 
+        internal
+        view 
+        returns(bool) 
+    {
+        return forwarder == _trustedForwarder;
+    }
+
 
   
 
