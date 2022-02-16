@@ -1,6 +1,6 @@
 # CommunityCoinFactory
 
-This it factory contract.<br>Provide a functionality to create CommunityCoin
+This is factory contract.<br>Provide a functionality to create CommunityCoin
 
 # Overview
 

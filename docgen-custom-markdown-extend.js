@@ -50,9 +50,9 @@ module.exports = function dataExtend() {
         },
         'contracts/CommunityStakingPool.sol': {
             'description': [
-                'This it ERC777 contract (pool).',
-                'Can be created by factory (CommunityCoinFactory contract).',
-                'Provide a functionality to buy and stake liquidity and getting in return CommunityCoins(See CommunityCoinFactory contract).'
+                'This is pool contract.',
+                'Can be created by CommunityCoin contract.',
+                'Provide a functionality to buy and stake liquidity and getting in return Community Coins(See CommunityCoin contract).'
             ].join("<br>"),
             'exclude': [
                 'authorizeOperator',
@@ -62,27 +62,13 @@ module.exports = function dataExtend() {
                 'supportsInterface',
             ],
             'fix': {
-                'allowance': {'custom:shortd': 'part of ERC20'},
-                'approve': {'custom:shortd': 'part of ERC20'},
-                'balanceOf': {'custom:shortd': 'part of ERC777'},
-                'burn': {'custom:shortd': 'part of ERC777'},
-                'granularity': {'custom:shortd': 'part of ERC777'},
-                'isOperatorFor': {'custom:shortd': 'part of ERC777'},
                 'name': {'custom:shortd': 'name of LP token'},
-                'operatorBurn': {'custom:shortd': 'part of ERC777'},
-                'operatorSend': {'custom:shortd': 'part of ERC777'},
-                'revokeOperator': {'custom:shortd': 'part of ERC777'},
-                'send': {'custom:shortd': 'part of ERC777'},
                 'symbol': {'custom:shortd': 'symbol of LP token'},
-                'totalSupply': {'custom:shortd': 'total amount of LP token'},
-                'transfer': {'custom:shortd': 'part of ERC777'},
-                'transferFrom': {'custom:shortd': 'part of ERC777'},
-                
             }
         },
         'contracts/CommunityCoinFactory.sol': {
             'description': [
-                'This it factory contract.',
+                'This is factory contract.',
                 'Provide a functionality to create CommunityCoin'
             ].join("<br>"),
             'exclude': [],
