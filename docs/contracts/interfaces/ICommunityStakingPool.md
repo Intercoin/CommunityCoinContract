@@ -1,6 +1,6 @@
-# IStakingPool
+# ICommunityStakingPool
 
-contracts/interfaces/IStakingPool.sol
+contracts/interfaces/ICommunityStakingPool.sol
 
 # Overview
 

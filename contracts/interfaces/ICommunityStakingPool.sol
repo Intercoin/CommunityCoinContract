@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface IStakingPool {
+interface ICommunityStakingPool {
     
     function initialize(
         address reserveToken_,

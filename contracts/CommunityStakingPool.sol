@@ -14,13 +14,13 @@ import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820Registry
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import "./interfaces/IStakingPool.sol";
-import "./interfaces/ICommunityToken.sol";
+import "./interfaces/ICommunityStakingPool.sol";
+import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ITrustedForwarder.sol";
 
 //import "hardhat/console.sol";
 
-contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777RecipientUpgradeable, ReentrancyGuardUpgradeable/*, IERC777SenderUpgradeable*/ {
+contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunityStakingPool, IERC777RecipientUpgradeable, ReentrancyGuardUpgradeable/*, IERC777SenderUpgradeable*/ {
  
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
@@ -80,7 +80,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
     */
     IUniswapV2Pair public uniswapV2Pair;
     // slot 7
-    // CommunityToken address
+    // CommunityCoin address
     address internal stakingProducedBy;
     
     IERC1820RegistryUpgradeable internal constant _ERC1820_REGISTRY = IERC1820RegistryUpgradeable(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
@@ -402,7 +402,7 @@ contract StakingPool is Initializable, ContextUpgradeable, IStakingPool, IERC777
         internal 
         virtual 
     {
-        ICommunityToken(stakingProducedBy).issueWalletTokens(addr, amount, priceBeforeStake);
+        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, amount, priceBeforeStake);
     }
     
     function doSwapOnUniswap(

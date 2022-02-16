@@ -59,12 +59,12 @@ describe("Staking contract tests", function () {
     const wrongClaimFraction = 99999999999;
     const discountSensitivity = 0;
 
-    var implementationCommunityToken;
-    var implementationStakingPool;
+    var implementationCommunityCoin;
+    var implementationCommunityStakingPool;
     var mockHook;
-    var StakingFactory;
-    var CommunityToken;
-    var CommunityTokenWithHook;
+    var CommunityCoinFactory;
+    var CommunityCoin;
+    var CommunityCoinWithHook;
     var erc20;
     var erc777;
     var erc20TradedToken;
@@ -73,35 +73,35 @@ describe("Staking contract tests", function () {
     
     
     beforeEach("deploying", async() => {
-        const StakingFactoryF = await ethers.getContractFactory("StakingFactory");
+        const CommunityCoinFactoryF = await ethers.getContractFactory("CommunityCoinFactory");
 
-        const CommunityTokenF = await ethers.getContractFactory("CommunityToken");
-        const StakingPoolF = await ethers.getContractFactory("StakingPool");
+        const CommunityCoinF = await ethers.getContractFactory("CommunityCoin");
+        const CommunityStakingPoolF = await ethers.getContractFactory("CommunityStakingPool");
         const MockHookF = await ethers.getContractFactory("MockHook");
         const ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
         
         
-        implementationCommunityToken = await CommunityTokenF.deploy();
-        implementationStakingPool = await StakingPoolF.deploy();
+        implementationCommunityCoin = await CommunityCoinF.deploy();
+        implementationCommunityStakingPool = await CommunityStakingPoolF.deploy();
         mockHook = await MockHookF.deploy();
 
         
-        StakingFactory  = await StakingFactoryF.deploy(implementationCommunityToken.address, implementationStakingPool.address);
+        CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(implementationCommunityCoin.address, implementationCommunityStakingPool.address);
 
         let tx,rc,event,instance,instancesCount;
         // without hook
-        tx = await StakingFactory.connect(owner).produce(ZERO_ADDRESS, discountSensitivity);
+        tx = await CommunityCoinFactory.connect(owner).produce(ZERO_ADDRESS, discountSensitivity);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
-        CommunityToken = await ethers.getContractAt("CommunityToken",instance);
+        CommunityCoin = await ethers.getContractAt("CommunityCoin",instance);
 
         // with hook
-        tx = await StakingFactory.connect(owner).produce(mockHook.address, discountSensitivity);
+        tx = await CommunityCoinFactory.connect(owner).produce(mockHook.address, discountSensitivity);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
-        CommunityTokenWithHook = await ethers.getContractAt("CommunityToken",instance);
+        CommunityCoinWithHook = await ethers.getContractAt("CommunityCoin",instance);
 
         erc20 = await ERC20Factory.deploy("ERC20 Token", "ERC20");
         erc777 = await ERC20Factory.deploy("ERC777 Token", "ERC777");
@@ -113,7 +113,7 @@ describe("Staking contract tests", function () {
     });
     
     it("staking factory", async() => {
-        let count = await StakingFactory.instancesCount();
+        let count = await CommunityCoinFactory.instancesCount();
         await expect(count).to.be.equal(TWO);
     })
 
@@ -162,7 +162,7 @@ describe("Staking contract tests", function () {
 
 
     it("shouldnt create with uniswap pair exists", async() => {
-        await expect(CommunityToken["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
@@ -173,60 +173,60 @@ describe("Staking contract tests", function () {
     });
 
     it("shouldnt create staking with the same token pairs", async() => {
-        await expect(CommunityToken["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
             erc20.address,
             erc20.address,
             lockupIntervalCount,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction 
-        )).to.be.revertedWith("CommunityToken: IDENTICAL_ADDRESSES");
+        )).to.be.revertedWith("CommunityCoin: IDENTICAL_ADDRESSES");
         
     });
 
     it("shouldnt create staking with the Zero token", async() => {
-        await expect(CommunityToken["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
             ZERO_ADDRESS,
             erc20.address,
             lockupIntervalCount,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction 
-        )).to.be.revertedWith("CommunityToken: ZERO_ADDRESS");
-        await expect(CommunityToken["produce(address,address,uint64,uint64,uint64,uint64)"](
+        )).to.be.revertedWith("CommunityCoin: ZERO_ADDRESS");
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
             erc20.address,
             ZERO_ADDRESS,
             lockupIntervalCount,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction 
-        )).to.be.revertedWith("CommunityToken: ZERO_ADDRESS");
+        )).to.be.revertedWith("CommunityCoin: ZERO_ADDRESS");
     });
 
     it("shouldnt create with wrong fractions", async() => {
-        await expect(CommunityToken["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
             wrongClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction 
-        )).to.be.revertedWith("CommunityToken: WRONG_CLAIM_FRACTION");
-        await expect(CommunityToken["produce(address,address,uint64,uint64,uint64,uint64)"](
+        )).to.be.revertedWith("CommunityCoin: WRONG_CLAIM_FRACTION");
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
             reserveTokenClaimFraction,
             wrongClaimFraction,
             lpClaimFraction 
-        )).to.be.revertedWith("CommunityToken: WRONG_CLAIM_FRACTION");
+        )).to.be.revertedWith("CommunityCoin: WRONG_CLAIM_FRACTION");
     });
     
     
     describe("Hook tests", function () {   
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;
-        var stakingPoolWithHook;
+        var communityStakingPoolWithHook;
 
         var walletTokens;
         var lptokens;
@@ -260,7 +260,7 @@ describe("Staking contract tests", function () {
                 timeUntil
             );
                           
-            let tx = await CommunityTokenWithHook.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64)"](
+            let tx = await CommunityCoinWithHook.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
@@ -273,7 +273,7 @@ describe("Staking contract tests", function () {
             const event = rc.events.find(event => event.event === 'InstanceCreated');
             const [tokenA, tokenB, instance, instancesCount] = event.args;
             
-            stakingPoolWithHook = await ethers.getContractAt("StakingPool",instance);
+            communityStakingPoolWithHook = await ethers.getContractAt("CommunityStakingPool",instance);
             
             // create pair Token2 => WETH
             await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
@@ -296,10 +296,10 @@ describe("Staking contract tests", function () {
 
         it("test bonus tokens if not set", async() => {
                 await mockHook.setupVars(ZERO,true);
-                await stakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                await communityStakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
                 
-                walletTokens = await CommunityTokenWithHook.balanceOf(bob.address);
-                lptokens = await pairInstance.balanceOf(stakingPoolWithHook.address);
+                walletTokens = await CommunityCoinWithHook.balanceOf(bob.address);
+                lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
 
                 expect(lptokens).not.to.be.eq(ZERO);
                 expect(lptokens).to.be.eq(walletTokens);
@@ -307,10 +307,10 @@ describe("Staking contract tests", function () {
         });
         it("test bonus tokens if set", async() => {
                 await mockHook.setupVars(TEN,true);
-                await stakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                await communityStakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
                 
-                walletTokens = await CommunityTokenWithHook.balanceOf(bob.address);
-                lptokens = await pairInstance.balanceOf(stakingPoolWithHook.address);
+                walletTokens = await CommunityCoinWithHook.balanceOf(bob.address);
+                lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
 
                 expect(lptokens).not.to.be.eq(ZERO);
                 expect(walletTokens.sub(lptokens)).to.be.eq(TEN);
@@ -318,10 +318,10 @@ describe("Staking contract tests", function () {
         });
         describe("test transferHook ", function () {   
             beforeEach("before each", async() => {
-                await stakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                await communityStakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
                 
-                walletTokens = await CommunityTokenWithHook.balanceOf(bob.address);
-                lptokens = await pairInstance.balanceOf(stakingPoolWithHook.address);
+                walletTokens = await CommunityCoinWithHook.balanceOf(bob.address);
+                lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
                 
             });
             it("should prevent transfer if disabled via hook contract", async() => {
@@ -332,7 +332,7 @@ describe("Staking contract tests", function () {
 
                 await mockHook.setupVars(ZERO,false);
 
-                await expect(CommunityTokenWithHook.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWith("HOOK: TRANSFER_PREVENT");
+                await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWith("HOOK: TRANSFER_PREVENT");
                 
             });
 
@@ -344,7 +344,7 @@ describe("Staking contract tests", function () {
 
                 await mockHook.setupVars(ZERO,true);
 
-                await expect(CommunityTokenWithHook.connect(bob).transfer(alice.address, walletTokens)).not.to.be.revertedWith("HOOK: TRANSFER_PREVENT");
+                await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).not.to.be.revertedWith("HOOK: TRANSFER_PREVENT");
                 
             });
         }); 
@@ -357,7 +357,7 @@ describe("Staking contract tests", function () {
     describe("Instance tests", function () {
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;
-        var stakingPool;
+        var communityStakingPool;
         var pairInstance;
 
         beforeEach("deploying", async() => {
@@ -389,7 +389,7 @@ describe("Staking contract tests", function () {
                 timeUntil
             );
 
-            let tx = await CommunityToken.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64)"](
+            let tx = await CommunityCoin.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
@@ -403,44 +403,44 @@ describe("Staking contract tests", function () {
             const [tokenA, tokenB, instance, instancesCount] = event.args;
             //console.log(tokenA, tokenB, instance, instancesCount);
 
-            stakingPool = await ethers.getContractAt("StakingPool",instance);
+            communityStakingPool = await ethers.getContractAt("CommunityStakingPool",instance);
             //console.log("before each №2");
 
             
         });
 
         it("shouldnt create another pair with equal tokens", async() => {
-            await expect(CommunityToken["produce(address,address,uint64,uint64,uint64,uint64)"](
+            await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
                 lpClaimFraction 
-            )).to.be.revertedWith("CommunityToken: PAIR_ALREADY_EXISTS");
+            )).to.be.revertedWith("CommunityCoin: PAIR_ALREADY_EXISTS");
         });
 
         describe("TrustedForwarder", function () {
             it("should be empty after init", async() => {
-                expect(await CommunityToken.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
+                expect(await CommunityCoin.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
             });
 
             it("should be setup by owner", async() => {
-                await expect(CommunityToken.connect(bob).setTrustedForwarder(alice.address)).to.be.revertedWith("Ownable: caller is not the owner");
-                expect(await CommunityToken.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
-                await CommunityToken.connect(owner).setTrustedForwarder(alice.address);
-                expect(await CommunityToken.connect(bob).isTrustedForwarder(alice.address)).to.be.true;
+                await expect(CommunityCoin.connect(bob).setTrustedForwarder(alice.address)).to.be.revertedWith("Ownable: caller is not the owner");
+                expect(await CommunityCoin.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
+                await CommunityCoin.connect(owner).setTrustedForwarder(alice.address);
+                expect(await CommunityCoin.connect(bob).isTrustedForwarder(alice.address)).to.be.true;
             });
             
             it("should drop trusted forward if trusted forward become owner ", async() => {
-                await CommunityToken.connect(owner).setTrustedForwarder(alice.address);
-                expect(await CommunityToken.connect(bob).isTrustedForwarder(alice.address)).to.be.true;
-                await CommunityToken.connect(owner).transferOwnership(alice.address);
-                expect(await CommunityToken.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
+                await CommunityCoin.connect(owner).setTrustedForwarder(alice.address);
+                expect(await CommunityCoin.connect(bob).isTrustedForwarder(alice.address)).to.be.true;
+                await CommunityCoin.connect(owner).transferOwnership(alice.address);
+                expect(await CommunityCoin.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
             });
 
             it("shouldnt become owner and trusted forwarder", async() => {
-                await expect(CommunityToken.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith("FORWARDER_CAN_NOT_BE_OWNER");
+                await expect(CommunityCoin.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith("FORWARDER_CAN_NOT_BE_OWNER");
             });
             
         });
@@ -450,7 +450,7 @@ describe("Staking contract tests", function () {
                 
                 beforeEach("deploying", async() => {
                     if (trustedForwardMode) {
-                        await CommunityToken.connect(owner).setTrustedForwarder(trustedForwarder.address);
+                        await CommunityCoin.connect(owner).setTrustedForwarder(trustedForwarder.address);
                     }
                 });
                 
@@ -459,15 +459,15 @@ describe("Staking contract tests", function () {
                         it("beneficiary test", async () => {
                         
                             await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
-                            await erc20ReservedToken.connect(bob).approve(stakingPool.address, ONE_ETH.mul(ONE));
+                            await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
 
-                            let walletTokensBefore = await CommunityToken.balanceOf(charlie.address);
-                            let lptokensBefore = await pairInstance.balanceOf(stakingPool.address);
+                            let walletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
+                            let lptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
                             
-                            await stakingPool.connect(bob)['buyLiquidityAndStake(uint256,address)'](ONE_ETH.mul(ONE), charlie.address);
+                            await communityStakingPool.connect(bob)['buyLiquidityAndStake(uint256,address)'](ONE_ETH.mul(ONE), charlie.address);
 
-                            let walletTokens = await CommunityToken.balanceOf(charlie.address);
-                            let lptokens = await pairInstance.balanceOf(stakingPool.address);
+                            let walletTokens = await CommunityCoin.balanceOf(charlie.address);
+                            let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
                             
                             // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                             expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
@@ -479,23 +479,23 @@ describe("Staking contract tests", function () {
                         });
                     }
                     // it("TrustedForwarder test", async() => {
-                    //     await CommunityToken.connect(owner).setTrustedForwarder(alice.address);
+                    //     await CommunityCoin.connect(owner).setTrustedForwarder(alice.address);
                         
                     //     await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
-                    //     await erc20ReservedToken.connect(bob).approve(stakingPool.address, ONE_ETH.mul(ONE));
+                    //     await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
 
-                    //     let walletTokensBefore = await CommunityToken.balanceOf(bob.address);
-                    //     let lptokensBefore = await pairInstance.balanceOf(stakingPool.address);
+                    //     let walletTokensBefore = await CommunityCoin.balanceOf(bob.address);
+                    //     let lptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
 
-                    //     //await stakingPool.connect(alice)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                    //     //await communityStakingPool.connect(alice)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
                     //     // trick with set up msgsender for TrustedForwarder calls
-                    //     const lqBuyTx = await stakingPool.connect(alice).populateTransaction['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                    //     const lqBuyTx = await communityStakingPool.connect(alice).populateTransaction['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
                     //     lqBuyTx.data = lqBuyTx.data.concat((bob.address).substring(2));
                     //     await alice.sendTransaction(lqBuyTx);
                     //     //-----
 
-                    //     let walletTokens = await CommunityToken.balanceOf(bob.address);
-                    //     let lptokens = await pairInstance.balanceOf(stakingPool.address);
+                    //     let walletTokens = await CommunityCoin.balanceOf(bob.address);
+                    //     let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
 
                     //     // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                     //     expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
@@ -515,30 +515,30 @@ describe("Staking contract tests", function () {
 
                         beforeEach("deploying", async() => {
                             await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
-                            await erc20ReservedToken.connect(bob).approve(stakingPool.address, ONE_ETH.mul(ONE));
+                            await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
 
-                            bobWalletTokensBefore = await CommunityToken.balanceOf(bob.address);
-                            bobLptokensBefore = await pairInstance.balanceOf(stakingPool.address);
+                            bobWalletTokensBefore = await CommunityCoin.balanceOf(bob.address);
+                            bobLptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
 
-                            stakingBalanceToken1Before = await erc20ReservedToken.balanceOf(stakingPool.address);
-                            stakingBalanceToken2Before = await erc20TradedToken.balanceOf(stakingPool.address);
+                            stakingBalanceToken1Before = await erc20ReservedToken.balanceOf(communityStakingPool.address);
+                            stakingBalanceToken2Before = await erc20TradedToken.balanceOf(communityStakingPool.address);
 
                             if (trustedForwardMode) {
-                                const dataTx = await stakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                                const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
                                 await trustedForwarder.sendTransaction(dataTx);
                             } else {
-                                await stakingPool.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                                await communityStakingPool.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
                             }
 
-                            stakingBalanceToken1After = await erc20ReservedToken.balanceOf(stakingPool.address);
-                            stakingBalanceToken2After = await erc20TradedToken.balanceOf(stakingPool.address);
+                            stakingBalanceToken1After = await erc20ReservedToken.balanceOf(communityStakingPool.address);
+                            stakingBalanceToken2After = await erc20TradedToken.balanceOf(communityStakingPool.address);
                         });
 
                         it("buyAddLiquidityAndStake", async () => {
                     
-                            let walletTokens = await CommunityToken.balanceOf(bob.address);
-                            let lptokens = await pairInstance.balanceOf(stakingPool.address);
+                            let walletTokens = await CommunityCoin.balanceOf(bob.address);
+                            let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
                             
                             // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                             expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
@@ -551,41 +551,41 @@ describe("Staking contract tests", function () {
 
                         it("shouldnt unstake if not unlocked yet", async () => {
                         
-                            let walletTokens = await CommunityToken.balanceOf(bob.address);
+                            let walletTokens = await CommunityCoin.balanceOf(bob.address);
 
                             expect(walletTokens).to.not.equal(ZERO);
                             
                             // even if approve before
                             if (trustedForwardMode) {
-                                const dataTx = await CommunityToken.connect(trustedForwarder).populateTransaction.approve(CommunityToken.address, walletTokens);
+                                const dataTx = await CommunityCoin.connect(trustedForwarder).populateTransaction.approve(CommunityCoin.address, walletTokens);
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
                                 await trustedForwarder.sendTransaction(dataTx);
                             } else {
-                                await CommunityToken.connect(bob).approve(CommunityToken.address, walletTokens);
+                                await CommunityCoin.connect(bob).approve(CommunityCoin.address, walletTokens);
                             }
 
                             if (trustedForwardMode) {
-                                const dataTx = await CommunityToken.connect(trustedForwarder).populateTransaction.unstake(walletTokens);
+                                const dataTx = await CommunityCoin.connect(trustedForwarder).populateTransaction.unstake(walletTokens);
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
                                 await expect(trustedForwarder.sendTransaction(dataTx)).to.be.revertedWith('STAKE_NOT_UNLOCKED_YET');
                             } else {
-                                await expect(CommunityToken.connect(bob).unstake(walletTokens)).to.be.revertedWith('STAKE_NOT_UNLOCKED_YET');
+                                await expect(CommunityCoin.connect(bob).unstake(walletTokens)).to.be.revertedWith('STAKE_NOT_UNLOCKED_YET');
                             }
                         });  
 
                         it("shouldnt redeem if not unlocked yet", async () => {
                             let dataTx;
-                            let walletTokens = await CommunityToken.balanceOf(bob.address);
+                            let walletTokens = await CommunityCoin.balanceOf(bob.address);
 
                             expect(walletTokens).to.not.equal(ZERO);
                             
                             // even if approve before
                             if (trustedForwardMode) {
-                                dataTx = await CommunityToken.connect(trustedForwarder).populateTransaction.approve(CommunityToken.address, walletTokens);
+                                dataTx = await CommunityCoin.connect(trustedForwarder).populateTransaction.approve(CommunityCoin.address, walletTokens);
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
                                 await trustedForwarder.sendTransaction(dataTx);
                             } else {
-                                await CommunityToken.connect(bob).approve(CommunityToken.address, walletTokens);
+                                await CommunityCoin.connect(bob).approve(CommunityCoin.address, walletTokens);
                             }
                             
                             let revertMsg = [
@@ -596,37 +596,37 @@ describe("Staking contract tests", function () {
                                     ].join("");
 
                             if (trustedForwardMode) {
-                                dataTx = await CommunityToken.connect(trustedForwarder).populateTransaction['redeem(uint256)'](walletTokens);
+                                dataTx = await CommunityCoin.connect(trustedForwarder).populateTransaction['redeem(uint256)'](walletTokens);
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
                                 await expect(trustedForwarder.sendTransaction(dataTx)).to.be.revertedWith(revertMsg);
                             } else {
-                                await expect(CommunityToken.connect(bob)['redeem(uint256)'](walletTokens)).to.be.revertedWith(revertMsg);
+                                await expect(CommunityCoin.connect(bob)['redeem(uint256)'](walletTokens)).to.be.revertedWith(revertMsg);
                             }
                             
                         }); 
 
                         it("should transfer wallet tokens after stake", async() => {
                             
-                            let bobSharesAfter = await CommunityToken.balanceOf(bob.address);
+                            let bobSharesAfter = await CommunityCoin.balanceOf(bob.address);
 
-                            let bobLockedBalanceAfter = await CommunityToken.connect(bob).viewLockedWalletTokens(bob.address);
-                            let aliceLockedBalanceAfter = await CommunityToken.connect(bob).viewLockedWalletTokens(alice.address);
+                            let bobLockedBalanceAfter = await CommunityCoin.connect(bob).viewLockedWalletTokens(bob.address);
+                            let aliceLockedBalanceAfter = await CommunityCoin.connect(bob).viewLockedWalletTokens(alice.address);
                             expect(aliceLockedBalanceAfter).to.be.eq(ZERO);
                             expect(bobLockedBalanceAfter).to.be.eq(bobSharesAfter);
 
                             if (trustedForwardMode) {
-                                const dataTx = await CommunityToken.connect(trustedForwarder).populateTransaction.transfer(alice.address, bobSharesAfter);
+                                const dataTx = await CommunityCoin.connect(trustedForwarder).populateTransaction.transfer(alice.address, bobSharesAfter);
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
                                 await trustedForwarder.sendTransaction(dataTx);
                             } else {
-                                await CommunityToken.connect(bob).transfer(alice.address, bobSharesAfter);
+                                await CommunityCoin.connect(bob).transfer(alice.address, bobSharesAfter);
                             }
                             
 
-                            let bobSharesAfterTransfer = await CommunityToken.balanceOf(bob.address);
-                            let aliceSharesAfterBobTransfer = await CommunityToken.balanceOf(alice.address);
-                            let bobLockedBalanceAfterBobTransfer = await CommunityToken.connect(bob).viewLockedWalletTokens(bob.address);
-                            let aliceLockedBalanceAfterBobTransfer = await CommunityToken.connect(bob).viewLockedWalletTokens(alice.address);
+                            let bobSharesAfterTransfer = await CommunityCoin.balanceOf(bob.address);
+                            let aliceSharesAfterBobTransfer = await CommunityCoin.balanceOf(alice.address);
+                            let bobLockedBalanceAfterBobTransfer = await CommunityCoin.connect(bob).viewLockedWalletTokens(bob.address);
+                            let aliceLockedBalanceAfterBobTransfer = await CommunityCoin.connect(bob).viewLockedWalletTokens(alice.address);
 
                             expect(bobSharesAfterTransfer).to.be.eq(ZERO);
                             expect(bobSharesAfter).to.be.eq(aliceSharesAfterBobTransfer);
@@ -675,25 +675,25 @@ describe("Staking contract tests", function () {
                             );
 
                             await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
-                            await erc20ReservedToken.connect(bob).approve(stakingPool.address, ONE_ETH.mul(ONE));
+                            await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
 
                             // 50000
                             await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(FOUR).mul(TEN).mul(THOUSAND));
-                            await erc20ReservedToken.connect(bob).approve(stakingPool.address, ONE_ETH.mul(FOUR).mul(TEN).mul(THOUSAND));
+                            await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(FOUR).mul(TEN).mul(THOUSAND));
 
-                            stakingBalanceToken1Before = await erc20ReservedToken.balanceOf(stakingPool.address);
-                            stakingBalanceToken2Before = await erc20TradedToken.balanceOf(stakingPool.address);
+                            stakingBalanceToken1Before = await erc20ReservedToken.balanceOf(communityStakingPool.address);
+                            stakingBalanceToken2Before = await erc20TradedToken.balanceOf(communityStakingPool.address);
 
                             if (trustedForwardMode) {
-                                const dataTx = await stakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                                const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
                                 await trustedForwarder.sendTransaction(dataTx);
                             } else {
-                                await stakingPool.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                                await communityStakingPool.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
                             }
 
-                            stakingBalanceToken1After = await erc20ReservedToken.balanceOf(stakingPool.address);
-                            stakingBalanceToken2After = await erc20TradedToken.balanceOf(stakingPool.address);
+                            stakingBalanceToken1After = await erc20ReservedToken.balanceOf(communityStakingPool.address);
+                            stakingBalanceToken2After = await erc20TradedToken.balanceOf(communityStakingPool.address);
                         });
 
                         it("should consume all traded tokens when buying liquidity", async () => {
@@ -712,7 +712,7 @@ describe("Staking contract tests", function () {
                     beforeEach("deploying", async() => {
                         await erc20.mint(bob.address, ONE_ETH.mul(ONE));
                     
-                        await erc20.connect(bob).approve(stakingPool.address, ONE_ETH.mul(ONE));
+                        await erc20.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
 
                         // create pair Token2 => Token3
                         await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
@@ -739,15 +739,15 @@ describe("Staking contract tests", function () {
                 
                         // now addinig liquidity through paying token will be successful
                         if (trustedForwardMode) {
-                            const dataTx = await stakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(address,uint256)'](erc20.address, ONE_ETH.mul(ONE));
+                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(address,uint256)'](erc20.address, ONE_ETH.mul(ONE));
                             dataTx.data = dataTx.data.concat((bob.address).substring(2));
                             await trustedForwarder.sendTransaction(dataTx);
                         } else {
-                            await stakingPool.connect(bob)['buyLiquidityAndStake(address,uint256)'](erc20.address, ONE_ETH.mul(ONE));
+                            await communityStakingPool.connect(bob)['buyLiquidityAndStake(address,uint256)'](erc20.address, ONE_ETH.mul(ONE));
                         }
                     
-                        let walletTokens = await CommunityToken.balanceOf(bob.address);
-                        let lptokens = await pairInstance.balanceOf(stakingPool.address);
+                        let walletTokens = await CommunityCoin.balanceOf(bob.address);
+                        let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
                             
                         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
 
@@ -758,20 +758,20 @@ describe("Staking contract tests", function () {
 
                     it("buyAddLiquidityAndStake (beneficiary)", async () => {
                 
-                        let walletTokensBefore = await CommunityToken.balanceOf(charlie.address);
-                        let lptokensBefore = await pairInstance.balanceOf(stakingPool.address);
+                        let walletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
+                        let lptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
 
                         // now addinig liquidity through paying token will be successful
                         if (trustedForwardMode) {
-                            const dataTx = await stakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(address,uint256,address)'](erc20.address, ONE_ETH.mul(ONE), charlie.address);
+                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(address,uint256,address)'](erc20.address, ONE_ETH.mul(ONE), charlie.address);
                             dataTx.data = dataTx.data.concat((bob.address).substring(2));
                             await trustedForwarder.sendTransaction(dataTx);
                         } else {
-                            await stakingPool.connect(bob)['buyLiquidityAndStake(address,uint256,address)'](erc20.address, ONE_ETH.mul(ONE), charlie.address);
+                            await communityStakingPool.connect(bob)['buyLiquidityAndStake(address,uint256,address)'](erc20.address, ONE_ETH.mul(ONE), charlie.address);
                         }
                     
-                        let walletTokens = await CommunityToken.balanceOf(charlie.address);
-                        let lptokens = await pairInstance.balanceOf(stakingPool.address);
+                        let walletTokens = await CommunityCoin.balanceOf(charlie.address);
+                        let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
                             
                         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
 
@@ -809,17 +809,17 @@ describe("Staking contract tests", function () {
                     
                     it("buyAddLiquidityAndStake", async () => {
                         
-                        await stakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                        await communityStakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
                         if (trustedForwardMode) {
-                            const dataTx = await stakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
                             dataTx.data = dataTx.data.concat((bob.address).substring(2));
                             await trustedForwarder.sendTransaction(dataTx);
                         } else {
-                            await stakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                            await communityStakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
                         }
     
-                        let walletTokens = await CommunityToken.balanceOf(bob.address);
-                        let lptokens = await pairInstance.balanceOf(stakingPool.address);
+                        let walletTokens = await CommunityCoin.balanceOf(bob.address);
+                        let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
                         
                         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                         expect(lptokens).not.to.be.eq(ZERO);
@@ -828,20 +828,20 @@ describe("Staking contract tests", function () {
                     });    
 
                     it("buyAddLiquidityAndStake (beneficiary)", async () => {
-                        let walletTokensBefore = await CommunityToken.balanceOf(charlie.address);
-                        let lptokensBefore = await pairInstance.balanceOf(stakingPool.address);
+                        let walletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
+                        let lptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
 
                         if (trustedForwardMode) {
-                            const dataTx = await stakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(address)'](charlie.address, {value: ONE_ETH.mul(ONE) });
+                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(address)'](charlie.address, {value: ONE_ETH.mul(ONE) });
                             dataTx.data = dataTx.data.concat((bob.address).substring(2));
                             await trustedForwarder.sendTransaction(dataTx);
                         } else {
-                            await stakingPool.connect(bob)['buyLiquidityAndStake(address)'](charlie.address, {value: ONE_ETH.mul(ONE) });
+                            await communityStakingPool.connect(bob)['buyLiquidityAndStake(address)'](charlie.address, {value: ONE_ETH.mul(ONE) });
                         }
 
                         
-                        let walletTokens = await CommunityToken.balanceOf(charlie.address);
-                        let lptokens = await pairInstance.balanceOf(stakingPool.address);
+                        let walletTokens = await CommunityCoin.balanceOf(charlie.address);
+                        let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
                         
                         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                         expect(lptokens).not.to.be.eq(ZERO);
@@ -857,7 +857,7 @@ describe("Staking contract tests", function () {
         describe("factory tests", function() {
             it("should return instance info", async () => {
                 
-                let data = await await CommunityToken.connect(bob).getInstanceInfo(erc20ReservedToken.address, erc20TradedToken.address, lockupIntervalCount);
+                let data = await await CommunityCoin.connect(bob).getInstanceInfo(erc20ReservedToken.address, erc20TradedToken.address, lockupIntervalCount);
                 
                 expect(data.reserveToken).to.be.eq(erc20ReservedToken.address);
                 expect(data.tradedToken).to.be.eq(erc20TradedToken.address);
@@ -866,7 +866,7 @@ describe("Staking contract tests", function () {
             }); 
             
             it("should return correct instance length", async () => {
-                let data = await await CommunityToken.connect(bob).instancesCount();
+                let data = await await CommunityCoin.connect(bob).instancesCount();
                 expect(data).to.be.eq(ONE);
             }); 
         }); 
@@ -876,9 +876,9 @@ describe("Staking contract tests", function () {
             beforeEach("before each callback", async() => {
                 
                 await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20ReservedToken.connect(bob).approve(stakingPool.address, ONE_ETH.mul(ONE));
-                await stakingPool.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
-                shares = await CommunityToken.balanceOf(bob.address);
+                await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+                await communityStakingPool.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                shares = await CommunityCoin.balanceOf(bob.address);
             });
 
             it("should wallet tokens appear and not equal zero", async () => {
@@ -890,11 +890,11 @@ describe("Staking contract tests", function () {
                 var uniswapV2PairAddress;
                 var uniswapV2PairInstance;
 
-                uniswapV2PairAddress = await stakingPool.uniswapV2Pair();
+                uniswapV2PairAddress = await communityStakingPool.uniswapV2Pair();
                 uniswapV2PairInstance = await ethers.getContractAt("ERC20Mintable",uniswapV2PairAddress);
 
                 let bobLPTokenBefore = await uniswapV2PairInstance.balanceOf(bob.address);
-                await CommunityToken.connect(bob).burn(shares, []);
+                await CommunityCoin.connect(bob).burn(shares, []);
                 let bobLPTokenAfter = await uniswapV2PairInstance.balanceOf(bob.address);
 
                 expect(bobLPTokenAfter).equal(bobLPTokenBefore);
@@ -903,13 +903,13 @@ describe("Staking contract tests", function () {
             describe("unstake tests", function () {
                 describe("shouldnt unstake", function () {
                     it("if not unlocked yet", async () => {
-                        await expect(CommunityToken.connect(bob)["unstake(uint256)"](shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+                        await expect(CommunityCoin.connect(bob)["unstake(uint256)"](shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
                     });
                     it("if amount more than balance", async () => {
                         // pass some mtime
                         await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
-                        await expect(CommunityToken.connect(bob)["unstake(uint256)"](shares.add(ONE_ETH))).to.be.revertedWith("INSUFFICIENT_BALANCE");
+                        await expect(CommunityCoin.connect(bob)["unstake(uint256)"](shares.add(ONE_ETH))).to.be.revertedWith("INSUFFICIENT_BALANCE");
                     });
                 });
                 describe("should unstake", function () {
@@ -920,8 +920,8 @@ describe("Staking contract tests", function () {
                         let bobReservedTokenBefore = await erc20ReservedToken.balanceOf(bob.address);
                         let bobTradedTokenBefore = await erc20TradedToken.balanceOf(bob.address);
 
-                        await CommunityToken.connect(bob).approve(CommunityToken.address, shares);
-                        await CommunityToken.connect(bob)["unstake(uint256)"](shares);
+                        await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+                        await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
 
                         let bobReservedTokenAfter = await erc20ReservedToken.balanceOf(bob.address);
                         let bobTradedTokenAfter = await erc20TradedToken.balanceOf(bob.address);
@@ -939,7 +939,7 @@ describe("Staking contract tests", function () {
                     describe(`shouldnt ${forkAction ? 'redeem' : 'RRL' }`, function () {
                         describe("without redeem role", function () {
                             it("if anyone didn't transfer tokens to you before", async () => {
-                                await expect(CommunityToken.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
+                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
                                     [
                                         "AccessControl: account ",
                                         (bob.address).toLowerCase(),
@@ -950,11 +950,11 @@ describe("Staking contract tests", function () {
                             });
                             describe("after someone transfer", function () {  
                                 beforeEach("before each callback", async() => {
-                                    await CommunityToken.connect(bob).transfer(alice.address, shares);
+                                    await CommunityCoin.connect(bob).transfer(alice.address, shares);
                                 });  
                                 
                                 it("without approve before", async () => {
-                                    await expect(CommunityToken.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
+                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
                                         [
                                             "AccessControl: account ",
                                             (alice.address).toLowerCase(),
@@ -966,7 +966,7 @@ describe("Staking contract tests", function () {
                                 it("without approve before even if passed time", async () => {
                                     // pass some mtime
                                     await time.increase(lockupIntervalCount*dayInSeconds+9);    
-                                    await expect(CommunityToken.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
+                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
                                         [
                                             "AccessControl: account ",
                                             (alice.address).toLowerCase(),
@@ -977,8 +977,8 @@ describe("Staking contract tests", function () {
                                 });
                                 
                                 it("with approve before", async () => {
-                                    await CommunityToken.connect(alice).approve(CommunityToken.address, shares);
-                                    await expect(CommunityToken.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
+                                    await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
                                         [
                                             "AccessControl: account ",
                                             (alice.address).toLowerCase(),
@@ -988,11 +988,11 @@ describe("Staking contract tests", function () {
                                     );
                                 });
                                 it("with approve before even if passed time", async () => {
-                                    await CommunityToken.connect(alice).approve(CommunityToken.address, shares);
+                                    await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
                                     // pass some mtime
                                     await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
-                                    await expect(CommunityToken.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
+                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
                                         [
                                             "AccessControl: account ",
                                             (alice.address).toLowerCase(),
@@ -1010,37 +1010,37 @@ describe("Staking contract tests", function () {
                         describe("with redeem role", function () {
                             beforeEach("before each callback", async() => {
                                 // grant role to bob
-                                await CommunityToken.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
+                                await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
                             });
 
                             it("if anyone didn't transfer tokens to you before", async () => {
-                                await expect(CommunityToken.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Amount exceeds allowance");
+                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Amount exceeds allowance");
                             });
         
                             it("but without transfer to some one", async () => {
                                 // means that bob have tokens(after stake), he have redeem role, but totalRedeemable are zero
                                 // here it raise a erc777 
                                 
-                                await CommunityToken.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
-                                await CommunityToken.connect(bob).approve(CommunityToken.address, shares);
+                                await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
+                                await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
 
-                                await expect(CommunityToken.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("INSUFFICIENT_BALANCE");
+                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("INSUFFICIENT_BALANCE");
                             });
                             
                             describe("after someone transfer", function () {  
                                 beforeEach("before each callback", async() => {
-                                    await CommunityToken.connect(bob).transfer(alice.address, shares);
+                                    await CommunityCoin.connect(bob).transfer(alice.address, shares);
                                     // grant role to alice
-                                    await CommunityToken.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
+                                    await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
                                 });  
                                 
                                 it("without approve before", async () => {
-                                    await expect(CommunityToken.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Amount exceeds allowance");
+                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Amount exceeds allowance");
                                 });
                                 it("without approve before even if passed time", async () => {
                                     // pass some mtime
                                     await time.increase(lockupIntervalCount*dayInSeconds+9);    
-                                    await expect(CommunityToken.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Amount exceeds allowance");
+                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Amount exceeds allowance");
                                 });
                                 
                             });      
@@ -1059,14 +1059,14 @@ describe("Staking contract tests", function () {
                             // pass some mtime
                             await time.increase(lockupIntervalCount*dayInSeconds+9);    
                             // grant role
-                            await CommunityToken.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
+                            await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
 
                             // transfer from bob to alice
-                            await CommunityToken.connect(bob).transfer(alice.address, shares);
-                            //await CommunityToken.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
+                            await CommunityCoin.connect(bob).transfer(alice.address, shares);
+                            //await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
 
                             //after that, when alice has obtain tokens she can redeem 
-                            uniswapV2PairAddress = await stakingPool.uniswapV2Pair();
+                            uniswapV2PairAddress = await communityStakingPool.uniswapV2Pair();
                             uniswapV2PairInstance = await ethers.getContractAt("ERC20Mintable",uniswapV2PairAddress);
 
                             aliceLPTokenBefore = await uniswapV2PairInstance.balanceOf(alice.address);
@@ -1076,8 +1076,8 @@ describe("Staking contract tests", function () {
                         });
                         it(`via ${forkAction ? 'redeem' : 'redeemAndRemoveLiquidity'} method`, async () => {
                             
-                            await CommunityToken.connect(alice).approve(CommunityToken.address, shares);
-                            await CommunityToken.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares);
+                            await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                            await CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares);
 
                             aliceLPTokenAfter = await uniswapV2PairInstance.balanceOf(alice.address);
                             aliceReservedTokenAfter = await erc20ReservedToken.balanceOf(alice.address);
@@ -1096,7 +1096,7 @@ describe("Staking contract tests", function () {
                         if (forkAction) {
                             it("via directly send to contract", async () => {
 
-                                await CommunityToken.connect(alice).transfer(CommunityToken.address, shares);
+                                await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
 
                                 aliceLPTokenAfter = await uniswapV2PairInstance.balanceOf(alice.address);
 

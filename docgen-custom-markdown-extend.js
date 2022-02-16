@@ -1,9 +1,9 @@
 module.exports = function dataExtend() {
     return {
-        'contracts/CommunityToken.sol': {
+        'contracts/CommunityCoin.sol': {
             'description': [
-                'This it ERC777 contract "CommunityTokens".',
-                'Providing a functionality to create StakingPool and way to redeem CommunityTokens from this pools where user can stake own tokens.'
+                'This it ERC777 contract "CommunityCoins".',
+                'Providing a functionality to create CommunityStakingPool and way to redeem CommunityCoins from this pools where user can stake own tokens.'
             ].join("<br>"),
             //'constructor':{'custom:shortd': 'part of ERC20'},
             'exclude': [
@@ -48,11 +48,11 @@ module.exports = function dataExtend() {
                 
             },
         },
-        'contracts/StakingPool.sol': {
+        'contracts/CommunityStakingPool.sol': {
             'description': [
                 'This it ERC777 contract (pool).',
-                'Can be created by factory (StakingFactory contract).',
-                'Provide a functionality to buy and stake liquidity and getting in return CommunityTokens(See StakingFactory contract).'
+                'Can be created by factory (CommunityCoinFactory contract).',
+                'Provide a functionality to buy and stake liquidity and getting in return CommunityCoins(See CommunityCoinFactory contract).'
             ].join("<br>"),
             'exclude': [
                 'authorizeOperator',
@@ -80,10 +80,10 @@ module.exports = function dataExtend() {
                 
             }
         },
-        'contracts/StakingFactory.sol': {
+        'contracts/CommunityCoinFactory.sol': {
             'description': [
                 'This it factory contract.',
-                'Provide a functionality to create CommunityToken'
+                'Provide a functionality to create CommunityCoin'
             ].join("<br>"),
             'exclude': [],
             'fix': {
@@ -91,8 +91,6 @@ module.exports = function dataExtend() {
                 'instances': {'custom:shortd': 'public list of created instances'},
                 'owner': {'custom:shortd': 'owner of staking contract. Part of `Ownable` contract'},
                 'renounceOwnership': {'custom:shortd': 'Part of `Ownable` contract'},
-              //  'stakingcontractimplementation': {'custom:shortd': 'CommunityTokens implementation address'},
-                //'stakingpoolimplementation': {'custom:shortd': 'StakingPool implementation address'},
                 'transferOwnership': {'custom:shortd': 'Part of `Ownable` contract'},
             },
         },

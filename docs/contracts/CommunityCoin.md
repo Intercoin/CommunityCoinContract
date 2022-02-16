@@ -1,6 +1,6 @@
-# CommunityToken
+# CommunityCoin
 
-This it ERC777 contract "CommunityTokens".<br>Providing a functionality to create StakingPool and way to redeem CommunityTokens from this pools where user can stake own tokens.
+This it ERC777 contract "CommunityCoins".<br>Providing a functionality to create CommunityStakingPool and way to redeem CommunityCoins from this pools where user can stake own tokens.
 
 # Overview
 
@@ -662,7 +662,7 @@ Outputs
 
 | **name** | **type** | **description** |
 |-|-|-|
-| instance | address | address of created instance pool `StakingPool` |
+| instance | address | address of created instance pool `CommunityStakingPool` |
 
 
 
@@ -677,15 +677,15 @@ Arguments
 | reserveToken | address | address of reserve token. like a WETH, USDT,USDC, etc. |
 | tradedToken | address | address of traded token. usual it intercoin investor token |
 | duration | uint64 | duration represented in amount of `LOCKUP_INTERVAL` |
-| reserveTokenClaimFraction | uint64 | fraction of reserved token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize} |
-| tradedTokenClaimFraction | uint64 | fraction of traded token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize} |
-| lpClaimFraction | uint64 | fraction of LP token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize} |
+| reserveTokenClaimFraction | uint64 | fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize} |
+| tradedTokenClaimFraction | uint64 | fraction of traded token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize} |
+| lpClaimFraction | uint64 | fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize} |
 
 Outputs
 
 | **name** | **type** | **description** |
 |-|-|-|
-| instance | address | address of created instance pool `StakingPool` |
+| instance | address | address of created instance pool `CommunityStakingPool` |
 
 
 

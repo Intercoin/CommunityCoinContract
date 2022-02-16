@@ -1,6 +1,6 @@
-# StakingPool
+# CommunityStakingPool
 
-This it ERC777 contract (pool).<br>Can be created by factory (StakingFactory contract).<br>Provide a functionality to buy and stake liquidity and getting in return CommunityTokens(See StakingFactory contract).
+This it ERC777 contract (pool).<br>Can be created by factory (CommunityCoinFactory contract).<br>Provide a functionality to buy and stake liquidity and getting in return CommunityCoins(See CommunityCoinFactory contract).
 
 # Overview
 

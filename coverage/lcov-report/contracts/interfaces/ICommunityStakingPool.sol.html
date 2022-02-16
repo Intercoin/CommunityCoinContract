@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>Code coverage report for contracts\interfaces\IHook.sol</title>
+    <title>Code coverage report for contracts\interfaces\ICommunityStakingPool.sol</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -16,7 +16,7 @@
 <div class='wrapper'>
   <div class='pad1'>
     <h1>
-      <a href="../../index.html">all files</a> / <a href="index.html">contracts/interfaces/</a> IHook.sol
+      <a href="../../index.html">all files</a> / <a href="index.html">contracts/interfaces/</a> ICommunityStakingPool.sol
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
@@ -50,21 +50,57 @@
 5
 6
 7
-8</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: UNLICENSED
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 &nbsp;
-interface IHook {
-    function bonusCalculation(address instance, address account, uint64 duration, uint256 amount) external returns(uint256);
-    function transferHook(address operator, address from, address to, uint256 amount) external returns(bool);
+interface ICommunityStakingPool {
     
-}</pre></td></tr>
+    function initialize(
+        address reserveToken_,
+        address tradedToken_, 
+        uint64 tradedTokenClaimFraction_, 
+        uint64 reserveTokenClaimFraction_,
+        uint64 lpClaimFraction_
+    ) external;
+    /*
+    function stake(address addr, uint256 amount) external;
+    function getMinimum(address addr) external view returns(uint256);
+    */
+    function redeem(address account, uint256 amount) external;
+    function redeemAndRemoveLiquidity(address account, uint256 amount) external;
+}
+&nbsp;</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
 </div><!-- /wrapper -->

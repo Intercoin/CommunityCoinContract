@@ -2,8 +2,8 @@
 pragma solidity 0.8.11;
 
 import "./interfaces/IHook.sol";
-import "./interfaces/ICommunityToken.sol";
-import "./interfaces/IStakingPool.sol";
+import "./interfaces/ICommunityCoin.sol";
+import "./interfaces/ICommunityStakingPool.sol";
 //import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./access/TrustedForwarder.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
@@ -19,10 +19,10 @@ import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 
 //import "hardhat/console.sol";
 
-contract CommunityToken is 
+contract CommunityCoin is 
     //OwnableUpgradeable, 
     TrustedForwarder,
-    ICommunityToken, 
+    ICommunityCoin, 
     AccessControlEnumerableUpgradeable, 
     ERC777Upgradeable, 
     MinimumsBaseUpgradeable, 
@@ -297,7 +297,7 @@ contract CommunityToken is
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
-    * @return instance address of created instance pool `StakingPool`
+    * @return instance address of created instance pool `CommunityStakingPool`
     * @custom:shortd creation instance with simple options
     */
     function produce(
@@ -314,10 +314,10 @@ contract CommunityToken is
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
-    * @param reserveTokenClaimFraction fraction of reserved token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize}
-    * @param tradedTokenClaimFraction fraction of traded token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize}
-    * @param lpClaimFraction fraction of LP token multiplied by {StakingPool::FRACTION}. See more in {StakingPool::initialize}
-    * @return instance address of created instance pool `StakingPool`
+    * @param reserveTokenClaimFraction fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
+    * @param tradedTokenClaimFraction fraction of traded token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
+    * @param lpClaimFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
+    * @return instance address of created instance pool `CommunityStakingPool`
     * @custom:calledby owner
     * @custom:shortd creation instance with extended options
     */
@@ -475,7 +475,7 @@ contract CommunityToken is
 
         (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE, totalSupplyBefore);
         for (uint256 i = 0; i < len; i++) {
-            try IStakingPool(instancesList[i]).redeemAndRemoveLiquidity(
+            try ICommunityStakingPool(instancesList[i]).redeemAndRemoveLiquidity(
                 account, 
                 values[i]
             ) {
@@ -502,14 +502,14 @@ contract CommunityToken is
 
         address instanceCreated = _createInstance(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);    
 
-        require(instanceCreated != address(0), "CommunityToken: INSTANCE_CREATION_FAILED");
+        require(instanceCreated != address(0), "CommunityCoin: INSTANCE_CREATION_FAILED");
         require(duration != 0, "cant be zero duration");
         // if (duration == 0) {
         //     IStakingTransferRules(instanceCreated).initialize(
         //         reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
         //     );
         // } else {
-            IStakingPool(instanceCreated).initialize(
+            ICommunityStakingPool(instanceCreated).initialize(
                 reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
             );
         // }
@@ -525,11 +525,11 @@ contract CommunityToken is
         uint64 tradedClaimFraction, 
         uint64 reserveClaimFraction
     ) internal view {
-        require(reserveToken != tradedToken, "CommunityToken: IDENTICAL_ADDRESSES");
-        require(reserveToken != address(0) && tradedToken != address(0), "CommunityToken: ZERO_ADDRESS");
-        require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "CommunityToken: WRONG_CLAIM_FRACTION");
+        require(reserveToken != tradedToken, "CommunityCoin: IDENTICAL_ADDRESSES");
+        require(reserveToken != address(0) && tradedToken != address(0), "CommunityCoin: ZERO_ADDRESS");
+        require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
         address instance = getInstance[reserveToken][tradedToken][duration];
-        require(instance == address(0), "CommunityToken: PAIR_ALREADY_EXISTS");
+        require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
     }
         
     function _createInstance(
@@ -702,7 +702,7 @@ contract CommunityToken is
         for (uint256 i = 0; i < len; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
                 if (strategy == Strategy.REDEEM) {
-                    try IStakingPool(instancesToRedeem[i]).redeem(
+                    try ICommunityStakingPool(instancesToRedeem[i]).redeem(
                         account2Redeem, 
                         valuesToRedeem[i]
                     ) {
@@ -713,7 +713,7 @@ contract CommunityToken is
                         revert("Error when redeem in an instance");
                     }
                 } else if (strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-                    try IStakingPool(instancesToRedeem[i]).redeemAndRemoveLiquidity(
+                    try ICommunityStakingPool(instancesToRedeem[i]).redeemAndRemoveLiquidity(
                         account2Redeem, 
                         valuesToRedeem[i]
                     ) {

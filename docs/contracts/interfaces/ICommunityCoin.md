@@ -1,6 +1,6 @@
-# ICommunityToken
+# ICommunityCoin
 
-contracts/interfaces/ICommunityToken.sol
+contracts/interfaces/ICommunityCoin.sol
 
 # Overview
 

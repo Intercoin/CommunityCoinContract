@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.11;
 
-import "../StakingPool.sol";
+import "../CommunityStakingPool.sol";
 
-contract MockSrqtCoverage is StakingPool {
+contract MockSrqtCoverage is CommunityStakingPool {
 
     function calculateSqrt(
         uint256 x

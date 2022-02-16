@@ -3,16 +3,16 @@ pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/ICommunityToken.sol";
+import "./interfaces/ICommunityCoin.sol";
 
-contract StakingFactory is Ownable {
+contract CommunityCoinFactory is Ownable {
     using Clones for address;
 
     /**
-    * @custom:shortd CommunityToken implementation address
-    * @notice CommunityToken implementation address
+    * @custom:shortd CommunityCoin implementation address
+    * @notice CommunityCoin implementation address
     */
-    address public immutable communityTokenImplementation;
+    address public immutable communityCoinImplementation;
     /**
     * @custom:shortd StakingPool implementation address
     * @notice StakingPool implementation address
@@ -24,15 +24,15 @@ contract StakingFactory is Ownable {
     event InstanceCreated(address instance, uint instancesCount);
 
     /**
-    * @param communityTokenImpl address of CommunityToken implementation
+    * @param communityCoinImpl address of CommunityCoin implementation
     * @param stakingPoolImpl address of StakingPool implementation
     */
     constructor(
-        address communityTokenImpl,
+        address communityCoinImpl,
         address stakingPoolImpl
     ) 
     {
-        communityTokenImplementation = communityTokenImpl;
+        communityCoinImplementation = communityCoinImpl;
         stakingPoolImplementation = stakingPoolImpl;
     }
 
@@ -60,7 +60,7 @@ contract StakingFactory is Ownable {
     /**
     * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-    * @return instance address of created instance pool `CommunityToken`
+    * @return instance address of created instance pool `CommunityCoin`
     * @custom:shortd creation instance
     */
     function produce(
@@ -72,15 +72,15 @@ contract StakingFactory is Ownable {
         returns (address instance) 
     {
         
-        instance = communityTokenImplementation.clone();
+        instance = communityCoinImplementation.clone();
 
-        require(instance != address(0), "StakingFactory: INSTANCE_CREATION_FAILED");
+        require(instance != address(0), "CommunityCoinFactory: INSTANCE_CREATION_FAILED");
 
         instances.push(instance);
         
         emit InstanceCreated(instance, instances.length);
 
-        ICommunityToken(instance).initialize(stakingPoolImplementation, hook, discountSensitivity);
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, hook, discountSensitivity);
         
         Ownable(instance).transferOwnership(_msgSender());
         

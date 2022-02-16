@@ -1,6 +1,6 @@
-# StakingFactory
+# CommunityCoinFactory
 
-This it factory contract.<br>Provide a functionality to create CommunityToken
+This it factory contract.<br>Provide a functionality to create CommunityCoin
 
 # Overview
 
@@ -21,7 +21,7 @@ Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
-| communityTokenImpl | address | address of CommunityToken implementation |
+| communityCoinImpl | address | address of CommunityCoin implementation |
 | stakingPoolImpl | address | address of StakingPool implementation |
 
 
@@ -50,9 +50,9 @@ Arguments
 
 
 ## *StateVariables*
-### communityTokenImplementation
+### communityCoinImplementation
 
-> Notice: CommunityToken implementation address
+> Notice: CommunityCoin implementation address
 
 
 | **type** |
@@ -128,7 +128,7 @@ Outputs
 
 | **name** | **type** | **description** |
 |-|-|-|
-| instance | address | address of created instance pool `CommunityToken` |
+| instance | address | address of created instance pool `CommunityCoin` |
 
 
 
