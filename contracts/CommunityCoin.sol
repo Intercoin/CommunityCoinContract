@@ -11,8 +11,9 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgrad
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 //import "./lib/PackedMapping32.sol";
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-//import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+//import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "./interfaces/IERC20Dpl.sol";
+
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
@@ -77,6 +78,8 @@ contract CommunityCoin is
         uint64 reserveTokenClaimFraction;
         uint64 tradedTokenClaimFraction;
         uint64 lpClaimFraction;
+        uint64 reserveTokenDpl;
+        uint64 tradedTokenDpl;
         bool exists;
     }
 
@@ -211,6 +214,8 @@ contract CommunityCoin is
         // also keep in mind that user can unstake only unstakeable[account] which saved w/o bonusTokens, but minimums and mint with it.
         // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
         amount += bonusAmount;
+//forward conversion( LP -> СС)
+amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanceInfos[instance].tradedTokenDpl);
 
         _mint(account, amount, "", "");
         emit Staked(account, amount, priceBeforeStake);
@@ -280,7 +285,7 @@ contract CommunityCoin is
         override
     {
 
-        require((_msgSender() == address(this) && to == address(this)), "can't receive any other tokens except own");
+        require((_msgSender() == address(this) && to == address(this)), "own tokens permitted only");
         
         _checkRole(REDEEM_ROLE, from);
         __redeem(address(this), from, amount, new address[](0), Strategy.REDEEM);
@@ -548,6 +553,9 @@ contract CommunityCoin is
         _instanceIndexes[instance] = instances.length;
         instances.push(instance);
 
+        uint64 reserveTokenDpl = uint64(IERC20Dpl(reserveToken).decimals());
+        uint64 tradedTokenDpl = uint64(IERC20Dpl(tradedToken).decimals());
+
         _instanceCreators[instance] = msg.sender; // real sender or trusted forwarder need to store?
         _instanceInfos[instance] = InstanceInfo(
             reserveToken,
@@ -556,6 +564,8 @@ contract CommunityCoin is
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction,
+            reserveTokenDpl,
+            tradedTokenDpl,
             true
         );
         emit InstanceCreated(reserveToken, tradedToken, instance, instances.length);
@@ -644,7 +654,10 @@ contract CommunityCoin is
                 
                 if (amountToRedeem > 0) {
                     instancesAddress[len] = preferredInstances[i]; 
-                    values[len] = amountToRedeem;
+                    //values[len] = amountToRedeem;
+//backward conversion( СС -> LP)
+values[len]  = values[len] * (10**_instanceInfos[preferredInstances[i]].tradedTokenDpl) / (10**_instanceInfos[preferredInstances[i]].reserveTokenDpl);
+                    
                     len += 1;
 
                     amountLeft -= amountToRedeem;

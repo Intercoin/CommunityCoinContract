@@ -348,9 +348,6 @@ describe("Staking contract tests", function () {
                 
             });
         }); 
-        
-
-
 
     });
     
