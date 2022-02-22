@@ -42,9 +42,9 @@ contract CommunityCoin is
     uint32 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
-    bytes32 public constant ADMIN_ROLE = "admin";
-    bytes32 public constant REDEEM_ROLE = "redeem";
-    bytes32 public constant CIRCULATION_ROLE = "circulate";
+    bytes32 internal constant ADMIN_ROLE = "admin";
+    bytes32 internal constant REDEEM_ROLE = "redeem";
+    bytes32 internal constant CIRCULATION_ROLE = "circulate";
 
     //uint64 public constant CIRCULATION_DURATION = 365*24*60*60; //year by default. will be used if circulation added to minimums
 
@@ -78,8 +78,8 @@ contract CommunityCoin is
         uint64 reserveTokenClaimFraction;
         uint64 tradedTokenClaimFraction;
         uint64 lpClaimFraction;
-        uint64 reserveTokenDpl;
-        uint64 tradedTokenDpl;
+        uint256 numerator;
+        uint256 denominator;
         bool exists;
     }
 
@@ -106,6 +106,11 @@ contract CommunityCoin is
         _checkRole(role, account);
         _;
     }
+
+
+    ////////////////////////////////////////////////////////////////////////
+    // external section ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
 
     /**
     * @param impl address of StakingPool implementation
@@ -143,31 +148,12 @@ contract CommunityCoin is
     }
 
     /**
-    * @dev function has overloaded. 
-    * @custom:shortd transfers ownership of the contract to a new account
-    */
-    function transferOwnership(
-        address newOwner
-    ) public 
-        virtual 
-        override 
-        onlyOwner 
-    {
-        super.transferOwnership(newOwner);
-        _revokeRole(ADMIN_ROLE, _msgSender());
-        _grantRole(ADMIN_ROLE, newOwner);
-    }
-
-    ////////////////////////////////////////////////////////////////////////
-    // external section ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
-    /**
     * @dev view amount of created instances
     * @return amount amount instances
     * @custom:shortd view amount of created instances
     */
-    function instancesCount()
+    function instancesCount(
+    )
         external 
         override 
         view 
@@ -215,7 +201,7 @@ contract CommunityCoin is
         // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
         amount += bonusAmount;
 //forward conversion( LP -> СС)
-amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanceInfos[instance].tradedTokenDpl);
+amount = amount * (10**_instanceInfos[instance].numerator) / (10**_instanceInfos[instance].denominator);
 
         _mint(account, amount, "", "");
         emit Staked(account, amount, priceBeforeStake);
@@ -309,9 +295,23 @@ amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanc
         address reserveToken, 
         address tradedToken, 
         uint64 duration
-    ) public returns (address instance) {
-         // 1% from LP tokens should move to owner while user try to redeem
-        return _produce(reserveToken, tradedToken, duration, 0, 0, 1000);
+    ) 
+        public 
+        returns (address instance) 
+    {
+        // 1% from LP tokens should move to owner while user try to redeem
+        uint64 numerator = uint64(10**(IERC20Dpl(reserveToken).decimals()));
+        uint64 denominator = uint64(10**(IERC20Dpl(tradedToken).decimals()));
+        return _produce(
+            reserveToken, 
+            tradedToken, 
+            duration, 
+            0, 
+            0, 
+            1000,
+            numerator,
+            denominator
+        );
     }
     
     /**
@@ -322,6 +322,8 @@ amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanc
     * @param reserveTokenClaimFraction fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
     * @param tradedTokenClaimFraction fraction of traded token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
     * @param lpClaimFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
+    * @param numerator used in conversion LP/CC
+    * @param denominator used in conversion LP/CC
     * @return instance address of created instance pool `CommunityStakingPool`
     * @custom:calledby owner
     * @custom:shortd creation instance with extended options
@@ -332,9 +334,15 @@ amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanc
         uint64 duration, 
         uint64 reserveTokenClaimFraction, 
         uint64 tradedTokenClaimFraction, 
-        uint64 lpClaimFraction
-    ) public onlyOwner() returns (address instance) {
-        return _produce(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);
+        uint64 lpClaimFraction,
+        uint64 numerator,
+        uint64 denominator
+    ) 
+        public 
+        onlyOwner() 
+        returns (address instance) 
+    {
+        return _produce(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
     }
     
     /**
@@ -395,9 +403,7 @@ amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanc
         public
         nonReentrant
     {
-        address account = _msgSender();
-        
-        _redeem(account, amount, new address[](0), Strategy.REDEEM);
+        _redeem(_msgSender(), amount, new address[](0), Strategy.REDEEM);
     }
 
     /**
@@ -464,6 +470,23 @@ amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanc
     {
         amount = _getMinimum(account);
     }   
+    
+    /**
+    * @dev function has overloaded. 
+    * @custom:shortd transfers ownership of the contract to a new account
+    */
+    function transferOwnership(
+        address newOwner
+    ) public 
+        virtual 
+        override 
+        onlyOwner 
+    {
+        super.transferOwnership(newOwner);
+        _revokeRole(ADMIN_ROLE, _msgSender());
+        _grantRole(ADMIN_ROLE, newOwner);
+    }
+
 
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
@@ -498,14 +521,26 @@ amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanc
         uint64 duration,
         uint64 reserveTokenClaimFraction,
         uint64 tradedTokenClaimFraction,
-        uint64 lpClaimFraction
+        uint64 lpClaimFraction,
+        uint64 numerator,
+        uint64 denominator
+        
     ) internal returns (address instance) {
         _createInstanceValidate(
             reserveToken, tradedToken, duration, 
             reserveTokenClaimFraction, tradedTokenClaimFraction
         );
 
-        address instanceCreated = _createInstance(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction);    
+        address instanceCreated = _createInstance(
+            reserveToken, 
+            tradedToken, 
+            duration, 
+            reserveTokenClaimFraction, 
+            tradedTokenClaimFraction, 
+            lpClaimFraction, 
+            numerator, 
+            denominator
+        );
 
         require(instanceCreated != address(0), "CommunityCoin: INSTANCE_CREATION_FAILED");
         require(duration != 0, "cant be zero duration");
@@ -543,7 +578,9 @@ amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanc
         uint64 duration, 
         uint64 reserveTokenClaimFraction, 
         uint64 tradedTokenClaimFraction, 
-        uint64 lpClaimFraction
+        uint64 lpClaimFraction,
+        uint64 numerator,
+        uint64 denominator
     ) internal returns (address instance) {
 
         instance = implementation.clone();
@@ -564,8 +601,8 @@ amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanc
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction,
-            reserveTokenDpl,
-            tradedTokenDpl,
+            numerator,
+            denominator,
             true
         );
         emit InstanceCreated(reserveToken, tradedToken, instance, instances.length);
@@ -656,7 +693,7 @@ amount = amount * (10**_instanceInfos[instance].reserveTokenDpl) / (10**_instanc
                     instancesAddress[len] = preferredInstances[i]; 
                     //values[len] = amountToRedeem;
 //backward conversion( СС -> LP)
-values[len]  = values[len] * (10**_instanceInfos[preferredInstances[i]].tradedTokenDpl) / (10**_instanceInfos[preferredInstances[i]].reserveTokenDpl);
+values[len]  = values[len] * (10**_instanceInfos[preferredInstances[i]].denominator) / (10**_instanceInfos[preferredInstances[i]].numerator);
                     
                     len += 1;
 
