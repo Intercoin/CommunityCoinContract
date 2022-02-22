@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>Code coverage report for contracts\interfaces\ICommunityStakingPool.sol</title>
+    <title>Code coverage report for contracts\interfaces\ICommunityCoinInstances.sol</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -16,7 +16,7 @@
 <div class='wrapper'>
   <div class='pad1'>
     <h1>
-      <a href="../../index.html">all files</a> / <a href="index.html">contracts/interfaces/</a> ICommunityStakingPool.sol
+      <a href="../../index.html">all files</a> / <a href="index.html">contracts/interfaces/</a> ICommunityCoinInstances.sol
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
@@ -63,7 +63,23 @@
 18
 19
 20
-21</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+21
+22
+23
+24
+25
+26
+27
+28
+29</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -86,22 +102,30 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 &nbsp;
-interface ICommunityStakingPool {
+interface ICommunityCoinInstances {
     
-    function initialize(
-        address stakingProducedBy_,
-        address reserveToken_,
-        address tradedToken_, 
-        uint64 tradedTokenClaimFraction_, 
-        uint64 reserveTokenClaimFraction_,
-        uint64 lpClaimFraction_
-    ) external;
-    /*
-    function stake(address addr, uint256 amount) external;
-    function getMinimum(address addr) external view returns(uint256);
-    */
-    function redeem(address account, uint256 amount) external;
-    function redeemAndRemoveLiquidity(address account, uint256 amount) external;
+    
+    struct InstanceInfo {
+        address reserveToken;
+        uint64 duration;
+        address tradedToken;
+        uint64 reserveTokenClaimFraction;
+        uint64 tradedTokenClaimFraction;
+        uint64 lpClaimFraction;
+        uint64 numerator;
+        uint64 denominator;
+        bool exists;
+    }
+&nbsp;
+    event InstanceCreated(address indexed tokenA, address indexed tokenB, address instance, uint instancesCount);
+&nbsp;
+    function initialize(address impl) external;
+    function getInstance(address reserveToken, address tradedToken, uint256 lockupIntervalCount) external view returns (address instance);
+    function instancesByIndex(uint index) external view returns (address instance);
+    function instances() external view returns (address[] memory instances);
+    function instancesCount() external view returns (uint);
+    function produce(address reserveToken, address tradedToken, uint64 duration, uint64 reserveTokenClaimFraction, uint64 tradedTokenClaimFraction, uint64 lpClaimFraction, uint64 numerator, uint64 denominator) external returns (address instance);
+    function getInstanceInfoByPoolAddress(address addr) external view returns(InstanceInfo memory);
 }
 &nbsp;</pre></td></tr>
 </table></pre>

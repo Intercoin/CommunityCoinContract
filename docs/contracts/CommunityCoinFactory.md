@@ -22,6 +22,7 @@ Arguments
 | **name** | **type** | **description** |
 |-|-|-|
 | communityCoinImpl | address | address of CommunityCoin implementation |
+| communityCoinInstancesImpl | address | address of CommunityCoinInstances implementation |
 | stakingPoolImpl | address | address of StakingPool implementation |
 
 
@@ -53,6 +54,17 @@ Arguments
 ### communityCoinImplementation
 
 > Notice: CommunityCoin implementation address
+
+
+| **type** |
+|-|
+|address|
+
+
+
+### communityCoinInstancesImplementation
+
+> Notice: CommunityCoinInstances implementation address
 
 
 | **type** |

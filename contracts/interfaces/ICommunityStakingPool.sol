@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 interface ICommunityStakingPool {
     
     function initialize(
+        address stakingProducedBy_,
         address reserveToken_,
         address tradedToken_, 
         uint64 tradedTokenClaimFraction_, 

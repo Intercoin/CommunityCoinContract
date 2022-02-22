@@ -138,6 +138,7 @@ contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunitySt
     
     /**
     * @notice initialize method. Called once by the factory at time of deployment
+    * @param stakingProducedBy_ address of Community Coin token. 
     * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
     * @param tradedToken_ address of traded token. ie investor token - ITR
     * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `FRACTION`. 
@@ -146,6 +147,7 @@ contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunitySt
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function initialize(
+        address stakingProducedBy_,
         address reserveToken_,
         address tradedToken_, 
         uint64 tradedTokenClaimFraction_, 
@@ -156,7 +158,7 @@ contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunitySt
         external 
         override 
     {
-        stakingProducedBy = msg.sender; //it's should ne community token
+        stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
 
         __ReentrancyGuard_init();
         // __ERC777_init(name, symbol, (new address[](0)));

@@ -52,6 +52,8 @@ describe("Staking contract tests", function () {
     const reserveTokenClaimFraction = 0;
     const tradedTokenClaimFraction = 0;
     const lpClaimFraction = 1000;
+    const numerator = 1;
+    const denominator = 1;
     const dayInSeconds = 24*60*60; // * interval: DAY in seconds
     const lockupIntervalCount = 365; // year in days(dayInSeconds)
     const percentLimitLeftTokenB = 0.001;
@@ -60,6 +62,7 @@ describe("Staking contract tests", function () {
     const discountSensitivity = 0;
 
     var implementationCommunityCoin;
+    var implementationCommunityCoinInstances;
     var implementationCommunityStakingPool;
     var mockHook;
     var CommunityCoinFactory;
@@ -77,16 +80,19 @@ describe("Staking contract tests", function () {
 
         const CommunityCoinF = await ethers.getContractFactory("CommunityCoin");
         const CommunityStakingPoolF = await ethers.getContractFactory("CommunityStakingPool");
+        const CommunityCoinInstancesF = await ethers.getContractFactory("CommunityCoinInstances");
+
         const MockHookF = await ethers.getContractFactory("MockHook");
         const ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
         
         
         implementationCommunityCoin = await CommunityCoinF.deploy();
+        implementationCommunityCoinInstances = await CommunityCoinInstancesF.deploy();
         implementationCommunityStakingPool = await CommunityStakingPoolF.deploy();
         mockHook = await MockHookF.deploy();
 
         
-        CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(implementationCommunityCoin.address, implementationCommunityStakingPool.address);
+        CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(implementationCommunityCoin.address, implementationCommunityCoinInstances.address, implementationCommunityStakingPool.address);
 
         let tx,rc,event,instance,instancesCount;
         // without hook
@@ -162,63 +168,75 @@ describe("Staking contract tests", function () {
 
 
     it("shouldnt create with uniswap pair exists", async() => {
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
-            lpClaimFraction 
+            lpClaimFraction,
+            numerator,
+            denominator
         )).to.be.revertedWith("NO_UNISWAP_V2_PAIR");
     });
 
     it("shouldnt create staking with the same token pairs", async() => {
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
             erc20.address,
             erc20.address,
             lockupIntervalCount,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
-            lpClaimFraction 
+            lpClaimFraction,
+            numerator,
+            denominator
         )).to.be.revertedWith("CommunityCoin: IDENTICAL_ADDRESSES");
         
     });
 
     it("shouldnt create staking with the Zero token", async() => {
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
             ZERO_ADDRESS,
             erc20.address,
             lockupIntervalCount,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
-            lpClaimFraction 
+            lpClaimFraction,
+            numerator,
+            denominator
         )).to.be.revertedWith("CommunityCoin: ZERO_ADDRESS");
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
             erc20.address,
             ZERO_ADDRESS,
             lockupIntervalCount,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
-            lpClaimFraction 
+            lpClaimFraction,
+            numerator,
+            denominator
         )).to.be.revertedWith("CommunityCoin: ZERO_ADDRESS");
     });
 
     it("shouldnt create with wrong fractions", async() => {
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
             wrongClaimFraction,
             tradedTokenClaimFraction,
-            lpClaimFraction 
+            lpClaimFraction,
+            numerator,
+            denominator
         )).to.be.revertedWith("CommunityCoin: WRONG_CLAIM_FRACTION");
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
             reserveTokenClaimFraction,
             wrongClaimFraction,
-            lpClaimFraction 
+            lpClaimFraction,
+            numerator,
+            denominator
         )).to.be.revertedWith("CommunityCoin: WRONG_CLAIM_FRACTION");
     });
     
@@ -260,18 +278,20 @@ describe("Staking contract tests", function () {
                 timeUntil
             );
                           
-            let tx = await CommunityCoinWithHook.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64)"](
+            let tx = await CommunityCoinWithHook.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
-                lpClaimFraction 
+                lpClaimFraction,
+                numerator,
+                denominator
             )
 
             const rc = await tx.wait(); // 0ms, as tx is already confirmed
             const event = rc.events.find(event => event.event === 'InstanceCreated');
-            const [tokenA, tokenB, instance, instancesCount] = event.args;
+            const [tokenA, tokenB, instance] = event.args;
             
             communityStakingPoolWithHook = await ethers.getContractAt("CommunityStakingPool",instance);
             
@@ -386,18 +406,20 @@ describe("Staking contract tests", function () {
                 timeUntil
             );
 
-            let tx = await CommunityCoin.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64)"](
+            let tx = await CommunityCoin.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
-                lpClaimFraction 
+                lpClaimFraction,
+                numerator,
+                denominator
             )
 
             const rc = await tx.wait(); // 0ms, as tx is already confirmed
             const event = rc.events.find(event => event.event === 'InstanceCreated');
-            const [tokenA, tokenB, instance, instancesCount] = event.args;
+            const [tokenA, tokenB, instance] = event.args;
             //console.log(tokenA, tokenB, instance, instancesCount);
 
             communityStakingPool = await ethers.getContractAt("CommunityStakingPool",instance);
@@ -407,13 +429,15 @@ describe("Staking contract tests", function () {
         });
 
         it("shouldnt create another pair with equal tokens", async() => {
-            await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64)"](
+            await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
-                lpClaimFraction 
+                lpClaimFraction,
+                numerator,
+                denominator
             )).to.be.revertedWith("CommunityCoin: PAIR_ALREADY_EXISTS");
         });
 
@@ -852,9 +876,15 @@ describe("Staking contract tests", function () {
         } //end for
 
         describe("factory tests", function() {
+            var instanceManagementInstance;
+            beforeEach("before each callback", async() => {
+                let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
+                instanceManagementInstance = await ethers.getContractAt("CommunityCoinInstances",instanceManagementAddr);
+                
+            });
             it("should return instance info", async () => {
                 
-                let data = await await CommunityCoin.connect(bob).getInstanceInfo(erc20ReservedToken.address, erc20TradedToken.address, lockupIntervalCount);
+                let data = await instanceManagementInstance.connect(bob).getInstanceInfo(erc20ReservedToken.address, erc20TradedToken.address, lockupIntervalCount);
                 
                 expect(data.reserveToken).to.be.eq(erc20ReservedToken.address);
                 expect(data.tradedToken).to.be.eq(erc20TradedToken.address);
@@ -863,7 +893,7 @@ describe("Staking contract tests", function () {
             }); 
             
             it("should return correct instance length", async () => {
-                let data = await await CommunityCoin.connect(bob).instancesCount();
+                let data = await instanceManagementInstance.connect(bob).instancesCount();
                 expect(data).to.be.eq(ONE);
             }); 
         }); 
@@ -1071,9 +1101,10 @@ describe("Staking contract tests", function () {
                             aliceReservedTokenBefore = await erc20ReservedToken.balanceOf(alice.address);
                             aliceTradedTokenBefore = await erc20TradedToken.balanceOf(alice.address);
                         });
-                        it(`via ${forkAction ? 'redeem' : 'redeemAndRemoveLiquidity'} method`, async () => {
+                        it(""+`via ${forkAction ? 'redeem' : 'redeemAndRemoveLiquidity'} method`, async () => {
                             
                             await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+
                             await CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares);
 
                             aliceLPTokenAfter = await uniswapV2PairInstance.balanceOf(alice.address);

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>Code coverage report for contracts\interfaces\ICommunityStakingPool.sol</title>
+    <title>Code coverage report for contracts\mocks\MockERC20CustomDpl.sol</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -16,13 +16,13 @@
 <div class='wrapper'>
   <div class='pad1'>
     <h1>
-      <a href="../../index.html">all files</a> / <a href="index.html">contracts/interfaces/</a> ICommunityStakingPool.sol
+      <a href="../../index.html">all files</a> / <a href="index.html">contracts/mocks/</a> MockERC20CustomDpl.sol
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">100% </span>
+        <span class="strong">0% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>0/0</span>
+        <span class='fraction'>0/1</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -30,18 +30,18 @@
         <span class='fraction'>0/0</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">100% </span>
+        <span class="strong">0% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>0/0</span>
+        <span class='fraction'>0/2</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">100% </span>
+        <span class="strong">0% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>0/0</span>
+        <span class='fraction'>0/1</span>
       </div>
     </div>
   </div>
-  <div class='status-line high'></div>
+  <div class='status-line low'></div>
 <pre><table class="coverage">
 <tr><td class="line-count quiet">1
 2
@@ -63,7 +63,22 @@
 18
 19
 20
-21</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -81,35 +96,65 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 &nbsp;
-interface ICommunityStakingPool {
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+&nbsp;
+/**
+ * @dev Extension of {ERC20} that allows token holders to destroy both their own
+ * tokens and those that they have an allowance for, in a way that can be
+ * recognized off-chain (via event analysis).
+ */
+contract ERC20CustomDpl is ERC20 {
     
-    function initialize(
-        address stakingProducedBy_,
-        address reserveToken_,
-        address tradedToken_, 
-        uint64 tradedTokenClaimFraction_, 
-        uint64 reserveTokenClaimFraction_,
-        uint64 lpClaimFraction_
-    ) external;
-    /*
-    function stake(address addr, uint256 amount) external;
-    function getMinimum(address addr) external view returns(uint256);
-    */
-    function redeem(address account, uint256 amount) external;
-    function redeemAndRemoveLiquidity(address account, uint256 amount) external;
-}
-&nbsp;</pre></td></tr>
+    /**
+     * @param name Token name
+     * @param symbol Token symbol
+     * 
+     */
+<span class="fstat-no" title="function not covered" >    constructor (</span>
+        string memory name, 
+        string memory symbol
+    ) 
+        ERC20(name, symbol)
+    {
+        
+    }
+    
+    /**
+     * @dev Creates `amount` tokens and send to account.
+     *
+     * See {ERC20-_mint}.
+     */
+<span class="fstat-no" title="function not covered" >    function mint(address account, uint256 amount) public virtual {</span>
+<span class="cstat-no" title="statement not covered" >        _mint(account, amount)</span>;
+    }
+ 
+}</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Tue Feb 22 2022 20:56:45 GMT+0200 (Восточная Европа, стандартное время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Tue Feb 22 2022 20:53:02 GMT+0200 (Восточная Европа, стандартное время)
 </div>
 </div>
 <script src="../../prettify.js"></script>
