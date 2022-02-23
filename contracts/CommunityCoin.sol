@@ -19,7 +19,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 
 import "./interfaces/ICommunityStakingPoolFactory.sol";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract CommunityCoin is 
     //OwnableUpgradeable, 
@@ -123,6 +123,7 @@ contract CommunityCoin is
         
         _grantRole(ADMIN_ROLE, _msgSender());
         _setRoleAdmin(REDEEM_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(CIRCULATION_ROLE, ADMIN_ROLE);
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
@@ -170,8 +171,9 @@ contract CommunityCoin is
         // also keep in mind that user can unstake only unstakeable[account] which saved w/o bonusTokens, but minimums and mint with it.
         // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
         amount += bonusAmount;
-//forward conversion( LP -> СС)
-amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
+
+        //forward conversion( LP -> СС)
+        amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
 
         _mint(account, amount, "", "");
         emit Staked(account, amount, priceBeforeStake);
@@ -213,7 +215,7 @@ amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
     {
         address account = _msgSender();
 
-        _burn(account, amount);
+        _burn(account, amount, "", "");
         //or
         //__redeem(account, account, amount, new address[](0), totalSupplyBefore, Strategy.REDEEM);
     }
@@ -412,7 +414,6 @@ amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
         public
         nonReentrant
     {
-
         _redeem(_msgSender(), amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
     }
 
@@ -485,6 +486,7 @@ amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
         uint256 totalSupplyBefore
     ) 
         internal 
+        view
         returns(
             address[] memory instancesAddress, 
             uint256[] memory values,
@@ -565,11 +567,10 @@ amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
                     instancesAddress[len] = preferredInstances[i]; 
                     //values[len] = amountToRedeem;
 
-instanceInfo =  instanceManagment.getInstanceInfoByPoolAddress(preferredInstances[i]); // todo is exist there?
+                    instanceInfo =  instanceManagment.getInstanceInfoByPoolAddress(preferredInstances[i]); // todo is exist there?
 
-
-//backward conversion( СС -> LP)
-values[len]  = amountToRedeem * (10**instanceInfo.denominator) / (10**instanceInfo.numerator);
+                    //backward conversion( СС -> LP)
+                    values[len]  = amountToRedeem * (10**instanceInfo.denominator) / (10**instanceInfo.numerator);
                     
                     len += 1;
 

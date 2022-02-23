@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>Code coverage report for contracts\mocks\MockSrqtCoverage.sol</title>
+    <title>Code coverage report for contracts\mocks\MockCommunityStakingPool.sol</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -16,7 +16,7 @@
 <div class='wrapper'>
   <div class='pad1'>
     <h1>
-      <a href="../../index.html">all files</a> / <a href="index.html">contracts/mocks/</a> MockSrqtCoverage.sol
+      <a href="../../index.html">all files</a> / <a href="index.html">contracts/mocks/</a> MockCommunityStakingPool.sol
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
@@ -55,12 +55,7 @@
 10
 11
 12
-13
-14
-15
-16
-17
-18</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+13</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -70,30 +65,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
 pragma solidity 0.8.11;
 &nbsp;
 import "../CommunityStakingPool.sol";
+    
+contract MockCommunityStakingPool is CommunityStakingPool {
 &nbsp;
-contract MockSrqtCoverage is CommunityStakingPool {
+    //IUniswapV2Pair public uniswapV2Pair;
 &nbsp;
-    function calculateSqrt(
-        uint256 x
-    ) 
-        public
-        pure
-        returns(uint256) 
-    {
-        return sqrt(x);
+    function setUniswapPair(address addr) public {
+        uniswapV2Pair = IUniswapV2Pair(addr);
     }
-&nbsp;
 }</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
