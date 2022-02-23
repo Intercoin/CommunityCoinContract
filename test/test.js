@@ -62,7 +62,7 @@ describe("Staking contract tests", function () {
     const discountSensitivity = 0;
 
     var implementationCommunityCoin;
-    var implementationCommunityCoinInstances;
+    var implementationCommunityStakingPoolFactory;
     var implementationCommunityStakingPool;
     var mockHook;
     var CommunityCoinFactory;
@@ -80,19 +80,19 @@ describe("Staking contract tests", function () {
 
         const CommunityCoinF = await ethers.getContractFactory("CommunityCoin");
         const CommunityStakingPoolF = await ethers.getContractFactory("CommunityStakingPool");
-        const CommunityCoinInstancesF = await ethers.getContractFactory("CommunityCoinInstances");
+        const CommunityStakingPoolFactoryF = await ethers.getContractFactory("CommunityStakingPoolFactory");
 
         const MockHookF = await ethers.getContractFactory("MockHook");
         const ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
         
         
         implementationCommunityCoin = await CommunityCoinF.deploy();
-        implementationCommunityCoinInstances = await CommunityCoinInstancesF.deploy();
+        implementationCommunityStakingPoolFactory = await CommunityStakingPoolFactoryF.deploy();
         implementationCommunityStakingPool = await CommunityStakingPoolF.deploy();
         mockHook = await MockHookF.deploy();
 
         
-        CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(implementationCommunityCoin.address, implementationCommunityCoinInstances.address, implementationCommunityStakingPool.address);
+        CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(implementationCommunityCoin.address, implementationCommunityStakingPoolFactory.address, implementationCommunityStakingPool.address);
 
         let tx,rc,event,instance,instancesCount;
         // without hook
@@ -879,7 +879,7 @@ describe("Staking contract tests", function () {
             var instanceManagementInstance;
             beforeEach("before each callback", async() => {
                 let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
-                instanceManagementInstance = await ethers.getContractAt("CommunityCoinInstances",instanceManagementAddr);
+                instanceManagementInstance = await ethers.getContractAt("CommunityStakingPoolFactory",instanceManagementAddr);
                 
             });
             it("should return instance info", async () => {

@@ -14,7 +14,7 @@ pragma solidity 0.8.11;
 // import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 
 import "./interfaces/ICommunityStakingPool.sol";
-import "./interfaces/ICommunityCoinInstances.sol";
+import "./interfaces/ICommunityStakingPoolFactory.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 
@@ -22,7 +22,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 //import "hardhat/console.sol";
 
-contract CommunityCoinInstances is Initializable, ICommunityCoinInstances {
+contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory {
     using ClonesUpgradeable for address;
 
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this

@@ -18,7 +18,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgrade
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 
-import "./interfaces/ICommunityCoinInstances.sol";
+import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "hardhat/console.sol";
 
 contract CommunityCoin is 
@@ -49,7 +49,7 @@ contract CommunityCoin is
 
     IHook public hook; // hook used to bonus calculation
 
-    ICommunityCoinInstances public instanceManagment; // ICommunityCoinInstances
+    ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
 
     uint256 public discountSensitivity;
 
@@ -75,7 +75,7 @@ contract CommunityCoin is
 
     // modifier onlyStakingPool() {
     //     // here need to know that is definetely StakingPool. because with EIP-2771 forwarder can call methods as StakingPool. 
-    //     require(ICommunityCoinInstances(instanceManagment)._instanceInfos[msg.sender].exists == true);
+    //     require(ICommunityStakingPoolFactory(instanceManagment)._instanceInfos[msg.sender].exists == true);
     //     _;
     // }
 
@@ -114,7 +114,7 @@ contract CommunityCoin is
         __AccessControlEnumerable_init();
         __ReentrancyGuard_init();
 
-        instanceManagment = ICommunityCoinInstances(communityCoinInstanceAddr);//new ICommunityCoinInstances(impl);
+        instanceManagment = ICommunityStakingPoolFactory(communityCoinInstanceAddr);//new ICommunityStakingPoolFactory(impl);
         instanceManagment.initialize(impl);
 
         hook = IHook(hook_);
@@ -148,7 +148,7 @@ contract CommunityCoin is
         address instance = msg.sender; //here need a msg.sender as a real sender.
 
         // here need to know that is definetely StakingPool. because with EIP-2771 forwarder can call methods as StakingPool. 
-        ICommunityCoinInstances.InstanceInfo memory instanceInfo = instanceManagment.getInstanceInfoByPoolAddress(instance);
+        ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo = instanceManagment.getInstanceInfoByPoolAddress(instance);
   
         require(instanceInfo.exists == true);
      
@@ -491,7 +491,7 @@ amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
             uint256 len
         ) 
     {
-        ICommunityCoinInstances.InstanceInfo memory instanceInfo;
+        ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo;
 
         if (preferredInstances.length == 0) {
             preferredInstances = instanceManagment.instances();
