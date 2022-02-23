@@ -13,6 +13,13 @@ contract CommunityCoinFactory is Ownable {
     * @notice CommunityCoin implementation address
     */
     address public immutable communityCoinImplementation;
+    
+    /**
+    * @custom:shortd CommunityStakingPoolFactory implementation address
+    * @notice CommunityStakingPoolFactory implementation address
+    */
+    address public immutable communityStakingPoolFactoryImplementation;
+    
     /**
     * @custom:shortd StakingPool implementation address
     * @notice StakingPool implementation address
@@ -25,14 +32,17 @@ contract CommunityCoinFactory is Ownable {
 
     /**
     * @param communityCoinImpl address of CommunityCoin implementation
+    * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
     * @param stakingPoolImpl address of StakingPool implementation
     */
     constructor(
         address communityCoinImpl,
+        address communityStakingPoolFactoryImpl,
         address stakingPoolImpl
     ) 
     {
         communityCoinImplementation = communityCoinImpl;
+        communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
     }
 
@@ -73,6 +83,7 @@ contract CommunityCoinFactory is Ownable {
     {
         
         instance = communityCoinImplementation.clone();
+        address coinInstancesClone = communityStakingPoolFactoryImplementation.clone();
 
         require(instance != address(0), "CommunityCoinFactory: INSTANCE_CREATION_FAILED");
 
@@ -80,7 +91,7 @@ contract CommunityCoinFactory is Ownable {
         
         emit InstanceCreated(instance, instances.length);
 
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, hook, discountSensitivity);
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, hook, coinInstancesClone, discountSensitivity);
         
         Ownable(instance).transferOwnership(_msgSender());
         

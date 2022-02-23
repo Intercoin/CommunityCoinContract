@@ -14,8 +14,6 @@ Once installed will be use methods:
 |<a href="#balanceof">balanceOf</a>|everyone|part of ERC777|
 |<a href="#burn">burn</a>|everyone|part of ERC777|
 |<a href="#discountsensitivity">discountSensitivity</a>|everyone|view fraction of discount applied in redeem groups|
-|<a href="#getinstance">getInstance</a>|everyone|instances list|
-|<a href="#getinstanceinfo">getInstanceInfo</a>|everyone|view instance info|
 |<a href="#getroleadmin">getRoleAdmin</a>|everyone|returns the admin role that controls `role`.|
 |<a href="#getrolemember">getRoleMember</a>|everyone|returns one of the accounts that have `role`|
 |<a href="#getrolemembercount">getRoleMemberCount</a>|everyone|returns the number of accounts that have `role`|
@@ -23,10 +21,8 @@ Once installed will be use methods:
 |<a href="#granularity">granularity</a>|everyone|part of ERC777|
 |<a href="#hasrole">hasRole</a>|everyone|returns `true` if `account` has been granted `role`|
 |<a href="#hook">hook</a>|everyone|view address of hook contract|
-|<a href="#implementation">implementation</a>|everyone|view address of pool implementation|
 |<a href="#initialize">initialize</a>|StakingFactory contract |initializing contract. called by StakingFactory contract|
-|<a href="#instances">instances</a>|everyone|public list of created instances|
-|<a href="#instancescount">instancesCount</a>|everyone|view amount of created instances|
+|<a href="#instancemanagment">instanceManagment</a>|everyone||
 |<a href="#isoperatorfor">isOperatorFor</a>|everyone|part of ERC777|
 |<a href="#istrustedforwarder">isTrustedForwarder</a>|everyone|checking if forwarder is trusted|
 |<a href="#issuewallettokens">issueWalletTokens</a>|staking-pool|distribute wallet tokens|
@@ -101,7 +97,6 @@ Arguments
 | tokenA | address | indexed |
 | tokenB | address | indexed |
 | instance | address | not indexed |
-| instancesCount | uint256 | not indexed |
 
 
 
@@ -333,48 +328,6 @@ Outputs
 
 
 
-### getInstance
-
-> Details: instances list
-
-Arguments
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | address |  |
-| -/- | address |  |
-| -/- | uint256 |  |
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | address |  |
-
-
-
-### getInstanceInfo
-
-> Notice: view instance info by reserved/traded tokens and duration
-
-> Details: note that `duration` is 365 and `LOCKUP_INTERVAL` is 86400 (seconds) means that tokens locked up for an year
-
-Arguments
-
-| **name** | **type** | **description** |
-|-|-|-|
-| reserveToken | address | address of reserve token. like a WETH, USDT,USDC, etc. |
-| tradedToken | address | address of traded token. usual it intercoin investor token |
-| duration | uint64 | duration represented in amount of `LOCKUP_INTERVAL` |
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | tuple |  |
-
-
-
 ### getRoleAdmin
 
 > Details: Returns the admin role that controls `role`. See {grantRole} and {revokeRole}. To change a role's admin, use {_setRoleAdmin}.
@@ -486,18 +439,6 @@ Outputs
 
 
 
-### implementation
-
-> Details: view address of pool implementation
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | address |  |
-
-
-
 ### initialize
 
 Arguments
@@ -506,37 +447,18 @@ Arguments
 |-|-|-|
 | impl | address | address of StakingPool implementation |
 | hook_ | address | address of contract implemented IHook interface and used to calculation bonus tokens amount |
+| communityCoinInstanceAddr | address | address of contract that managed and cloned pools |
 | discountSensitivity_ | uint256 | discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default) |
 
 
 
-### instances
-
-> Details: public list of created instances
-
-Arguments
-
-| **name** | **type** | **description** |
-|-|-|-|
-| -/- | uint256 |  |
+### instanceManagment
 
 Outputs
 
 | **name** | **type** | **description** |
 |-|-|-|
 | -/- | address |  |
-
-
-
-### instancesCount
-
-> Details: view amount of created instances
-
-Outputs
-
-| **name** | **type** | **description** |
-|-|-|-|
-| amount | uint256 | amount instances |
 
 
 
@@ -680,6 +602,8 @@ Arguments
 | reserveTokenClaimFraction | uint64 | fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize} |
 | tradedTokenClaimFraction | uint64 | fraction of traded token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize} |
 | lpClaimFraction | uint64 | fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize} |
+| numerator | uint64 | used in conversion LP/CC |
+| denominator | uint64 | used in conversion LP/CC |
 
 Outputs
 

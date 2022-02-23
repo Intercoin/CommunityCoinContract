@@ -170,6 +170,7 @@ Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
+| stakingProducedBy_ | address | address of Community Coin token.  |
 | reserveToken_ | address | address of reserve token. ie WETH,USDC,USDT,etc |
 | tradedToken_ | address | address of traded token. ie investor token - ITR |
 | tradedTokenClaimFraction_ | uint64 | fraction of traded token multiplied by `FRACTION`.  |

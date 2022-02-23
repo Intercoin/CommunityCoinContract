@@ -18,6 +18,7 @@ Arguments
 
 | **name** | **type** | **description** |
 |-|-|-|
+| stakingProducedBy_ | address |  |
 | reserveToken_ | address |  |
 | tradedToken_ | address |  |
 | tradedTokenClaimFraction_ | uint64 |  |
