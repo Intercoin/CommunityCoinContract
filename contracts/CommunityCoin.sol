@@ -91,6 +91,7 @@ contract CommunityCoin is
 
     /**
     * @param impl address of StakingPool implementation
+    * @param implErc20 address of StakingPoolErc20 implementation
     * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
@@ -99,6 +100,7 @@ contract CommunityCoin is
     */
     function initialize(
         address impl,
+        address implErc20,
         address hook_,
         address communityCoinInstanceAddr,
         uint256 discountSensitivity_
@@ -115,7 +117,7 @@ contract CommunityCoin is
         __ReentrancyGuard_init();
 
         instanceManagment = ICommunityStakingPoolFactory(communityCoinInstanceAddr);//new ICommunityStakingPoolFactory(impl);
-        instanceManagment.initialize(impl);
+        instanceManagment.initialize(impl, implErc20);
 
         hook = IHook(hook_);
 
@@ -327,7 +329,52 @@ contract CommunityCoin is
         );
         emit InstanceCreated(reserveToken, tradedToken, instance);
     }
-   
+    
+    /**
+    * @dev it's simple version for create erc20 instance pool.
+    * @param tokenErc20 address of erc20 token.
+    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @return instance address of created instance pool `CommunityStakingPoolErc20`
+    * @custom:shortd creation erc20 instance with simple options
+    */
+    function produce(
+        address tokenErc20, 
+        uint64 duration
+    ) 
+        public 
+        returns (address instance) 
+    {
+        // 1% from LP tokens should move to owner while user try to redeem
+        uint64 numerator = 1;
+        uint64 denominator = 1;
+        instance = instanceManagment.produceErc20(
+            tokenErc20, 
+            duration, 
+            numerator,
+            denominator
+        );
+        emit InstanceErc20Created(tokenErc20, instance);
+    }
+
+    function produce(
+        address tokenErc20, 
+        uint64 duration, 
+        uint64 numerator, 
+        uint64 denominator
+    ) 
+        public 
+        returns (address instance) 
+    {
+
+        instance = instanceManagment.produceErc20(
+            tokenErc20, 
+            duration, 
+            numerator,
+            denominator
+        );
+        emit InstanceErc20Created(tokenErc20, instance);
+    }
+
     /**
     * @notice method like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
     * @param amount The number of wallet tokens that will be unstaked.

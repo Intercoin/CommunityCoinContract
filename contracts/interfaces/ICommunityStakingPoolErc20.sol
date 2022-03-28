@@ -5,8 +5,7 @@ interface ICommunityStakingPoolErc20 {
     
     function initialize(
         address stakingProducedBy_,
-        address token_, 
-        uint64 tokenClaimFraction_
+        address token_
     ) external;
 
     function redeem(address account, uint256 amount) external;

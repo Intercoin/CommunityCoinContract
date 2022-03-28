@@ -5,6 +5,7 @@ interface ICommunityCoin {
     
     function initialize(
         address poolImpl,
+        address poolErc20Impl,
         address hook,
         address instancesImpl,
         uint256 discountSensitivity

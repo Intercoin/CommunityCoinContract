@@ -12,7 +12,7 @@ pragma solidity 0.8.11;
 // import "./interfaces/IERC20Dpl.sol";
 
 // import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
-
+import "./interfaces/ICommunityStakingPoolErc20.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 
@@ -33,23 +33,32 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         )
     )) public override getInstance;
 
+    mapping(address => mapping(uint256 => address)) public override getInstanceErc20;
 
     address public implementation;
+    address public implementationErc20;
+
     address public creator;
 
+    
+    enum InstanceType{ USUAL, ERC20 }
+
     address[] private _instances;
+    InstanceType[] private _instanceTypes;
     mapping(address => uint256) private _instanceIndexes;
     mapping(address => address) private _instanceCreators;
 
     mapping(address => InstanceInfo) public _instanceInfos;
 
     function initialize(
-        address impl
+        address impl,
+        address implErc20
     ) 
         initializer 
         external 
     {
         implementation = impl;
+        implementationErc20 = implErc20;
         creator = msg.sender;
     }
 
@@ -154,6 +163,43 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //Ownable(instanceCreated).transferOwnership(_msgSender());
         instance = instanceCreated;        
     }
+
+    function produceErc20(
+        address tokenErc20,
+        uint64 duration,
+        uint64 numerator,
+        uint64 denominator
+        
+    ) 
+        external 
+        returns (address instance) 
+    {
+        require (msg.sender == creator);
+
+        _createInstanceErc20Validate(tokenErc20, duration);
+
+        address instanceCreated = _createInstanceErc20(
+            tokenErc20, 
+            duration, 
+            numerator, 
+            denominator
+        );
+
+        require(instanceCreated != address(0), "CommunityCoin: INSTANCE_CREATION_FAILED");
+        require(duration != 0, "cant be zero duration");
+        // if (duration == 0) {
+        //     IStakingTransferRules(instanceCreated).initialize(
+        //         reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+        //     );
+        // } else {
+            ICommunityStakingPoolErc20(instanceCreated).initialize(
+                creator, tokenErc20
+            );
+        // }
+        
+        //Ownable(instanceCreated).transferOwnership(_msgSender());
+        instance = instanceCreated;        
+    }
     
     function _createInstanceValidate(
         address reserveToken, 
@@ -166,6 +212,14 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         require(reserveToken != address(0) && tradedToken != address(0), "CommunityCoin: ZERO_ADDRESS");
         require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
         address instance = getInstance[reserveToken][tradedToken][duration];
+        require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
+    }
+
+    function _createInstanceErc20Validate(
+        address tokenErc20,
+        uint64 duration
+    ) internal view {
+        address instance = getInstanceErc20[tokenErc20][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
     }
         
@@ -187,6 +241,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         _instanceIndexes[instance] = _instances.length;
         _instances.push(instance);
 
+        _instanceTypes.push(InstanceType.USUAL);
+
         _instanceCreators[instance] = msg.sender; // real sender or trusted forwarder need to store?
         _instanceInfos[instance] = InstanceInfo(
             reserveToken,
@@ -197,8 +253,43 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             lpClaimFraction,
             numerator,
             denominator,
-            true
+            true,
+            uint8(InstanceType.USUAL),
+            address(0)
         );
-        emit InstanceCreated(reserveToken, tradedToken, instance, _instances.length);
+        emit InstanceCreated(reserveToken, tradedToken, instance, _instances.length, address(0));
+    }
+
+    function _createInstanceErc20(
+        address tokenErc20,
+        uint64 duration,
+        uint64 numerator,
+        uint64 denominator
+    ) internal returns (address instance) {
+
+        instance = implementationErc20.clone();
+        
+        getInstanceErc20[tokenErc20][duration] = instance;
+        
+        _instanceIndexes[instance] = _instances.length;
+        _instances.push(instance);
+
+        _instanceTypes.push(InstanceType.ERC20);
+
+        _instanceCreators[instance] = msg.sender; // real sender or trusted forwarder need to store?
+        _instanceInfos[instance] = InstanceInfo(
+            address(0),
+            duration, 
+            address(0),
+            0,
+            0,
+            0,
+            numerator,
+            denominator,
+            true,
+            uint8(InstanceType.USUAL),
+            tokenErc20
+        );
+        emit InstanceCreated(address(0), address(0), instance, _instances.length, tokenErc20);
     }
 }

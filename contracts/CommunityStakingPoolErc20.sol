@@ -61,13 +61,11 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
     * @notice initialize method. Called once by the factory at time of deployment
     * @param stakingProducedBy_ address of Community Coin token. 
     * @param erc20Token_ address of ERC20 token.
-    * @param erc20TokenClaimFraction_ fraction of ERC20 token multiplied by `FRACTION`. 
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function initialize(
         address stakingProducedBy_,
-        address erc20Token_,
-        uint64 erc20TokenClaimFraction_
+        address erc20Token_
     ) 
         initializer 
         external 
@@ -75,7 +73,7 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
     {
         CommunityStakingPoolBase_init(stakingProducedBy_);
         
-        (erc20Token, erc20TokenClaimFraction) = (erc20Token_, erc20TokenClaimFraction_);
+        (erc20Token) = (erc20Token_);
         
     }
 
