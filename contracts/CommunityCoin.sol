@@ -288,7 +288,7 @@ contract CommunityCoin is
     }
     
     /**
-    * @dev function has overloaded. it's simple version for create instance pool.
+    * @dev function has overloaded. it's extended version for create instance pool available for owners only.
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`

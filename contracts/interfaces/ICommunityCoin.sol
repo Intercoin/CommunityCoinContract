@@ -11,6 +11,7 @@ interface ICommunityCoin {
     ) external;
 
     event InstanceCreated(address indexed tokenA, address indexed tokenB, address instance);
+    event InstanceErc20Created(address indexed erc20token, address instance);
 
     function issueWalletTokens(address account, uint256 amount, uint256 priceBeforeStake) external;
 

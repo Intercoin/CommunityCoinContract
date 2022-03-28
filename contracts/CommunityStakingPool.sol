@@ -6,21 +6,17 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
-//import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
+
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+
 
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/ICommunityCoin.sol";
-import "./interfaces/ITrustedForwarder.sol";
 
-//import "hardhat/console.sol";
 
-contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunityStakingPool, IERC777RecipientUpgradeable, ReentrancyGuardUpgradeable/*, IERC777SenderUpgradeable*/ {
+import "./CommunityStakingPoolBase.sol";
+
+contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool {
  
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
@@ -58,11 +54,7 @@ contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunitySt
 
     // slot 3
     address private _token1;
-    /**
-    * @custom:shortd `FRACTION` constant - 100000
-    * @notice `FRACTION` constant - 100000
-    */
-    uint64 public constant FRACTION = 100000;
+    
 
     address internal constant uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address internal constant uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
@@ -79,19 +71,8 @@ contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunitySt
     * @notice uniswap v2 pair
     */
     IUniswapV2Pair public uniswapV2Pair;
-    // slot 7
-    // CommunityCoin address
-    address internal stakingProducedBy;
     
     IERC1820RegistryUpgradeable internal constant _ERC1820_REGISTRY = IERC1820RegistryUpgradeable(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
-
-    modifier onlyStaking() {
-        require(stakingProducedBy == msg.sender);
-        _;
-    }
-    event RewardGranted(address indexed token, address indexed account, uint256 amount);
-    event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
-    event Redeemed(address indexed account, uint256 amount);
     
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
@@ -116,26 +97,7 @@ contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunitySt
     //     external
     // {
     // }
-
-    
-    /**
-    * @notice used to catch when used try to redeem by sending shares directly to contract
-    * see more in {IERC777RecipientUpgradeable::tokensReceived}
-    */
-    function tokensReceived(
-        address /*operator*/,
-        address from,
-        address to,
-        uint256 amount,
-        bytes calldata /*userData*/,
-        bytes calldata /*operatorData*/
-    ) 
-        external 
-        override
-    {
-    }
-    
-    
+ 
     /**
     * @notice initialize method. Called once by the factory at time of deployment
     * @param stakingProducedBy_ address of Community Coin token. 
@@ -158,11 +120,8 @@ contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunitySt
         external 
         override 
     {
-        stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
-
-        __ReentrancyGuard_init();
-        // __ERC777_init(name, symbol, (new address[](0)));
-
+        CommunityStakingPoolBase_init(stakingProducedBy_);
+        
         // register interfaces
         // _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777Token"), address(this));
         // _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC20Token"), address(this));
@@ -359,53 +318,6 @@ contract CommunityStakingPool is Initializable, ContextUpgradeable, ICommunitySt
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    
-    /**
-     * method will send `fraction_` of `amount_` of token `token_` to address `fractionAddr_`.
-     * if `fractionSendOnly_` == false , all that remaining will send to address `to`
-     */
-    function _fractionAmountSend(
-        address token_, 
-        uint256 amount_, 
-        uint256 fraction_, 
-        address fractionAddr_, 
-        address to_
-    ) 
-        internal 
-        returns(uint256 remainingAfterFractionSend) 
-    {
-        bool fractionSendOnly_ = (to_ == address(0));
-        remainingAfterFractionSend = 0;
-        if (fraction_ == FRACTION) {
-            IERC20Upgradeable(token_).transfer(fractionAddr_, amount_);
-            // if (fractionSendOnly_) {} else {}
-        } else if (fraction_ == 0) {
-            if (fractionSendOnly_) {
-                remainingAfterFractionSend = amount_;
-            } else {
-                IERC20Upgradeable(token_).transfer(to_, amount_);
-            }
-        } else {
-            uint256 adjusted = amount_ * fraction_ / FRACTION;
-            IERC20Upgradeable(token_).transfer(fractionAddr_, adjusted);
-            remainingAfterFractionSend = amount_ - adjusted;
-            if (!fractionSendOnly_) {
-                IERC20Upgradeable(token_).transfer(to_, remainingAfterFractionSend);
-                remainingAfterFractionSend = 0;
-            }
-        }
-    }
-    
-    function _stake(
-        address addr, 
-        uint256 amount, 
-        uint256 priceBeforeStake
-    ) 
-        internal 
-        virtual 
-    {
-        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, amount, priceBeforeStake);
-    }
     
     function doSwapOnUniswap(
         address tokenIn, 
