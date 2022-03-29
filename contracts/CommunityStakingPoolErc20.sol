@@ -83,8 +83,8 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
 
     /**
     * @notice way to redeem via approve/transferFrom. Another way is send directly to contract.
-    * @param account account address will redeemed from!!!
-    * @param amount The number of shares that will be redeemed.!!!!
+    * @param account account address will redeemed from
+    * @param amount The number of shares that will be redeemed
     * @custom:calledby staking contract
     * @custom:shortd redeem erc20 tokens
     */
@@ -96,9 +96,28 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
         //override 
         onlyStaking
     {
-        uint256 amount2Redeem = __redeem(account, amount);
-        IERC20Upgradeable(erc20Token).transfer(account, amount2Redeem);
+        _redeem(account, amount);
     }
+
+    
+    /**
+    * @notice left for compatible 
+    * @param account account address will redeemed from
+    * @param amount The number of shares that will be redeemed.
+    * @custom:calledby staking contract
+    * @custom:shortd redeem erc20 tokens
+    */
+    function redeemAndRemoveLiquidity(
+        address account,
+        uint256 amount
+    ) 
+        external
+        override 
+        onlyStaking 
+    {
+        _redeem(account, amount);
+    }
+
     
     /** 
     * @notice method will receive erc20 tokens and stake it. Sender will obtain shares 
@@ -135,7 +154,15 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-   
+    function _redeem(
+        address account,
+        uint256 amount
+    )
+        internal 
+    {
+        uint256 amount2Redeem = __redeem(account, amount);
+        IERC20Upgradeable(erc20Token).transfer(account, amount2Redeem);
+    }
     ////////////////////////////////////////////////////////////////////////
     // private section /////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////

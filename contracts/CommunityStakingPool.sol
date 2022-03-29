@@ -141,10 +141,6 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
 
     }
 
-    ////////////////////////////////////////////////////////////////////////
-    // public section //////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
     /**
     * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
     * @param account account address will redeemed from!!!
@@ -181,6 +177,10 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     {
         __redeemAndRemoveLiquidity(account, amount);
     }
+
+    ////////////////////////////////////////////////////////////////////////
+    // public section //////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
 
     /** 
     * @notice payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap. 
