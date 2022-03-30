@@ -19,6 +19,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 
 import "./interfaces/ICommunityStakingPoolFactory.sol";
+import "./interfaces/ICommunity.sol";
 //import "hardhat/console.sol";
 
 contract CommunityCoin is 
@@ -44,6 +45,15 @@ contract CommunityCoin is
     bytes32 internal constant ADMIN_ROLE = "admin";
     bytes32 internal constant REDEEM_ROLE = "redeem";
     bytes32 internal constant CIRCULATION_ROLE = "circulate";
+
+    
+    struct Roles {
+        address communityAddr;
+        bytes32 adminRole;
+        bytes32 redeemRole;
+        bytes32 circulationRole;
+    }
+
 
     //uint64 public constant CIRCULATION_DURATION = 365*24*60*60; //year by default. will be used if circulation added to minimums
 
@@ -73,6 +83,8 @@ contract CommunityCoin is
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
 
+    
+    Roles roles;
     // modifier onlyStakingPool() {
     //     // here need to know that is definetely StakingPool. because with EIP-2771 forwarder can call methods as StakingPool. 
     //     require(ICommunityStakingPoolFactory(instanceManagment)._instanceInfos[msg.sender].exists == true);
@@ -84,6 +96,59 @@ contract CommunityCoin is
         _;
     }
 
+    /**
+     * @dev Returns `true` if `account` has been granted `role`.
+     */
+    function hasRole(
+        bytes32 role, 
+        address account
+    ) 
+        public 
+        view 
+        virtual 
+        override 
+        returns (bool) 
+    {
+        if (roles.communityAddr == address(0)) {
+            return super.hasRole(role, account);
+        } else {
+            // external call to community contract
+            bytes32 keccakRole = keccak256(abi.encodePacked(role));
+            bytes32 iKeccakRole;
+            string[] memory communityRoles = ICommunity(roles.communityAddr).getRoles(account);
+
+            for (uint256 i = 0; i < communityRoles.length; i++) {
+                iKeccakRole = keccak256(abi.encodePacked(communityRoles[i]));
+                if (keccakRole == iKeccakRole) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        
+    }
+    /**
+     * @dev Revert with a standard message if `account` is missing `role`.
+     *
+     * The format of the revert reason is given by the following regular expression:
+     *
+     *  /^AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})$/
+     */
+    function _checkRole(bytes32 role, address account) internal view virtual override {
+        if (!hasRole(role, account)) {
+            revert(
+                string(
+                    abi.encodePacked(
+                        "AccessControl: account ",
+                        StringsUpgradeable.toHexString(uint160(account), 20),
+                        " is missing role ",
+                        StringsUpgradeable.toHexString(uint256(role), 32)
+                    )
+                )
+            );
+        }
+    }
 
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
@@ -95,6 +160,7 @@ contract CommunityCoin is
     * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+    * @param communitySettings_ tuple of community settings (address of contract and roles(admin,redeem,circulate))
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
     */
@@ -103,7 +169,8 @@ contract CommunityCoin is
         address implErc20,
         address hook_,
         address communityCoinInstanceAddr,
-        uint256 discountSensitivity_
+        uint256 discountSensitivity_,
+        ICommunitySettings.CommunitySettings calldata communitySettings_
     ) 
         initializer 
         external 
@@ -123,9 +190,24 @@ contract CommunityCoin is
 
         discountSensitivity = discountSensitivity_;
         
-        _grantRole(ADMIN_ROLE, _msgSender());
-        _setRoleAdmin(REDEEM_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(CIRCULATION_ROLE, ADMIN_ROLE);
+        //setup 
+        roles.communityAddr = communitySettings_.addr;
+        if (roles.communityAddr == address(0)) {
+            
+            roles.adminRole = ADMIN_ROLE;
+            roles.redeemRole = REDEEM_ROLE;
+            roles.circulationRole = CIRCULATION_ROLE;
+
+            _grantRole(roles.adminRole, _msgSender());
+            _setRoleAdmin(roles.redeemRole, roles.redeemRole);
+            _setRoleAdmin(roles.circulationRole, roles.redeemRole);
+        } else {
+            
+            roles.adminRole = stringToBytes32(communitySettings_.adminRole);
+            roles.redeemRole = stringToBytes32(communitySettings_.redeemRole);
+            roles.circulationRole = stringToBytes32(communitySettings_.circulationRole);
+        }
+        
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
@@ -194,7 +276,7 @@ contract CommunityCoin is
     ) 
         external 
         nonReentrant
-        onlyRole(CIRCULATION_ROLE)
+        onlyRole(roles.circulationRole)
     {
         address account = _msgSender();
 
@@ -213,7 +295,7 @@ contract CommunityCoin is
     ) 
         external 
         nonReentrant
-        onlyRole(CIRCULATION_ROLE)
+        onlyRole(roles.circulationRole)
     {
         address account = _msgSender();
 
@@ -247,7 +329,7 @@ contract CommunityCoin is
 
         require((_msgSender() == address(this) && to == address(this)), "own tokens permitted only");
         
-        _checkRole(REDEEM_ROLE, from);
+        _checkRole(roles.redeemRole, from);
         __redeem(address(this), from, amount, new address[](0), Strategy.REDEEM);
         
     }
@@ -491,8 +573,12 @@ contract CommunityCoin is
         onlyOwner 
     {
         super.transferOwnership(newOwner);
-        _revokeRole(ADMIN_ROLE, _msgSender());
-        _grantRole(ADMIN_ROLE, newOwner);
+        if (roles.communityAddr == address(0)) {
+            _revokeRole(roles.adminRole, _msgSender());
+            _grantRole(roles.adminRole, newOwner);
+        } else {
+            // for use community contrat don't need to transfer role. and does not make sence for new Owner
+        }
     }
 
 
@@ -639,7 +725,7 @@ contract CommunityCoin is
         Strategy strategy
     ) 
         internal 
-        onlyRoleWithAccount(REDEEM_ROLE, account)
+        onlyRoleWithAccount(roles.redeemRole, account)
     {
         __redeem(account, account, amount, preferredInstances, strategy);
     }
@@ -785,6 +871,20 @@ contract CommunityCoin is
         return TrustedForwarder._msgSender();
     }
 
+    /**
+     * convert string to bytes32
+     * @param source string variable
+     */
+    function stringToBytes32(string memory source) internal pure returns (bytes32 result) {
+        bytes memory tempEmptyStringTest = bytes(source);
+        if (tempEmptyStringTest.length == 0) {
+            return 0x0;
+        }
+
+        assembly {
+            result := mload(add(source, 32))
+        }
+    }
 
 
 }

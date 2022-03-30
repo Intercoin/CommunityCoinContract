@@ -26,6 +26,7 @@ const UNISWAP_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
 const REDEEM_ROLE = 'redeem';
 const CIRCULATE_ROLE = 'circulate';
 
+const NONE_COMMUNITY_SETTINGS = [ZERO_ADDRESS, "", "", ""];
 
 function convertToHex(str) {
     var hex = '';
@@ -95,12 +96,14 @@ describe("Staking contract tests", function () {
         implementationCommunityStakingPoolErc20 = await CommunityStakingPoolErc20F.deploy();
         mockHook = await MockHookF.deploy();
 
+
         
         CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(
             implementationCommunityCoin.address, 
             implementationCommunityStakingPoolFactory.address, 
             implementationCommunityStakingPool.address, 
-            implementationCommunityStakingPoolErc20.address
+            implementationCommunityStakingPoolErc20.address,
+            NONE_COMMUNITY_SETTINGS
             );
 
         let tx,rc,event,instance,instancesCount;

@@ -4,6 +4,7 @@ pragma solidity 0.8.11;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
+import "./interfaces/ICommunitySettings.sol";
 
 contract CommunityCoinFactory is Ownable {
     using Clones for address;
@@ -27,6 +28,7 @@ contract CommunityCoinFactory is Ownable {
     address public immutable stakingPoolImplementation;
     address public immutable stakingPoolErc20Implementation;
 
+    ICommunitySettings.CommunitySettings public communitySettings;
     address[] public instances;
     
     event InstanceCreated(address instance, uint instancesCount);
@@ -36,18 +38,21 @@ contract CommunityCoinFactory is Ownable {
     * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
     * @param stakingPoolImpl address of StakingPool implementation
     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
+    * @param communitySettings_ tuple of community settings (address of contract and roles(admin,redeem,circulate))
     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
-        address stakingPoolImplErc20
+        address stakingPoolImplErc20,
+        ICommunitySettings.CommunitySettings memory communitySettings_
     ) 
     {
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
         stakingPoolErc20Implementation = stakingPoolImplErc20;
+        communitySettings = communitySettings_;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -95,7 +100,7 @@ contract CommunityCoinFactory is Ownable {
         
         emit InstanceCreated(instance, instances.length);
 
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity);
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, communitySettings);
         
         Ownable(instance).transferOwnership(_msgSender());
         
