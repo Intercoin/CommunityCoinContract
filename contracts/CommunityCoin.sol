@@ -4,10 +4,11 @@ pragma solidity 0.8.11;
 import "./interfaces/IHook.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
-//import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./access/TrustedForwarder.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
+//import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 //import "./lib/PackedMapping32.sol";
 
@@ -16,18 +17,23 @@ import "./interfaces/IERC20Dpl.sol";
 
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
+
 import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "./interfaces/ICommunity.sol";
 //import "hardhat/console.sol";
 
+
 contract CommunityCoin is 
     //OwnableUpgradeable, 
     TrustedForwarder,
     ICommunityCoin, 
-    AccessControlEnumerableUpgradeable, 
+    //AccessControlEnumerableUpgradeable, 
+    AccessControlUpgradeable,
+
     ERC777Upgradeable, 
+    
     MinimumsBaseUpgradeable, 
     IERC777RecipientUpgradeable, 
     ReentrancyGuardUpgradeable
@@ -61,10 +67,10 @@ contract CommunityCoin is
 
     ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
 
-    uint256 public discountSensitivity;
+    uint256 internal discountSensitivity;
 
-    uint256 totalUnstakeable;
-    uint256 totalRedeemable;
+    uint256 internal totalUnstakeable;
+    uint256 internal totalRedeemable;
     //uint256 totalExtra;         // extra tokens minted by factory when staked
 
     
@@ -84,18 +90,19 @@ contract CommunityCoin is
     event Redeemed(address indexed account, uint256 amount);
 
     
-    Roles roles;
+    Roles internal roles;
+
     // modifier onlyStakingPool() {
     //     // here need to know that is definetely StakingPool. because with EIP-2771 forwarder can call methods as StakingPool. 
     //     require(ICommunityStakingPoolFactory(instanceManagment)._instanceInfos[msg.sender].exists == true);
     //     _;
     // }
 
-    modifier onlyRoleWithAccount(bytes32 role, address account) {
-        _checkRole(role, account);
-        _;
-    }
-
+    // modifier onlyRoleWithAccount(bytes32 role, address account) {
+    //     _checkRole(role, account);
+    //     _;
+    // }
+   
     /**
      * @dev Returns `true` if `account` has been granted `role`.
      */
@@ -128,28 +135,7 @@ contract CommunityCoin is
         }
         
     }
-    /**
-     * @dev Revert with a standard message if `account` is missing `role`.
-     *
-     * The format of the revert reason is given by the following regular expression:
-     *
-     *  /^AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})$/
-     */
-    function _checkRole(bytes32 role, address account) internal view virtual override {
-        if (!hasRole(role, account)) {
-            revert(
-                string(
-                    abi.encodePacked(
-                        "AccessControl: account ",
-                        StringsUpgradeable.toHexString(uint160(account), 20),
-                        " is missing role ",
-                        StringsUpgradeable.toHexString(uint256(role), 32)
-                    )
-                )
-            );
-        }
-    }
-
+    
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -180,7 +166,8 @@ contract CommunityCoin is
         __TrustedForwarder_init();
         __ERC777_init("Staking Tokens", "STAKE", (new address[](0)));
         __MinimumsBaseUpgradeable_init(LOCKUP_INTERVAL);
-        __AccessControlEnumerable_init();
+
+        //__AccessControl_init();
         __ReentrancyGuard_init();
 
         instanceManagment = ICommunityStakingPoolFactory(communityCoinInstanceAddr);//new ICommunityStakingPoolFactory(impl);
@@ -358,17 +345,8 @@ contract CommunityCoin is
         // 1% from LP tokens should move to owner while user try to redeem
         uint64 numerator = uint64(10**(IERC20Dpl(reserveToken).decimals()));
         uint64 denominator = uint64(10**(IERC20Dpl(tradedToken).decimals()));
-        instance = instanceManagment.produce(
-            reserveToken, 
-            tradedToken, 
-            duration, 
-            0, 
-            0, 
-            1000,
-            numerator,
-            denominator
-        );
-        emit InstanceCreated(reserveToken, tradedToken, instance);
+
+        return _produce(reserveToken, tradedToken, duration, 0, 0, 1000, numerator, denominator);
     }
     
     /**
@@ -399,17 +377,7 @@ contract CommunityCoin is
         onlyOwner() 
         returns (address instance) 
     {
-        instance = instanceManagment.produce(
-            reserveToken, 
-            tradedToken, 
-            duration, 
-            reserveTokenClaimFraction, 
-            tradedTokenClaimFraction, 
-            lpClaimFraction, 
-            numerator, 
-            denominator
-        );
-        emit InstanceCreated(reserveToken, tradedToken, instance);
+        return _produce(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
     }
     
     /**
@@ -426,16 +394,9 @@ contract CommunityCoin is
         public 
         returns (address instance) 
     {
-        // 1% from LP tokens should move to owner while user try to redeem
-        uint64 numerator = 1;
-        uint64 denominator = 1;
-        instance = instanceManagment.produceErc20(
-            tokenErc20, 
-            duration, 
-            numerator,
-            denominator
-        );
-        emit InstanceErc20Created(tokenErc20, instance);
+        // uint64 numerator = 1;
+        // uint64 denominator = 1;
+        return _produce(tokenErc20, duration, 1, 1);
     }
 
     function produce(
@@ -447,7 +408,44 @@ contract CommunityCoin is
         public 
         returns (address instance) 
     {
+        return _produce(tokenErc20, duration, numerator, denominator);
+    }
 
+    function _produce(
+        address reserveToken, 
+        address tradedToken, 
+        uint64 duration, 
+        uint64 reserveTokenClaimFraction, 
+        uint64 tradedTokenClaimFraction, 
+        uint64 lpClaimFraction,
+        uint64 numerator,
+        uint64 denominator
+    ) 
+        internal
+        returns (address instance) 
+    {
+        instance = instanceManagment.produce(
+            reserveToken, 
+            tradedToken, 
+            duration, 
+            reserveTokenClaimFraction, 
+            tradedTokenClaimFraction, 
+            lpClaimFraction, 
+            numerator, 
+            denominator
+        );
+        emit InstanceCreated(reserveToken, tradedToken, instance);
+    }
+
+    function _produce(
+        address tokenErc20, 
+        uint64 duration, 
+        uint64 numerator, 
+        uint64 denominator
+    ) 
+        internal
+        returns (address instance) 
+    {
         instance = instanceManagment.produceErc20(
             tokenErc20, 
             duration, 
@@ -456,7 +454,6 @@ contract CommunityCoin is
         );
         emit InstanceErc20Created(tokenErc20, instance);
     }
-
     /**
     * @notice method like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
     * @param amount The number of wallet tokens that will be unstaked.
@@ -725,8 +722,10 @@ contract CommunityCoin is
         Strategy strategy
     ) 
         internal 
-        onlyRoleWithAccount(roles.redeemRole, account)
+        //onlyRoleWithAccount(roles.redeemRole, account)
     {
+        _checkRole(roles.redeemRole, account);
+
         __redeem(account, account, amount, preferredInstances, strategy);
     }
 
