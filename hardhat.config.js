@@ -95,7 +95,7 @@ module.exports = {
           settings: {
             optimizer: {
               enabled: true,
-              runs: 100,
+              runs: 50,
             },
             metadata: {
               // do not include the metadata hash, since this is machine dependent

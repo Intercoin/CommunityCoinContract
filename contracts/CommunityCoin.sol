@@ -103,39 +103,6 @@ contract CommunityCoin is
     //     _;
     // }
    
-    /**
-     * @dev Returns `true` if `account` has been granted `role`.
-     */
-    function hasRole(
-        bytes32 role, 
-        address account
-    ) 
-        public 
-        view 
-        virtual 
-        override 
-        returns (bool) 
-    {
-        if (roles.communityAddr == address(0)) {
-            return super.hasRole(role, account);
-        } else {
-            // external call to community contract
-            bytes32 keccakRole = keccak256(abi.encodePacked(role));
-            bytes32 iKeccakRole;
-            string[] memory communityRoles = ICommunity(roles.communityAddr).getRoles(account);
-
-            for (uint256 i = 0; i < communityRoles.length; i++) {
-                iKeccakRole = keccak256(abi.encodePacked(communityRoles[i]));
-                if (keccakRole == iKeccakRole) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        
-    }
-    
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -186,8 +153,8 @@ contract CommunityCoin is
             roles.circulationRole = CIRCULATION_ROLE;
 
             _grantRole(roles.adminRole, _msgSender());
-            _setRoleAdmin(roles.redeemRole, roles.redeemRole);
-            _setRoleAdmin(roles.circulationRole, roles.redeemRole);
+            _setRoleAdmin(roles.redeemRole, roles.adminRole);
+            _setRoleAdmin(roles.circulationRole, roles.adminRole);
         } else {
             
             roles.adminRole = stringToBytes32(communitySettings_.adminRole);
@@ -325,7 +292,7 @@ contract CommunityCoin is
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-
+    
     /**
     * @dev function has overloaded. it's simple version for create instance pool.
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
@@ -578,7 +545,40 @@ contract CommunityCoin is
         }
     }
 
+    /**
+     * @dev Returns `true` if `account` has been granted `role`.
+     */
+    function hasRole(
+        bytes32 role, 
+        address account
+    ) 
+        public 
+        view 
+        virtual 
+        override 
+        returns (bool) 
+    {
+        
+        if (roles.communityAddr == address(0)) {
+            return super.hasRole(role, account);
+        } else {
+            // external call to community contract
+            bytes32 keccakRole = keccak256(abi.encodePacked(role));
+            bytes32 iKeccakRole;
+            string[] memory communityRoles = ICommunity(roles.communityAddr).getRoles(account);
 
+            for (uint256 i = 0; i < communityRoles.length; i++) {
+                iKeccakRole = keccak256(abi.encodePacked(stringToBytes32(communityRoles[i])));
+                if (keccakRole == iKeccakRole) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        
+    }
+    
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
