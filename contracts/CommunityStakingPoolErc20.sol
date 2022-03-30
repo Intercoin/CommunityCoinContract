@@ -112,7 +112,7 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
         uint256 amount
     ) 
         external
-        override 
+//        override 
         onlyStaking 
     {
         _redeem(account, amount);

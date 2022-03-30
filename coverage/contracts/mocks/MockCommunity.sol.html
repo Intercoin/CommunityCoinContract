@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>Code coverage report for contracts\mocks\MockHook.sol</title>
+    <title>Code coverage report for contracts\mocks\MockCommunity.sol</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -16,13 +16,13 @@
 <div class='wrapper'>
   <div class='pad1'>
     <h1>
-      <a href="../../index.html">all files</a> / <a href="index.html">contracts/mocks/</a> MockHook.sol
+      <a href="../../index.html">all files</a> / <a href="index.html">contracts/mocks/</a> MockCommunity.sol
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>4/4</span>
+        <span class='fraction'>6/6</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -32,12 +32,12 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>3/3</span>
+        <span class='fraction'>2/2</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>4/4</span>
+        <span class='fraction'>6/6</span>
       </div>
     </div>
   </div>
@@ -72,26 +72,7 @@
 27
 28
 29
-30
-31
-32
-33
-34
-35
-36
-37
-38
-39
-40
-41
-42
-43
-44
-45
-46
-47
-48
-49</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+30</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -105,88 +86,50 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4×</span>
-<span class="cline-any cline-yes">4×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20×</span>
+<span class="cline-any cline-yes">100×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">31×</span>
+<span class="cline-any cline-yes">31×</span>
+<span class="cline-any cline-yes">155×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">31×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: UNLICENSED
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
+pragma experimental ABIEncoderV2;
 &nbsp;
-import "../interfaces/IHook.sol";
-contract MockHook is IHook {
 &nbsp;
-    bool internal hTransferFlag;
-    uint256 internal hAmount;
 &nbsp;
-    function setupVars(
-        uint256 amount,
-        bool boolFlag
-    )
-        public 
-    {
-        hTransferFlag = boolFlag;
-        hAmount = amount;
+import "../interfaces/ICommunity.sol";
+&nbsp;
+contract MockCommunity is ICommunity {
+    uint256 private count = 5;
+&nbsp;
+    string[5] list;
+&nbsp;
+    function setRoles(string[5] memory list_) public {
+        for (uint256 i=0; i&lt;count; i++) {
+            list[i] = list_[i];
+        }
     }
 &nbsp;
-    function bonusCalculation(
-        address /*instance*/, 
-        address /*account*/, 
-        uint64 /*duration*/,
-        uint256 /*amount*/
-    )
-        external
-        view
-        override
-        returns(uint256)
+    function getRoles(address/* member*/)public override view returns(string[] memory){
+        string[] memory listOut = new string[](5);
+        for (uint256 i=0; i&lt;count; i++) {
+            listOut[i] = list[i];
+        }
+        return listOut;
         
-    {
-        return hAmount;
     }
-&nbsp;
     
-    function transferHook(
-        address /*operator*/, 
-        address /*from*/, 
-        address /*to*/, 
-        uint256 /*amount*/
-    ) 
-        external 
-        override
-        returns(bool)
-    {
-        
-        return hTransferFlag;
-    }
+    
 }</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->

@@ -22,7 +22,7 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>12/12</span>
+        <span class='fraction'>13/13</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">50% </span>
@@ -37,7 +37,7 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>12/12</span>
+        <span class='fraction'>13/13</span>
       </div>
     </div>
   </div>
@@ -151,7 +151,12 @@
 106
 107
 108
-109</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+109
+110
+111
+112
+113
+114</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -197,10 +202,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">243×</span>
-<span class="cline-any cline-yes">243×</span>
-<span class="cline-any cline-yes">243×</span>
-<span class="cline-any cline-yes">243×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">858×</span>
+<span class="cline-any cline-yes">858×</span>
+<span class="cline-any cline-yes">858×</span>
+<span class="cline-any cline-yes">858×</span>
+<span class="cline-any cline-yes">858×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -239,18 +249,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">162×</span>
-<span class="cline-any cline-yes">162×</span>
+<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">429×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">162×</span>
+<span class="cline-any cline-yes">429×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">162×</span>
+<span class="cline-any cline-yes">429×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">162×</span>
+<span class="cline-any cline-yes">429×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">162×</span>
+<span class="cline-any cline-yes">429×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">162×</span>
+<span class="cline-any cline-yes">429×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -265,6 +275,7 @@ pragma solidity 0.8.11;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
+import "./interfaces/ICommunitySettings.sol";
 &nbsp;
 contract CommunityCoinFactory is Ownable {
     using Clones for address;
@@ -288,6 +299,7 @@ contract CommunityCoinFactory is Ownable {
     address public immutable stakingPoolImplementation;
     address public immutable stakingPoolErc20Implementation;
 &nbsp;
+    ICommunitySettings.CommunitySettings public communitySettings;
     address[] public instances;
     
     event InstanceCreated(address instance, uint instancesCount);
@@ -297,18 +309,21 @@ contract CommunityCoinFactory is Ownable {
     * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
     * @param stakingPoolImpl address of StakingPool implementation
     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
+    * @param communitySettings_ tuple of community settings (address of contract and roles(admin,redeem,circulate))
     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
-        address stakingPoolImplErc20
+        address stakingPoolImplErc20,
+        ICommunitySettings.CommunitySettings memory communitySettings_
     ) 
     {
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
         stakingPoolErc20Implementation = stakingPoolImplErc20;
+        communitySettings = communitySettings_;
     }
 &nbsp;
     ////////////////////////////////////////////////////////////////////////
@@ -356,7 +371,7 @@ contract CommunityCoinFactory is Ownable {
         
         emit InstanceCreated(instance, instances.length);
 &nbsp;
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity);
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, communitySettings);
         
         Ownable(instance).transferOwnership(_msgSender());
         
@@ -373,7 +388,7 @@ contract CommunityCoinFactory is Ownable {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Mon Mar 28 2022 20:08:12 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Mar 30 2022 19:25:56 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>
