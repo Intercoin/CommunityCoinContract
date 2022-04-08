@@ -156,6 +156,7 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
         internal 
         virtual 
     {   
+        uint256 left = amount;
         if (donations.length != 0) {
             uint256 tmpAmount;
             for (uint256 i = 0; i < donations.length; i++) {
@@ -163,13 +164,13 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
                 if (tmpAmount > 0) {
                     ICommunityCoin(stakingProducedBy).issueWalletTokens(donations[i].account, tmpAmount, priceBeforeStake);
                     emit Donated(addr, donations[i].account, tmpAmount);
+                    left -= tmpAmount;
                 }
             }
             
             
-        } else {
-            ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, amount, priceBeforeStake);
         }
+        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, left, priceBeforeStake);
         
         
         

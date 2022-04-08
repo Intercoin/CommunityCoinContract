@@ -332,7 +332,7 @@ describe("Staking contract tests", function () {
         var communityStakingPool;
         var pairInstance;
         
-        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*50/100]];
+        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
         beforeEach("deploying", async() => {
         
             uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
@@ -400,7 +400,7 @@ describe("Staking contract tests", function () {
             );
         });
 
-        it("buyAddLiquidityAndStake", async () => {
+        it("buyAddLiquidityAndStake (donations:50% and 25%. left for sender)", async () => {
             
             await communityStakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
             
@@ -410,15 +410,15 @@ describe("Staking contract tests", function () {
             let davidWalletTokens = await CommunityCoin.balanceOf(david.address);
             let frankWalletTokens = await CommunityCoin.balanceOf(frank.address);
 
-            expect(bobWalletTokens).to.be.eq(ZERO);
+            expect(bobWalletTokens).not.to.be.eq(ZERO);
             expect(davidWalletTokens).not.to.be.eq(ZERO);
             expect(frankWalletTokens).not.to.be.eq(ZERO);
 
             expect(poolLptokens).not.to.be.eq(ZERO);
-            expect(poolLptokens).to.be.eq(davidWalletTokens.add(frankWalletTokens));
+            expect(poolLptokens).to.be.eq(davidWalletTokens.add(frankWalletTokens).add(bobWalletTokens));
 
-            // doantes 50% and 50%
-            expect(davidWalletTokens).to.be.eq(frankWalletTokens);
+            // donates 50% and 25% and left for Bob
+            expect(davidWalletTokens).to.be.eq(frankWalletTokens.add(bobWalletTokens));
             
         });  
 
