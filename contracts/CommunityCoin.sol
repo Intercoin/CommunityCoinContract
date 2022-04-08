@@ -298,13 +298,15 @@ contract CommunityCoin is
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param donationAddress address if setup then all coins move to this instead sender
     * @return instance address of created instance pool `CommunityStakingPool`
     * @custom:shortd creation instance with simple options
     */
     function produce(
         address reserveToken, 
         address tradedToken, 
-        uint64 duration
+        uint64 duration,
+        address donationAddress
     ) 
         public 
         returns (address instance) 
@@ -313,7 +315,7 @@ contract CommunityCoin is
         uint64 numerator = uint64(10**(IERC20Dpl(reserveToken).decimals()));
         uint64 denominator = uint64(10**(IERC20Dpl(tradedToken).decimals()));
 
-        return _produce(reserveToken, tradedToken, duration, 0, 0, 1000, numerator, denominator);
+        return _produce(reserveToken, tradedToken, duration, donationAddress, 0, 0, 1000, numerator, denominator);
     }
     
     /**
@@ -321,6 +323,7 @@ contract CommunityCoin is
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param donationAddress address if setup then all coins move to this instead sender
     * @param reserveTokenClaimFraction fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
     * @param tradedTokenClaimFraction fraction of traded token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
     * @param lpClaimFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
@@ -334,6 +337,7 @@ contract CommunityCoin is
         address reserveToken, 
         address tradedToken, 
         uint64 duration, 
+        address donationAddress,
         uint64 reserveTokenClaimFraction, 
         uint64 tradedTokenClaimFraction, 
         uint64 lpClaimFraction,
@@ -344,44 +348,57 @@ contract CommunityCoin is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
+        return _produce(reserveToken, tradedToken, duration, donationAddress, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
     }
     
     /**
     * @dev it's simple version for create erc20 instance pool.
     * @param tokenErc20 address of erc20 token.
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param donationAddress address if setup then all coins move to this instead sender
     * @return instance address of created instance pool `CommunityStakingPoolErc20`
     * @custom:shortd creation erc20 instance with simple options
     */
     function produce(
         address tokenErc20, 
-        uint64 duration
+        uint64 duration, 
+        address donationAddress
     ) 
         public 
         returns (address instance) 
     {
         // uint64 numerator = 1;
         // uint64 denominator = 1;
-        return _produce(tokenErc20, duration, 1, 1);
+        return _produce(tokenErc20, duration, donationAddress, 1, 1);
     }
 
+    /**
+    * @dev it's simple version for create erc20 instance pool.
+    * @param tokenErc20 address of erc20 token.
+    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param donationAddress address if setup then all coins move to this instead sender
+    * @return instance address of created instance pool `CommunityStakingPoolErc20`
+    * @custom:shortd creation erc20 instance with simple options
+    */
     function produce(
+        
         address tokenErc20, 
         uint64 duration, 
+        address donationAddress, 
         uint64 numerator, 
         uint64 denominator
     ) 
         public 
         returns (address instance) 
     {
-        return _produce(tokenErc20, duration, numerator, denominator);
+        return _produce(tokenErc20, duration, donationAddress, numerator, denominator);
     }
 
     function _produce(
         address reserveToken, 
         address tradedToken, 
         uint64 duration, 
+        address donationAddress,
         uint64 reserveTokenClaimFraction, 
         uint64 tradedTokenClaimFraction, 
         uint64 lpClaimFraction,
@@ -395,6 +412,7 @@ contract CommunityCoin is
             reserveToken, 
             tradedToken, 
             duration, 
+            donationAddress,
             reserveTokenClaimFraction, 
             tradedTokenClaimFraction, 
             lpClaimFraction, 
@@ -407,6 +425,7 @@ contract CommunityCoin is
     function _produce(
         address tokenErc20, 
         uint64 duration, 
+        address donationAddress,
         uint64 numerator, 
         uint64 denominator
     ) 
@@ -416,6 +435,7 @@ contract CommunityCoin is
         instance = instanceManagment.produceErc20(
             tokenErc20, 
             duration, 
+            donationAddress, 
             numerator,
             denominator
         );

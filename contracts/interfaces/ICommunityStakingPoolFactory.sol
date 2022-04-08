@@ -26,7 +26,7 @@ interface ICommunityStakingPoolFactory {
     function instancesByIndex(uint index) external view returns (address instance);
     function instances() external view returns (address[] memory instances);
     function instancesCount() external view returns (uint);
-    function produce(address reserveToken, address tradedToken, uint64 duration, uint64 reserveTokenClaimFraction, uint64 tradedTokenClaimFraction, uint64 lpClaimFraction, uint64 numerator, uint64 denominator) external returns (address instance);
-    function produceErc20(address tokenErc20, uint64 duration, uint64 numerator, uint64 denominator) external returns (address instance);
+    function produce(address reserveToken, address tradedToken, uint64 duration, address donationAddress, uint64 reserveTokenClaimFraction, uint64 tradedTokenClaimFraction, uint64 lpClaimFraction, uint64 numerator, uint64 denominator) external returns (address instance);
+    function produceErc20(address tokenErc20, uint64 duration, address donationAddress, uint64 numerator, uint64 denominator) external returns (address instance);
     function getInstanceInfoByPoolAddress(address addr) external view returns(InstanceInfo memory);
 }

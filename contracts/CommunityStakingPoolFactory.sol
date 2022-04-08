@@ -120,6 +120,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address reserveToken,
         address tradedToken,
         uint64 duration,
+        address donationAddress,
         uint64 reserveTokenClaimFraction,
         uint64 tradedTokenClaimFraction,
         uint64 lpClaimFraction,
@@ -156,7 +157,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //     );
         // } else {
             ICommunityStakingPool(instanceCreated).initialize(
-                creator, reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+                creator, reserveToken,  tradedToken, donationAddress, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
             );
         // }
         
@@ -167,9 +168,9 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function produceErc20(
         address tokenErc20,
         uint64 duration,
+        address donationAddress,
         uint64 numerator,
         uint64 denominator
-        
     ) 
         external 
         returns (address instance) 
@@ -193,7 +194,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //     );
         // } else {
             ICommunityStakingPoolErc20(instanceCreated).initialize(
-                creator, tokenErc20
+                creator, tokenErc20, donationAddress
             );
         // }
         

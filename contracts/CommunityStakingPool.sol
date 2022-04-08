@@ -103,6 +103,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     * @param stakingProducedBy_ address of Community Coin token. 
     * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
     * @param tradedToken_ address of traded token. ie investor token - ITR
+    * @param donationAddress_ address if setup then all coins move to this instead sender
     * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `FRACTION`. 
     * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `FRACTION`. 
     * @param lpClaimFraction_ fraction of LP token multiplied by `FRACTION`. 
@@ -112,6 +113,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         address stakingProducedBy_,
         address reserveToken_,
         address tradedToken_, 
+        address donationAddress_,
         uint64 tradedTokenClaimFraction_, 
         uint64 reserveTokenClaimFraction_,
         uint64 lpClaimFraction_
@@ -120,7 +122,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         external 
         override 
     {
-        CommunityStakingPoolBase_init(stakingProducedBy_);
+        CommunityStakingPoolBase_init(stakingProducedBy_, donationAddress_);
         
         // register interfaces
         // _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777Token"), address(this));

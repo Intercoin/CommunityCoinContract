@@ -7,6 +7,7 @@ interface ICommunityStakingPool {
         address stakingProducedBy_,
         address reserveToken_,
         address tradedToken_, 
+        address donationAddress_,
         uint64 tradedTokenClaimFraction_, 
         uint64 reserveTokenClaimFraction_,
         uint64 lpClaimFraction_

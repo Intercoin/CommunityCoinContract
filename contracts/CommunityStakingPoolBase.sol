@@ -30,6 +30,9 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     // CommunityCoin address
     address internal stakingProducedBy;
 
+    // if !address(0) then after staking any tokens will obtain donationAddress
+    address internal donationAddress;
+
     modifier onlyStaking() {
         require(stakingProducedBy == msg.sender);
         _;
@@ -38,6 +41,7 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     event Redeemed(address indexed account, uint256 amount);
     
+    event Donated(address indexed from, address indexed to, uint256 amount);
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -78,15 +82,19 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     /**
     * @notice initialize method. Called once by the factory at time of deployment
     * @param stakingProducedBy_ address of Community Coin token. 
+    * @param donationAddress_ address if setup then all coins move to this instead sender
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function CommunityStakingPoolBase_init(
-        address stakingProducedBy_
+        address stakingProducedBy_,
+        address donationAddress_
     ) 
         onlyInitializing
         internal
     {
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
+
+        donationAddress = donationAddress_; 
 
         __ReentrancyGuard_init();
 
@@ -143,7 +151,12 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     ) 
         internal 
         virtual 
-    {
+    {   
+        if (donationAddress != address(0)) {
+            addr = donationAddress;
+            emit Donated(addr, donationAddress, amount);
+        }
+        
         ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, amount, priceBeforeStake);
     }
     

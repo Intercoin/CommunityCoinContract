@@ -27,6 +27,7 @@ const ADMIN_ROLE = 'admin';
 const REDEEM_ROLE = 'redeem';
 const CIRCULATE_ROLE = 'circulate';
 
+const NO_DONATION_ADDRESS = ZERO_ADDRESS;
 
 
 
@@ -201,10 +202,11 @@ describe("Staking contract tests", function () {
     }); 
 
     it("shouldnt create with uniswap pair exists", async() => {
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,address,uint64,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
+            NO_DONATION_ADDRESS,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction,
@@ -214,10 +216,11 @@ describe("Staking contract tests", function () {
     });
 
     it("shouldnt create staking with the same token pairs", async() => {
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,address,uint64,uint64,uint64,uint64,uint64)"](
             erc20.address,
             erc20.address,
             lockupIntervalCount,
+            NO_DONATION_ADDRESS,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction,
@@ -228,20 +231,22 @@ describe("Staking contract tests", function () {
     });
 
     it("shouldnt create staking with the Zero token", async() => {
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,address,uint64,uint64,uint64,uint64,uint64)"](
             ZERO_ADDRESS,
             erc20.address,
             lockupIntervalCount,
+            NO_DONATION_ADDRESS,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction,
             numerator,
             denominator
         )).to.be.revertedWith("CommunityCoin: ZERO_ADDRESS");
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,address,uint64,uint64,uint64,uint64,uint64)"](
             erc20.address,
             ZERO_ADDRESS,
             lockupIntervalCount,
+            NO_DONATION_ADDRESS,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction,
@@ -252,20 +257,22 @@ describe("Staking contract tests", function () {
 
     it("shouldnt create with wrong fractions", async() => {
 
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,address,uint64,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
+            NO_DONATION_ADDRESS,
             wrongClaimFraction,
             tradedTokenClaimFraction,
             lpClaimFraction,
             numerator,
             denominator
         )).to.be.revertedWith("CommunityCoin: WRONG_CLAIM_FRACTION");
-        await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(address,address,uint64,address,uint64,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
+            NO_DONATION_ADDRESS,
             reserveTokenClaimFraction,
             wrongClaimFraction,
             lpClaimFraction,
@@ -354,10 +361,11 @@ describe("Staking contract tests", function () {
                 timeUntil
             );
                           
-            let tx = await CommunityCoinWithHook.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
+            let tx = await CommunityCoinWithHook.connect(owner)["produce(address,address,uint64,address,uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
+                NO_DONATION_ADDRESS,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
                 lpClaimFraction,
@@ -669,10 +677,11 @@ describe("Staking contract tests", function () {
                 timeUntil
             );
 
-            let tx = await CommunityCoin.connect(owner)["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
+            let tx = await CommunityCoin.connect(owner)["produce(address,address,uint64,address,uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
+                NO_DONATION_ADDRESS,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
                 lpClaimFraction,
@@ -735,10 +744,11 @@ describe("Staking contract tests", function () {
         });
 
         it("shouldnt create another pair with equal tokens", async() => {
-            await expect(CommunityCoin["produce(address,address,uint64,uint64,uint64,uint64,uint64,uint64)"](
+            await expect(CommunityCoin["produce(address,address,uint64,address,uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
+                NO_DONATION_ADDRESS,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
                 lpClaimFraction,
