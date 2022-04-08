@@ -20,14 +20,14 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">85% </span>
+        <span class="strong">63.33% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>17/20</span>
+        <span class='fraction'>19/30</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">66.67% </span>
+        <span class="strong">56.25% </span>
         <span class="quiet">Branches</span>
-        <span class='fraction'>8/12</span>
+        <span class='fraction'>9/16</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">83.33% </span>
@@ -35,13 +35,13 @@
         <span class='fraction'>5/6</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">80.95% </span>
+        <span class="strong">61.29% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>17/21</span>
+        <span class='fraction'>19/31</span>
       </div>
     </div>
   </div>
-  <div class='status-line high'></div>
+  <div class='status-line medium'></div>
 <pre><table class="coverage">
 <tr><td class="line-count quiet">1
 2
@@ -217,7 +217,39 @@
 172
 173
 174
-175</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -252,6 +284,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">19×</span>
 <span class="cline-any cline-yes">19×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -306,6 +339,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">138×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">138×</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">138×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -364,6 +404,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">120×</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">120×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -408,6 +464,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 &nbsp;
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ITrustedForwarder.sol";
+import "./interfaces/IStructs.sol";
 &nbsp;
 //import "hardhat/console.sol";
 &nbsp;
@@ -423,14 +480,16 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     // CommunityCoin address
     address internal stakingProducedBy;
 &nbsp;
+    // if donations does not empty then after staking any tokens will obtain proportionally by donations.address(end user) in donations.amount(ratio)
+    IStructs.StructAddrUint256[] donations;
+&nbsp;
     modifier onlyStaking() {
         <span class="missing-if-branch" title="else path not taken" >E</span>require(stakingProducedBy == msg.sender);
         _;
     }
-    event RewardGranted(address indexed token, address indexed account, uint256 amount);
-    event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
+&nbsp;
     event Redeemed(address indexed account, uint256 amount);
-    
+    event Donated(address indexed from, address indexed to, uint256 amount);
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -471,15 +530,24 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     /**
     * @notice initialize method. Called once by the factory at time of deployment
     * @param stakingProducedBy_ address of Community Coin token. 
+    * @param donations_ array of tuples [[address,uint256],...] account, ratio
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function CommunityStakingPoolBase_init(
-        address stakingProducedBy_
+        address stakingProducedBy_,
+        IStructs.StructAddrUint256[] memory donations_
     ) 
         onlyInitializing
         internal
     {
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
+&nbsp;
+        //donations = donations_; 
+        // UnimplementedFeatureError: Copying of type struct IStructs.StructAddrUint256 memory[] memory to storage not yet supported.
+        for(uint256 i = 0; i &lt; donations_.length; i++) {
+<span class="cstat-no" title="statement not covered" >            donations[i].account = donations_[i].account</span>;
+<span class="cstat-no" title="statement not covered" >            donations[i].amount = donations_[i].amount</span>;
+        }
 &nbsp;
         __ReentrancyGuard_init();
 &nbsp;
@@ -536,8 +604,24 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     ) 
         internal 
         virtual 
-    {
-        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, amount, priceBeforeStake);
+    {   
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (donations.length != 0) {
+<span class="cstat-no" title="statement not covered" >            uint256 tmpAmount;</span>
+<span class="cstat-no" title="statement not covered" >            for (uint256 i = 0; i &lt; donations.length; i++) {</span>
+<span class="cstat-no" title="statement not covered" >                tmpAmount = donations[i].amount / FRACTION</span>;
+<span class="cstat-no" title="statement not covered" >                if (tmpAmount &gt; 0) {</span>
+<span class="cstat-no" title="statement not covered" >                    ICommunityCoin(stakingProducedBy).issueWalletTokens(donations[i].account, tmpAmount, priceBeforeStake)</span>;
+<span class="cstat-no" title="statement not covered" >                    emit Donated(addr, donations[i].account, tmpAmount);</span>
+                }
+            }
+            
+            
+        } else {
+            ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, amount, priceBeforeStake);
+        }
+        
+        
+        
     }
     
     
@@ -571,7 +655,7 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Mar 30 2022 19:25:56 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Apr 08 2022 19:26:26 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>

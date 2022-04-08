@@ -19,7 +19,7 @@ import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-
+import "./interfaces/IStructs.sol";
 //import "hardhat/console.sol";
 
 contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory {
@@ -120,7 +120,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address reserveToken,
         address tradedToken,
         uint64 duration,
-        address donationAddress,
+        IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction,
         uint64 tradedTokenClaimFraction,
         uint64 lpClaimFraction,
@@ -157,7 +157,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //     );
         // } else {
             ICommunityStakingPool(instanceCreated).initialize(
-                creator, reserveToken,  tradedToken, donationAddress, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+                creator, reserveToken,  tradedToken, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
             );
         // }
         
@@ -168,7 +168,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function produceErc20(
         address tokenErc20,
         uint64 duration,
-        address donationAddress,
+        IStructs.StructAddrUint256[] memory donations,
         uint64 numerator,
         uint64 denominator
     ) 
@@ -194,7 +194,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //     );
         // } else {
             ICommunityStakingPoolErc20(instanceCreated).initialize(
-                creator, tokenErc20, donationAddress
+                creator, tokenErc20, donations
             );
         // }
         

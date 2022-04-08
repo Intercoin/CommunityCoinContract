@@ -15,6 +15,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ITrustedForwarder.sol";
+import "./interfaces/IStructs.sol";
 
 //import "hardhat/console.sol";
 
@@ -30,17 +31,15 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     // CommunityCoin address
     address internal stakingProducedBy;
 
-    // if !address(0) then after staking any tokens will obtain donationAddress
-    address internal donationAddress;
+    // if donations does not empty then after staking any tokens will obtain proportionally by donations.address(end user) in donations.amount(ratio)
+    IStructs.StructAddrUint256[] donations;
 
     modifier onlyStaking() {
         require(stakingProducedBy == msg.sender);
         _;
     }
-    event RewardGranted(address indexed token, address indexed account, uint256 amount);
-    event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
+
     event Redeemed(address indexed account, uint256 amount);
-    
     event Donated(address indexed from, address indexed to, uint256 amount);
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
@@ -82,19 +81,24 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     /**
     * @notice initialize method. Called once by the factory at time of deployment
     * @param stakingProducedBy_ address of Community Coin token. 
-    * @param donationAddress_ address if setup then all coins move to this instead sender
+    * @param donations_ array of tuples [[address,uint256],...] account, ratio
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function CommunityStakingPoolBase_init(
         address stakingProducedBy_,
-        address donationAddress_
+        IStructs.StructAddrUint256[] memory donations_
     ) 
         onlyInitializing
         internal
     {
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
 
-        donationAddress = donationAddress_; 
+        //donations = donations_; 
+        // UnimplementedFeatureError: Copying of type struct IStructs.StructAddrUint256 memory[] memory to storage not yet supported.
+        
+        for(uint256 i = 0; i < donations_.length; i++) {
+            donations.push(IStructs.StructAddrUint256({account: donations_[i].account, amount: donations_[i].amount}));
+        }
 
         __ReentrancyGuard_init();
 
@@ -152,12 +156,23 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
         internal 
         virtual 
     {   
-        if (donationAddress != address(0)) {
-            addr = donationAddress;
-            emit Donated(addr, donationAddress, amount);
+        if (donations.length != 0) {
+            uint256 tmpAmount;
+            for (uint256 i = 0; i < donations.length; i++) {
+                tmpAmount = amount * donations[i].amount / FRACTION;
+                if (tmpAmount > 0) {
+                    ICommunityCoin(stakingProducedBy).issueWalletTokens(donations[i].account, tmpAmount, priceBeforeStake);
+                    emit Donated(addr, donations[i].account, tmpAmount);
+                }
+            }
+            
+            
+        } else {
+            ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, amount, priceBeforeStake);
         }
         
-        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, amount, priceBeforeStake);
+        
+        
     }
     
     

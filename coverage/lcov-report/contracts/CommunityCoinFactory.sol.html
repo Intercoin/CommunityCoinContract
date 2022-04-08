@@ -22,7 +22,7 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>13/13</span>
+        <span class='fraction'>15/15</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">50% </span>
@@ -37,7 +37,7 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>13/13</span>
+        <span class='fraction'>15/15</span>
       </div>
     </div>
   </div>
@@ -156,7 +156,19 @@
 111
 112
 113
-114</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -206,11 +218,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">858×</span>
-<span class="cline-any cline-yes">858×</span>
-<span class="cline-any cline-yes">858×</span>
-<span class="cline-any cline-yes">858×</span>
-<span class="cline-any cline-yes">858×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -249,7 +267,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">429×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">429×</span>
@@ -275,7 +299,7 @@ pragma solidity 0.8.11;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
-import "./interfaces/ICommunitySettings.sol";
+import "./interfaces/ICommunityRolesManagement.sol";
 &nbsp;
 contract CommunityCoinFactory is Ownable {
     using Clones for address;
@@ -299,7 +323,12 @@ contract CommunityCoinFactory is Ownable {
     address public immutable stakingPoolImplementation;
     address public immutable stakingPoolErc20Implementation;
 &nbsp;
-    ICommunitySettings.CommunitySettings public communitySettings;
+    /**
+    * @custom:shortd RolesManagement implementation address
+    * @notice RolesManagement implementation address
+    */
+    address public immutable rolesManagementImplementation;
+&nbsp;
     address[] public instances;
     
     event InstanceCreated(address instance, uint instancesCount);
@@ -309,21 +338,22 @@ contract CommunityCoinFactory is Ownable {
     * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
     * @param stakingPoolImpl address of StakingPool implementation
     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
-    * @param communitySettings_ tuple of community settings (address of contract and roles(admin,redeem,circulate))
+    * @param rolesManagementImpl address of RolesManagement implementation
     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address stakingPoolImplErc20,
-        ICommunitySettings.CommunitySettings memory communitySettings_
+        address rolesManagementImpl
     ) 
     {
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
         stakingPoolErc20Implementation = stakingPoolImplErc20;
-        communitySettings = communitySettings_;
+        rolesManagementImplementation = rolesManagementImpl;
+        
     }
 &nbsp;
     ////////////////////////////////////////////////////////////////////////
@@ -350,12 +380,14 @@ contract CommunityCoinFactory is Ownable {
     /**
     * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+    * @param communitySettings tuple of community settings (address of contract and roles(admin,redeem,circulate))
     * @return instance address of created instance pool `CommunityCoin`
     * @custom:shortd creation instance
     */
     function produce(
         address hook,
-        uint256 discountSensitivity
+        uint256 discountSensitivity,
+        ICommunityRolesManagement.CommunitySettings memory communitySettings
     ) 
         public 
         onlyOwner()
@@ -371,7 +403,11 @@ contract CommunityCoinFactory is Ownable {
         
         emit InstanceCreated(instance, instances.length);
 &nbsp;
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, communitySettings);
+        address rolesManagementClone = rolesManagementImplementation.clone();
+&nbsp;
+        ICommunityRolesManagement(rolesManagementClone).initialize(communitySettings, instance);
+&nbsp;
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone);
         
         Ownable(instance).transferOwnership(_msgSender());
         
@@ -388,7 +424,7 @@ contract CommunityCoinFactory is Ownable {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Mar 30 2022 19:25:56 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Apr 08 2022 19:26:26 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>

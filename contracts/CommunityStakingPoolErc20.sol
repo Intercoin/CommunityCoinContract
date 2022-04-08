@@ -61,19 +61,19 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
     * @notice initialize method. Called once by the factory at time of deployment
     * @param stakingProducedBy_ address of Community Coin token. 
     * @param erc20Token_ address of ERC20 token.
-    * @param donationAddress_ address if setup then all coins move to this instead sender
+    * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function initialize(
         address stakingProducedBy_,
         address erc20Token_,
-        address donationAddress_
+        IStructs.StructAddrUint256[] memory donations_
     ) 
         initializer 
         external 
         override 
     {
-        CommunityStakingPoolBase_init(stakingProducedBy_, donationAddress_);
+        CommunityStakingPoolBase_init(stakingProducedBy_, donations_);
         
         (erc20Token) = (erc20Token_);
         
