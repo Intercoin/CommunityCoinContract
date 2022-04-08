@@ -103,6 +103,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     * @param stakingProducedBy_ address of Community Coin token. 
     * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
     * @param tradedToken_ address of traded token. ie investor token - ITR
+    * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `FRACTION`. 
     * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `FRACTION`. 
     * @param lpClaimFraction_ fraction of LP token multiplied by `FRACTION`. 
@@ -112,6 +113,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         address stakingProducedBy_,
         address reserveToken_,
         address tradedToken_, 
+        IStructs.StructAddrUint256[] memory donations_,
         uint64 tradedTokenClaimFraction_, 
         uint64 reserveTokenClaimFraction_,
         uint64 lpClaimFraction_
@@ -120,7 +122,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         external 
         override 
     {
-        CommunityStakingPoolBase_init(stakingProducedBy_);
+        CommunityStakingPoolBase_init(stakingProducedBy_, donations_);
         
         // register interfaces
         // _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777Token"), address(this));
@@ -143,8 +145,8 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
 
     /**
     * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
-    * @param account account address will redeemed from!!!
-    * @param amount The number of shares that will be redeemed.!!!!
+    * @param account account address will redeemed from
+    * @param amount The number of shares that will be redeemed.
     * @custom:calledby staking contract
     * @custom:shortd redeem lp tokens
     */

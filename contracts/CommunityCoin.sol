@@ -2,12 +2,13 @@
 pragma solidity 0.8.11;
 
 import "./interfaces/IHook.sol";
+
 import "./interfaces/ICommunityCoin.sol";
+
 import "./interfaces/ICommunityStakingPool.sol";
+import "./CommunityRolesManagement.sol";
 import "./access/TrustedForwarder.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
-//import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 //import "./lib/PackedMapping32.sol";
@@ -23,15 +24,12 @@ import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "./interfaces/ICommunity.sol";
 //import "hardhat/console.sol";
-
+import "./interfaces/IStructs.sol";
 
 contract CommunityCoin is 
     //OwnableUpgradeable, 
     TrustedForwarder,
-    ICommunityCoin, 
-    //AccessControlEnumerableUpgradeable, 
-    AccessControlUpgradeable,
-
+    ICommunityCoin,
     ERC777Upgradeable, 
     
     MinimumsBaseUpgradeable, 
@@ -48,24 +46,13 @@ contract CommunityCoin is
     uint32 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
-    bytes32 internal constant ADMIN_ROLE = "admin";
-    bytes32 internal constant REDEEM_ROLE = "redeem";
-    bytes32 internal constant CIRCULATION_ROLE = "circulate";
-
-    
-    struct Roles {
-        address communityAddr;
-        bytes32 adminRole;
-        bytes32 redeemRole;
-        bytes32 circulationRole;
-    }
-
-
     //uint64 public constant CIRCULATION_DURATION = 365*24*60*60; //year by default. will be used if circulation added to minimums
 
     IHook public hook; // hook used to bonus calculation
 
     ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
+    CommunityRolesManagement public rolesManagement; // ICommunityRolesManagement
+    
 
     uint256 internal discountSensitivity;
 
@@ -87,10 +74,7 @@ contract CommunityCoin is
 
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
-    event Redeemed(address indexed account, uint256 amount);
-
     
-    Roles internal roles;
 
     // modifier onlyStakingPool() {
     //     // here need to know that is definetely StakingPool. because with EIP-2771 forwarder can call methods as StakingPool. 
@@ -113,7 +97,7 @@ contract CommunityCoin is
     * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-    * @param communitySettings_ tuple of community settings (address of contract and roles(admin,redeem,circulate))
+    * @param rolesManagementAddr_ contract that would will manage roles(admin,redeem,circulate)
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
     */
@@ -123,7 +107,7 @@ contract CommunityCoin is
         address hook_,
         address communityCoinInstanceAddr,
         uint256 discountSensitivity_,
-        ICommunitySettings.CommunitySettings calldata communitySettings_
+        address rolesManagementAddr_
     ) 
         initializer 
         external 
@@ -144,23 +128,7 @@ contract CommunityCoin is
 
         discountSensitivity = discountSensitivity_;
         
-        //setup 
-        roles.communityAddr = communitySettings_.addr;
-        if (roles.communityAddr == address(0)) {
-            
-            roles.adminRole = ADMIN_ROLE;
-            roles.redeemRole = REDEEM_ROLE;
-            roles.circulationRole = CIRCULATION_ROLE;
-
-            _grantRole(roles.adminRole, _msgSender());
-            _setRoleAdmin(roles.redeemRole, roles.adminRole);
-            _setRoleAdmin(roles.circulationRole, roles.adminRole);
-        } else {
-            
-            roles.adminRole = stringToBytes32(communitySettings_.adminRole);
-            roles.redeemRole = stringToBytes32(communitySettings_.redeemRole);
-            roles.circulationRole = stringToBytes32(communitySettings_.circulationRole);
-        }
+        rolesManagement = CommunityRolesManagement(rolesManagementAddr_);
         
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
@@ -230,10 +198,12 @@ contract CommunityCoin is
     ) 
         external 
         nonReentrant
-        onlyRole(roles.circulationRole)
+        //onlyRole(roles.circulationRole)
     {
         address account = _msgSender();
 
+        rolesManagement.checkCirculationRole(account);
+        
         _mint(account, amount, "", "");
         //_minimumsAdd(account, amount, CIRCULATION_DEFAULT, false);
     }
@@ -249,9 +219,10 @@ contract CommunityCoin is
     ) 
         external 
         nonReentrant
-        onlyRole(roles.circulationRole)
+        //onlyRole(roles.circulationRole)
     {
         address account = _msgSender();
+        rolesManagement.checkCirculationRole(account);
 
         _burn(account, amount, "", "");
         //or
@@ -283,7 +254,9 @@ contract CommunityCoin is
 
         require((_msgSender() == address(this) && to == address(this)), "own tokens permitted only");
         
-        _checkRole(roles.redeemRole, from);
+        rolesManagement.checkRedeemRole(from);
+        //_checkRole(roles.redeemRole, from);
+
         __redeem(address(this), from, amount, new address[](0), Strategy.REDEEM);
         
     }
@@ -298,13 +271,15 @@ contract CommunityCoin is
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @return instance address of created instance pool `CommunityStakingPool`
     * @custom:shortd creation instance with simple options
     */
     function produce(
         address reserveToken, 
         address tradedToken, 
-        uint64 duration
+        uint64 duration,
+        IStructs.StructAddrUint256[] memory donations
     ) 
         public 
         returns (address instance) 
@@ -313,7 +288,7 @@ contract CommunityCoin is
         uint64 numerator = uint64(10**(IERC20Dpl(reserveToken).decimals()));
         uint64 denominator = uint64(10**(IERC20Dpl(tradedToken).decimals()));
 
-        return _produce(reserveToken, tradedToken, duration, 0, 0, 1000, numerator, denominator);
+        return _produce(reserveToken, tradedToken, duration, donations, 0, 0, 1000, numerator, denominator);
     }
     
     /**
@@ -321,6 +296,7 @@ contract CommunityCoin is
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @param reserveTokenClaimFraction fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
     * @param tradedTokenClaimFraction fraction of traded token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
     * @param lpClaimFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
@@ -334,6 +310,7 @@ contract CommunityCoin is
         address reserveToken, 
         address tradedToken, 
         uint64 duration, 
+        IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction, 
         uint64 tradedTokenClaimFraction, 
         uint64 lpClaimFraction,
@@ -344,44 +321,56 @@ contract CommunityCoin is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(reserveToken, tradedToken, duration, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
+        return _produce(reserveToken, tradedToken, duration, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
     }
     
     /**
     * @dev it's simple version for create erc20 instance pool.
     * @param tokenErc20 address of erc20 token.
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @return instance address of created instance pool `CommunityStakingPoolErc20`
     * @custom:shortd creation erc20 instance with simple options
     */
     function produce(
         address tokenErc20, 
-        uint64 duration
+        uint64 duration, 
+        IStructs.StructAddrUint256[] memory donations
     ) 
         public 
         returns (address instance) 
     {
         // uint64 numerator = 1;
         // uint64 denominator = 1;
-        return _produce(tokenErc20, duration, 1, 1);
+        return _produce(tokenErc20, duration, donations, 1, 1);
     }
 
-    function produce(
+    /**
+    * @dev it's simple version for create erc20 instance pool.
+    * @param tokenErc20 address of erc20 token.
+    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
+    * @return instance address of created instance pool `CommunityStakingPoolErc20`
+    * @custom:shortd creation erc20 instance with simple options
+    */
+    function produce(       
         address tokenErc20, 
         uint64 duration, 
+        IStructs.StructAddrUint256[] memory donations, 
         uint64 numerator, 
         uint64 denominator
     ) 
         public 
         returns (address instance) 
     {
-        return _produce(tokenErc20, duration, numerator, denominator);
+        return _produce(tokenErc20, duration, donations, numerator, denominator);
     }
 
     function _produce(
         address reserveToken, 
         address tradedToken, 
         uint64 duration, 
+        IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction, 
         uint64 tradedTokenClaimFraction, 
         uint64 lpClaimFraction,
@@ -395,6 +384,7 @@ contract CommunityCoin is
             reserveToken, 
             tradedToken, 
             duration, 
+            donations,
             reserveTokenClaimFraction, 
             tradedTokenClaimFraction, 
             lpClaimFraction, 
@@ -407,6 +397,7 @@ contract CommunityCoin is
     function _produce(
         address tokenErc20, 
         uint64 duration, 
+        IStructs.StructAddrUint256[] memory donations,
         uint64 numerator, 
         uint64 denominator
     ) 
@@ -416,6 +407,7 @@ contract CommunityCoin is
         instance = instanceManagment.produceErc20(
             tokenErc20, 
             duration, 
+            donations, 
             numerator,
             denominator
         );
@@ -524,65 +516,19 @@ contract CommunityCoin is
     {
         amount = _getMinimum(account);
     }   
-    
-    /**
-    * @dev function has overloaded. 
-    * @custom:shortd transfers ownership of the contract to a new account
-    */
-    function transferOwnership(
-        address newOwner
-    ) public 
-        virtual 
-        override 
-        onlyOwner 
-    {
-        super.transferOwnership(newOwner);
-        if (roles.communityAddr == address(0)) {
-            _revokeRole(roles.adminRole, _msgSender());
-            _grantRole(roles.adminRole, newOwner);
-        } else {
-            // for use community contrat don't need to transfer role. and does not make sence for new Owner
-        }
-    }
 
-    /**
-     * @dev Returns `true` if `account` has been granted `role`.
-     */
-    function hasRole(
-        bytes32 role, 
-        address account
-    ) 
-        public 
-        view 
-        virtual 
-        override 
-        returns (bool) 
-    {
-        
-        if (roles.communityAddr == address(0)) {
-            return super.hasRole(role, account);
-        } else {
-            // external call to community contract
-            bytes32 keccakRole = keccak256(abi.encodePacked(role));
-            bytes32 iKeccakRole;
-            string[] memory communityRoles = ICommunity(roles.communityAddr).getRoles(account);
-
-            for (uint256 i = 0; i < communityRoles.length; i++) {
-                iKeccakRole = keccak256(abi.encodePacked(stringToBytes32(communityRoles[i])));
-                if (keccakRole == iKeccakRole) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        
+    function grantRole(bytes32 role, address account) onlyOwner() public {
+        rolesManagement.grantRole(role, account);
     }
     
+    function revokeRole(bytes32 role, address account) onlyOwner() public {
+        rolesManagement.revokeRole(role, account);
+    }
+    
+
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    
     
     function _unstake(
         address account,
@@ -724,7 +670,8 @@ contract CommunityCoin is
         internal 
         //onlyRoleWithAccount(roles.redeemRole, account)
     {
-        _checkRole(roles.redeemRole, account);
+        //_checkRole(roles.redeemRole, account);
+        rolesManagement.checkRedeemRole(account);
 
         __redeem(account, account, amount, preferredInstances, strategy);
     }
@@ -870,20 +817,5 @@ contract CommunityCoin is
         return TrustedForwarder._msgSender();
     }
 
-    /**
-     * convert string to bytes32
-     * @param source string variable
-     */
-    function stringToBytes32(string memory source) internal pure returns (bytes32 result) {
-        bytes memory tempEmptyStringTest = bytes(source);
-        if (tempEmptyStringTest.length == 0) {
-            return 0x0;
-        }
-
-        assembly {
-            result := mload(add(source, 32))
-        }
-    }
-
-
+    
 }
