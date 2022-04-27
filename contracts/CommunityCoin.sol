@@ -535,6 +535,8 @@ contract CommunityCoin is
         view 
         returns(uint256)
     {
+        
+
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(
             account, 
             amount, 
@@ -543,7 +545,9 @@ contract CommunityCoin is
             totalSupply()//totalSupplyBefore
         );
 
-        return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, destinationToken);
+        uint256 t;
+        t = instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, destinationToken);
+        return t;
     }
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////

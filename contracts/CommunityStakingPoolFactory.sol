@@ -30,12 +30,15 @@ import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol";
 //------------------------------------------------------------------------------
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory {
     using ClonesUpgradeable for address;
 
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+
+    address internal constant uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address internal constant uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
 
     mapping(address => mapping(
         address => mapping(
@@ -304,9 +307,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         emit InstanceCreated(address(0), address(0), instance, _instances.length, tokenErc20);
     }
 
-    /// CommunityUniswapExchange
-    address uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-    address uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
         
     /**
     
@@ -346,15 +346,36 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         uint256 reserveAmount;
         address reserveToken;
 
+        uint256 adjusted;
         finalAmount = 0;
         for (uint256 i = 0; i < instancesToRedeem.length; i++) {
             
             //-1 check exists pools: tradedToken::USDT and revervedToken::USDT( if revervedToken!= USDT)
 
             //0 get token0, token1
+
+
             //1 calculate  how much traded and reserve tokens we will obtain if redeem and remove liquidity from uniswap
-            (tradedAmount, tradedToken, reserveAmount, reserveToken) = getPairsAmount(instancesToRedeem[i], valuesToRedeem[i]);
-            // ? sort?
+            // take into account LpFraction
+            adjusted = 
+                _instanceInfos[instancesToRedeem[i]].lpClaimFraction != 0
+                ?
+                valuesToRedeem[i] - valuesToRedeem[i] * _instanceInfos[instancesToRedeem[i]].lpClaimFraction / FRACTION
+                :
+                valuesToRedeem[i]
+                ;
+            (tradedAmount, tradedToken, reserveAmount, reserveToken) = getPairsAmount(
+                instancesToRedeem[i], 
+                //valuesToRedeem[i]
+                adjusted
+            );
+
+            if (_instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction != 0) {
+                tradedAmount = tradedAmount - tradedAmount * _instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction / FRACTION;
+            }
+            if (_instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction != 0) {
+                reserveAmount = reserveAmount - reserveAmount * _instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction / FRACTION;
+            }
 
             //2 calculate how much USDT we will obtain if swap TradedToken to USDT
             finalAmount += expectedAmount(tradedToken, destinationToken, tradedAmount);
@@ -380,12 +401,12 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         
         tradedToken = _instanceInfos[poolAddress].tradedToken;
         reserveToken = _instanceInfos[poolAddress].reserveToken;
+        require(tradedToken != address(0) && reserveToken != address(0), "addresses can not be empty");
 
-
-        address pair =  IUniswapV2Factory(uniswapRouterFactory).getPair(_instanceInfos[poolAddress].tradedToken, _instanceInfos[poolAddress].reserveToken);
-
-        uint256 balance0 = IERC777Upgradeable(_instanceInfos[poolAddress].reserveToken).balanceOf(pair);
-        uint256 balance1 = IERC777Upgradeable(_instanceInfos[poolAddress].tradedToken).balanceOf(pair);
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
+        require(pair!=address(0), "pair does not exists");
+        uint256 balance0 = IERC777Upgradeable(reserveToken).balanceOf(pair);
+        uint256 balance1 = IERC777Upgradeable(tradedToken).balanceOf(pair);
         //bool feeOn = _mintFee(_reserve0, _reserve1);
         // feeTo calculation (We skip for now), but totalSupply depend of fee that can be minted
         uint256 _totalSupply = IERC777Upgradeable(pair).totalSupply();
@@ -400,17 +421,21 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     )
         internal
         view
-        returns(uint256)
+        returns(uint256 ret)
     {
         if (tokenFrom == tokenExpected) {
             return amount0;
         } else {
             address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFrom, tokenExpected);
-            require(pair != address(0));
+            require(pair!=address(0), "pair does not exists");
             (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(pair).getReserves();
             address token0 = IUniswapV2Pair(pair).token0();
             (uint256 reserveIn, uint256 reserveOut) = tokenFrom == token0 ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
-            return IUniswapV2Router02(uniswapRouter).getAmountOut(amount0, reserveIn, reserveOut);
+
+            
+
+            ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amount0, reserveIn, reserveOut);
+            console.log('tokenExpected=',ret);
         }
     }
     
