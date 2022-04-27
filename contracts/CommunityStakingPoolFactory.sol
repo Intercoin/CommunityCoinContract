@@ -30,7 +30,7 @@ import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol";
 //------------------------------------------------------------------------------
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory {
     using ClonesUpgradeable for address;
@@ -52,8 +52,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     address public implementationErc20;
 
     address public creator;
-
-    
+ 
     enum InstanceType{ USUAL, ERC20 }
 
     address[] private _instances;
@@ -435,7 +434,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             
 
             ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amount0, reserveIn, reserveOut);
-            console.log('tokenExpected=',ret);
         }
     }
     

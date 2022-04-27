@@ -1635,17 +1635,18 @@ describe("Staking contract tests", function () {
                         for (const preferredInstance of [false, true]) {
 
                             it(""+`via ${forkAction ? 'redeem' : 'redeemAndRemoveLiquidity'} method`+` ${preferredInstance ? 'with preferred instances' : ''}`, async () => {
-                                
+                                var amountAfterSwapLP,aliceFakeUSDTToken;
                                 await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
                                 if (preferredInstance) {
                                     let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
                                     instanceManagementInstance = await ethers.getContractAt("CommunityStakingPoolFactory",instanceManagementAddr);
                                     let pList = await instanceManagementInstance.instances();
-if (!forkAction && preferredInstance) {
-    let t = await CommunityCoin.connect(alice).amountAfterSwapLP(alice.address, shares, pList, fakeUSDT.address);
-    
-    console.log('amountAfterSwapLP = ',t);
-}
+
+                                    if (!forkAction && preferredInstance) {
+                                        //Gettting how much tokens USDT user will obtain if swap all lp to usdt
+                                        amountAfterSwapLP = await CommunityCoin.connect(alice).amountAfterSwapLP(alice.address, shares, pList, fakeUSDT.address);
+                                    }
+
                                     await CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256,address[])' : 'redeemAndRemoveLiquidity(uint256,address[])'}`](shares, pList);
                                 } else {
                                     await CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares);
@@ -1655,28 +1656,29 @@ if (!forkAction && preferredInstance) {
                                 aliceReservedTokenAfter = await erc20ReservedToken.balanceOf(alice.address);
                                 aliceTradedTokenAfter = await erc20TradedToken.balanceOf(alice.address);
 
-if (!forkAction && preferredInstance) {
-    console.log(aliceReservedTokenAfter.sub(aliceReservedTokenBefore));
-    console.log(aliceTradedTokenAfter.sub(aliceTradedTokenBefore));
+                                if (!forkAction && preferredInstance) {
+                                    // now swap reserve and traded tokens to usdt
+                                    const ts = await time.latest();
+                                    const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
 
-    const ts = await time.latest();
-    const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+                                    await erc20ReservedToken.connect(alice).approve(uniswapRouterInstance.address, aliceReservedTokenAfter.sub(aliceReservedTokenBefore));
+                                    await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
+                                        aliceReservedTokenAfter.sub(aliceReservedTokenBefore), 0, [erc20ReservedToken.address, fakeUSDT.address], alice.address, timeUntil
+                                    );
 
-    await erc20ReservedToken.connect(alice).approve(uniswapRouterInstance.address, aliceReservedTokenAfter.sub(aliceReservedTokenBefore));
-    await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
-        aliceReservedTokenAfter.sub(aliceReservedTokenBefore), 0, [erc20ReservedToken.address, fakeUSDT.address], alice.address, timeUntil
-    );
+                                    await erc20TradedToken.connect(alice).approve(uniswapRouterInstance.address, aliceTradedTokenAfter.sub(aliceTradedTokenBefore));
+                                    await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
+                                        aliceTradedTokenAfter.sub(aliceTradedTokenBefore), 0, [erc20TradedToken.address, fakeUSDT.address], alice.address, timeUntil
+                                    );
 
-    await erc20TradedToken.connect(alice).approve(uniswapRouterInstance.address, aliceTradedTokenAfter.sub(aliceTradedTokenBefore));
-    await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
-        aliceTradedTokenAfter.sub(aliceTradedTokenBefore), 0, [erc20TradedToken.address, fakeUSDT.address], alice.address, timeUntil
-    );
+                                    aliceFakeUSDTToken = await fakeUSDT.balanceOf(alice.address);
+                                    
+                                    // and compare with amountAfterSwapLP. it should be the same
+                                    expect(amountAfterSwapLP).to.be.eq(aliceFakeUSDTToken);
+                                    expect(amountAfterSwapLP).not.to.be.eq(ZERO);
+                                    expect(aliceFakeUSDTToken).not.to.be.eq(ZERO);
 
-    let aliceFakeUSDTToken = await fakeUSDT.balanceOf(alice.address);
-    console.log('aliceFakeUSDTToken= ',aliceFakeUSDTToken);
-
-        
-}
+                                }
 
                                 if (forkAction) {
                                     expect(aliceLPTokenAfter).gt(aliceLPTokenBefore);
