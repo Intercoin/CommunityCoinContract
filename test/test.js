@@ -77,6 +77,7 @@ describe("Staking contract tests", function () {
     var implementationCommunityRolesManagement;
     var mockHook;
     var mockCommunity;
+    var ERC20Factory;
     var CommunityCoinFactory;
     var CommunityCoin;
     var CommunityCoinAndExternalCommunity;
@@ -86,7 +87,7 @@ describe("Staking contract tests", function () {
     var erc20TradedToken;
     var erc20ReservedToken;
     var erc20Reward;
-    
+    var fakeUSDT;
     
     beforeEach("deploying", async() => {
         const CommunityCoinFactoryF = await ethers.getContractFactory("CommunityCoinFactory");
@@ -100,7 +101,7 @@ describe("Staking contract tests", function () {
 
         const MockHookF = await ethers.getContractFactory("MockHook");
         const MockCommunityF = await ethers.getContractFactory("MockCommunity");
-        const ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
+        ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
         
         
         implementationCommunityCoin = await CommunityCoinF.deploy();
@@ -779,6 +780,40 @@ describe("Staking contract tests", function () {
                 liquidityHolder.address,
                 timeUntil
             );
+
+            // add liquidity into erc20ReservedToken::USDT and erc20TradedToken::USDT
+            fakeUSDT = await ERC20Factory.deploy("FAKE USDT Token", "FUSDT");
+            await fakeUSDT.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED).mul(TWO));
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+
+            await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeUSDT.address,
+                erc20TradedToken.address,
+                ONE_ETH.mul(HUNDRED),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeUSDT.address,
+                erc20ReservedToken.address,
+                ONE_ETH.mul(HUNDRED),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+            //--------------------------------------------------
+
 
             let tx = await CommunityCoin.connect(owner)["produce(address,address,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
@@ -1606,7 +1641,10 @@ describe("Staking contract tests", function () {
                                     let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
                                     instanceManagementInstance = await ethers.getContractAt("CommunityStakingPoolFactory",instanceManagementAddr);
                                     let pList = await instanceManagementInstance.instances();
-
+if (!forkAction && preferredInstance) {
+    let t = await CommunityCoin.connect(alice).amountAfterSwapLP(alice.address, shares, pList, fakeUSDT.address);
+    console.log(t);
+}
                                     await CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256,address[])' : 'redeemAndRemoveLiquidity(uint256,address[])'}`](shares, pList);
                                 } else {
                                     await CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares);
@@ -1622,7 +1660,7 @@ describe("Staking contract tests", function () {
                                     expect(aliceTradedTokenAfter).gt(aliceTradedTokenBefore);
                                 }
 
-
+                                
                                 
                             });
                         }
