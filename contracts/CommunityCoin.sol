@@ -28,7 +28,8 @@ import "./interfaces/IStructs.sol";
 
 //------------------------------------------------------------------------------
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 //------------------------------------------------------------------------------
 contract CommunityCoin is 
@@ -545,40 +546,33 @@ contract CommunityCoin is
             Strategy.REDEEM_AND_REMOVE_LIQUIDITY, 
             totalSupply()//totalSupplyBefore
         );
-        //0 get token0, token1
+        //-1 check exists pools: tradedToken::USDT and revervedToken::USDT( if revervedToken!= USDT)
+        //0 get addresses: token0, token1
+        //  get pair addresses: traded:usdt, reverved:usdt
         //1 calculate  how much traded and reserve tokens we will obtain if redeem and remove liquidity from uniswap
         //2 calculate how much USDT we will obtain if swap TradedToken to USDT
         //3 calculate how much USDT we will obtain if swap ReservedToken to USDT (if ReservedToken not equal USDT)
         //4 sum two values
         //loop 1-4 for preferred instances
 
-        //address uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-        address uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+
         ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo;
         uint256 balance0;
         uint256 balance1;
         uint256 _totalSupply;
-        uint256 amount0;
-        uint256 amount1;
+        // uint256 amount0;
+        // uint256 amount1;
         address pair;
-        uint256 reserveA;
-        uint256 reserveB;
+        
+        uint256 amountReserved;
+        uint256 amountTraded;
+
+        uint256 finalAmount = 0;
         for (uint256 i = 0; i < len; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
-                    //0
-// struct InstanceInfo {
-//     address reserveToken;
-//     uint64 duration;
-//     address tradedToken;
-//     uint64 reserveTokenClaimFraction;
-//     uint64 tradedTokenClaimFraction;
-//     uint64 lpClaimFraction;
-//     uint64 numerator;
-//     uint64 denominator;
-//     bool exists;
-//     uint8 instanceType;
-//     address tokenErc20;
-// }
+                    
+                    //-1 check exists pools: tradedToken::USDT and revervedToken::USDT( if revervedToken!= USDT)
+
                     //0 get token0, token1
                     instanceInfo = instanceManagment.getInstanceInfoByPoolAddress(instancesToRedeem[i]);
                     pair =  IUniswapV2Factory(uniswapRouterFactory).getPair(instanceInfo.tradedToken, instanceInfo.reserveToken);
@@ -589,34 +583,43 @@ contract CommunityCoin is
                     //bool feeOn = _mintFee(_reserve0, _reserve1);
                     // feeTo calculation (We skip for now), but totalSupply depend of fee that can be minted
                     _totalSupply = IERC777Upgradeable(pair).totalSupply();
-                    amount0 = amount * balance0 / _totalSupply;
-                    amount1 = amount * balance1 / _totalSupply;
+                    amountReserved = amount * balance0 / _totalSupply;
+                    amountTraded = amount * balance1 / _totalSupply;
                     // ? sort?
 
                     //2 calculate how much USDT we will obtain if swap TradedToken to USDT
-                    (reserveA, reserveB) = UniswapV2Library.getReserves(uniswapRouterFactory, instanceInfo.tradedToken, instanceInfo.reserveToken);
-                                                //uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
-                    UniswapV2Library.getAmountOut(amount0, reserveA, reserveB);
-
-                    // try ICommunityStakingPool(instancesToRedeem[i]).redeemAndRemoveLiquidity(
-                    //     account2Redeem, 
-                    //     valuesToRedeem[i]
-                    // ) {
-                    //     _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-                    //     totalRedeemable -= valuesToRedeem[i];
-                    // }
-                    // catch {
-                    //     revert("Error when redeem in an instance");
-                    // }
-                
-               
-
+                    finalAmount += expectedAmount(instanceInfo.tradedToken, usdtToken, amountTraded);
+                    
+                    //3 calculate how much USDT we will obtain if swap ReservedToken to USDT (if ReservedToken not equal USDT)
+                    finalAmount += expectedAmount(instanceInfo.reserveToken, usdtToken, amountTraded);
                
             }
         }
     }
+        address uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+        address uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+        address usdtToken = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
-
+    function expectedAmount(
+        address tokenFrom,
+        address tokenExpected,
+        uint256 amount0
+    )
+        internal
+        view
+        returns(uint256)
+    {
+        if (tokenFrom == tokenExpected) {
+            return amount0;
+        } else {
+            address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFrom, tokenExpected);
+            require(pair != address(0));
+            (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(pair).getReserves();
+            address token0 = IUniswapV2Pair(pair).token0();
+            (uint256 reserveIn, uint256 reserveOut) = tokenFrom == token0 ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
+            return IUniswapV2Router02(uniswapRouter).getAmountOut(amount0, reserveIn, reserveOut);
+        }
+    }
     
     
 
