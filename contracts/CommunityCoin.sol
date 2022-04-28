@@ -529,14 +529,13 @@ contract CommunityCoin is
         address account,
         uint256 amount, //amountLP,
         address[] memory preferredInstances,
-        address destinationToken
+        address[][] memory swapPaths
     )
         public 
         view 
         returns(uint256)
     {
         
-
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(
             account, 
             amount, 
@@ -545,9 +544,7 @@ contract CommunityCoin is
             totalSupply()//totalSupplyBefore
         );
 
-        uint256 t;
-        t = instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, destinationToken);
-        return t;
+        return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, swapPaths);
     }
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////

@@ -30,7 +30,7 @@ import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol";
 //------------------------------------------------------------------------------
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory {
     using ClonesUpgradeable for address;
@@ -308,38 +308,29 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
         
     /**
-    
-    * @param destinationToken token in which will converted all pairs like USDT(0xdAC17F958D2ee523a2206206994597C13D831ec7) in ethereum;
+    * @param instancesToRedeem instancesToRedeem
+    * @param valuesToRedeem valuesToRedeem
+    * @param swapPaths array of tokens path that method will try to calculate exchange logic
     */
     function amountAfterSwapLP(
         address[] memory instancesToRedeem, 
         uint256[] memory valuesToRedeem,
-        address destinationToken
+        address[][] memory swapPaths
     )
         external 
         view 
         returns(uint256 finalAmount)
     {
-        
-        //-1 check exists pools: tradedToken::USDT and revervedToken::USDT( if revervedToken!= USDT)
+
         //0 get addresses: token0, token1
         //  get pair addresses: traded:usdt, reverved:usdt
         //1 calculate  how much traded and reserve tokens we will obtain if redeem and remove liquidity from uniswap
-        //2 calculate how much USDT we will obtain if swap TradedToken to USDT
-        //3 calculate how much USDT we will obtain if swap ReservedToken to USDT (if ReservedToken not equal USDT)
+        //2 calculate how much USDT we will obtain if swap TradedToken via swapPaths
+        //3 calculate how much USDT we will obtain if swap ReservedToken via swapPaths
         //4 sum two values
         //loop 1-4 for preferred instances
 
 
-        // ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo;
-        // uint256 balance0;
-        // uint256 balance1;
-        // uint256 _totalSupply;
-        // uint256 amount0;
-        // uint256 amount1;
-        // address pair;
-        
-        
         uint256 tradedAmount;
         address tradedToken;
         uint256 reserveAmount;
@@ -349,11 +340,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         finalAmount = 0;
         for (uint256 i = 0; i < instancesToRedeem.length; i++) {
             
-            //-1 check exists pools: tradedToken::USDT and revervedToken::USDT( if revervedToken!= USDT)
-
-            //0 get token0, token1
-
-
             //1 calculate  how much traded and reserve tokens we will obtain if redeem and remove liquidity from uniswap
             // take into account LpFraction
             adjusted = 
@@ -365,8 +351,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
                 ;
             (tradedAmount, tradedToken, reserveAmount, reserveToken) = getPairsAmount(
                 instancesToRedeem[i], 
-                //valuesToRedeem[i]
-                adjusted
+                adjusted //valuesToRedeem[i]
             );
 
             if (_instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction != 0) {
@@ -375,12 +360,16 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             if (_instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction != 0) {
                 reserveAmount = reserveAmount - reserveAmount * _instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction / FRACTION;
             }
-
-            //2 calculate how much USDT we will obtain if swap TradedToken to USDT
-            finalAmount += expectedAmount(tradedToken, destinationToken, tradedAmount);
+            address[20] memory statePairIndexes;
+            uint112[20][2] memory stateReserves;
+            uint256 amountTmp;
+            //2 after swap TradedToken 
+            (amountTmp, statePairIndexes,stateReserves) = expectedAmount(tradedToken, tradedAmount, swapPaths,statePairIndexes,stateReserves);
+            finalAmount += amountTmp;
             
-            //3 calculate how much USDT we will obtain if swap ReservedToken to USDT (if ReservedToken not equal USDT)
-            finalAmount += expectedAmount(reserveToken, destinationToken, reserveAmount);
+            //3 after ReservedToken
+            (amountTmp, statePairIndexes,stateReserves) = expectedAmount(reserveToken, reserveAmount, swapPaths,statePairIndexes,stateReserves);
+            finalAmount += amountTmp;
         }
     }
         
@@ -415,29 +404,152 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
     function expectedAmount(
         address tokenFrom,
-        address tokenExpected,
-        uint256 amount0
+        uint256 amount0,
+        address[][] memory swapPaths,
+        address[20] memory statePairIndexes,
+        uint112[20][2] memory stateReserves
     )
         internal
         view
-        returns(uint256 ret)
+        returns(
+            uint256 ret,
+            address[20] memory,
+            uint112[20][2] memory
+        )
     {
-        if (tokenFrom == tokenExpected) {
-            return amount0;
-        } else {
-            address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFrom, tokenExpected);
-            require(pair!=address(0), "pair does not exists");
-            (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(pair).getReserves();
-            address token0 = IUniswapV2Pair(pair).token0();
-            (uint256 reserveIn, uint256 reserveOut) = tokenFrom == token0 ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
+        address pair;
+        address tokenFromTmp;
+        uint256 amount0Tmp;
+        address[20] memory statePairIndexesTmp;
+        uint112[20][2] memory stateReservesTmp;
 
+        for(uint256 i = 0; i < swapPaths.length; i++) {
+            if (tokenFrom == swapPaths[i][swapPaths[i].length-1]) { // if tokenFrom is already destination token
+                return (amount0, statePairIndexes, stateReserves);
+            }
+
+            tokenFromTmp = tokenFrom;
+            amount0Tmp = amount0;
+            statePairIndexesTmp = statePairIndexes;
+            stateReservesTmp = stateReserves;
+            for(uint256 j = 0; j < swapPaths[i].length; j++) {
             
+                pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFromTmp, swapPaths[i][j]);
+                if (pair == address(0)) {
+                    break; //"pair does not exists"  just skip
+                }
 
-            ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amount0, reserveIn, reserveOut);
+                // cache
+
+                (uint112 _reserve0, uint112 _reserve1) = getReservesCache(pair, statePairIndexesTmp, stateReservesTmp);
+
+                if (_reserve0 == 0 || _reserve1 == 0) {
+                    break;
+                }
+
+                (_reserve0, _reserve1) = (tokenFromTmp == IUniswapV2Pair(pair).token0()) ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
+                                                                        // amountin reservein reserveout
+                ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amount0Tmp, _reserve0, _reserve1);
+
+                if (ret == 0) {
+                    break;
+                }
+
+                if (tokenFromTmp == IUniswapV2Pair(pair).token0()) {
+                    _reserve0 += uint112(amount0Tmp);
+                    _reserve1 -= uint112(ret);
+                } else {
+                    _reserve0 -= uint112(ret);
+                    _reserve1 += uint112(amount0Tmp);
+                }
+
+                (statePairIndexes, stateReserves) = updateReservesCache(pair, statePairIndexes, stateReserves, _reserve0, _reserve1);
+        
+                // if swap didn't brake before last iteration then we think that swap is done
+                if (j == swapPaths[i].length-1) { 
+                    return (ret, statePairIndexes, stateReserves);
+                } else {
+                    tokenFromTmp = swapPaths[i][j];
+                    amount0Tmp = ret;
+                }
+            }
         }
+
+        revert("paths invalid");
+        
     }
-    
-    
 
+    function getReservesCache(
+        address pair, 
+        address[20] memory pairIndexes,
+        uint112[20][2] memory reserves
+    ) 
+        internal
+        view
+        returns(
+            uint112, // reserve0
+            uint112 // reserve1
+        )
+    {
 
+        //find index and get from cache
+        for(uint256 i = 0; i < pairIndexes.length; i++) {
+//console.log("try getting from cache. ");
+            if (pairIndexes[i] == pair) {
+console.log("getting from cache. should be the single one. from second pair");
+                return (reserves[i][0], reserves[i][1]);
+            }
+        }
+        // else try to get external call
+        (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(pair).getReserves();
+console.log("_reserve0/_reserve1");
+console.log(_reserve0);
+console.log(_reserve1);
+        return (_reserve0, _reserve1);
+    }
+
+    function updateReservesCache(
+        address pair, 
+        address[20] memory pairIndexes,
+        uint112[20][2] memory reserves,
+        uint112 _reserve0, 
+        uint112 _reserve1
+    ) 
+        internal
+        view
+        returns(
+            address[20] memory,// pairIndexes,
+            uint112[20][2] memory// reserves,
+        )
+    {
+        bool isUpdated = false;
+        for(uint256 i = 0; i < pairIndexes.length; i++) {
+            if (pairIndexes[i] == pair) {
+                reserves[i][0] = _reserve0;
+                reserves[i][1] = _reserve1;
+                isUpdated = true;
+                break;
+            }
+        }
+
+        
+
+        if (!isUpdated) { // create new
+            uint256 index;
+            for(uint256 i = 0; i > pairIndexes.length; i++) {
+            if (pairIndexes[i] == address(0)) {
+                index = i;
+                break;
+            }
+        }
+console.log("try update to cache");             
+console.log("index"); 
+            pairIndexes[index] = pair;
+            reserves[index][0] = _reserve0;
+            reserves[index][1] = _reserve1;
+
+        }
+        return (pairIndexes, reserves);
+
+    }
 }

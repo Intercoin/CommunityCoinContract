@@ -8,7 +8,9 @@ const ZERO = BigNumber.from('0');
 const ONE = BigNumber.from('1');
 const TWO = BigNumber.from('2');
 const THREE = BigNumber.from('3');
-const FOUR = BigNumber.from('3');
+const FOUR = BigNumber.from('4');
+const FIVE = BigNumber.from('5');
+const SIX = BigNumber.from('6');
 const SEVEN = BigNumber.from('7');
 const TEN = BigNumber.from('10');
 const HUNDRED = BigNumber.from('100');
@@ -88,6 +90,7 @@ describe("Staking contract tests", function () {
     var erc20ReservedToken;
     var erc20Reward;
     var fakeUSDT;
+    var fakeMiddle;
     
     beforeEach("deploying", async() => {
         const CommunityCoinFactoryF = await ethers.getContractFactory("CommunityCoinFactory");
@@ -812,8 +815,57 @@ describe("Staking contract tests", function () {
                 liquidityHolder.address,
                 timeUntil
             );
-            //--------------------------------------------------
+            // add liquidity into erc20ReservedToken::middleToken, erc20TradedToken::middleToken and middleToken::USDT
+            fakeMiddle = await ERC20Factory.deploy("FAKE Middle Token", "FMT");
 
+            await fakeMiddle.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED).mul(TEN));
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+            await fakeUSDT.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+
+            //erc20ReservedToken::middleToken
+            await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED).mul(TWO));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeMiddle.address,
+                erc20ReservedToken.address,
+                ONE_ETH.mul(HUNDRED).mul(TWO),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            //erc20TradedToken::middleToken
+            await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED).mul(TWO));
+            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeMiddle.address,
+                erc20TradedToken.address,
+                ONE_ETH.mul(HUNDRED).mul(TWO),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            // middleToken::USDT
+            await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED).mul(SIX));
+            await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeMiddle.address,
+                fakeUSDT.address,
+                ONE_ETH.mul(HUNDRED).mul(SIX),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            //--------------------------------------------------
 
             let tx = await CommunityCoin.connect(owner)["produce(address,address,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
@@ -1633,9 +1685,10 @@ describe("Staking contract tests", function () {
                         });
 
                         for (const preferredInstance of [false, true]) {
+                        for (const swapThroughMiddle of [false, true]) {
 
-                            it(""+`via ${forkAction ? 'redeem' : 'redeemAndRemoveLiquidity'} method`+` ${preferredInstance ? 'with preferred instances' : ''}`, async () => {
-                                var amountAfterSwapLP,aliceFakeUSDTToken;
+                            it(""+`via ${forkAction ? 'redeem' : 'redeemAndRemoveLiquidity'} method`+` ${preferredInstance ? 'with preferred instances' : ''}` + ` ${swapThroughMiddle ? 'and swap through middle token' : ''}`, async () => {
+                                var amountAfterSwapLP, aliceFakeUSDTToken;
                                 await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
                                 if (preferredInstance) {
                                     let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
@@ -1643,8 +1696,31 @@ describe("Staking contract tests", function () {
                                     let pList = await instanceManagementInstance.instances();
 
                                     if (!forkAction && preferredInstance) {
-                                        //Gettting how much tokens USDT user will obtain if swap all lp to usdt
-                                        amountAfterSwapLP = await CommunityCoin.connect(alice).amountAfterSwapLP(alice.address, shares, pList, fakeUSDT.address);
+
+                                        if (swapThroughMiddle) {
+                                            console.log(instanceManagementAddr);
+                                            //Gettting how much tokens USDT user will obtain if swap all lp to usdt through middle token
+                                            amountAfterSwapLP = await CommunityCoin.connect(alice).amountAfterSwapLP(
+                                                alice.address, 
+                                                shares, 
+                                                pList, 
+                                                [
+                                                    [fakeMiddle.address, instanceManagementAddr],
+                                                    [fakeMiddle.address, fakeUSDT.address]
+                                                ]
+                                            );
+                                        } else {
+                                            //Gettting how much tokens USDT user will obtain if swap all lp to usdt
+                                            amountAfterSwapLP = await CommunityCoin.connect(alice).amountAfterSwapLP(
+                                                alice.address, 
+                                                shares, 
+                                                pList, 
+                                                [
+                                                    [fakeUSDT.address]
+                                                ]
+                                            );
+                                        }
+                                        
                                     }
 
                                     await CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256,address[])' : 'redeemAndRemoveLiquidity(uint256,address[])'}`](shares, pList);
@@ -1661,23 +1737,58 @@ describe("Staking contract tests", function () {
                                     const ts = await time.latest();
                                     const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
 
-                                    await erc20ReservedToken.connect(alice).approve(uniswapRouterInstance.address, aliceReservedTokenAfter.sub(aliceReservedTokenBefore));
-                                    await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
-                                        aliceReservedTokenAfter.sub(aliceReservedTokenBefore), 0, [erc20ReservedToken.address, fakeUSDT.address], alice.address, timeUntil
-                                    );
+                                    if (swapThroughMiddle) {
+                                        let aliceMiddleTokenBefore, aliceMiddleTokenAfter;
+                                        // erc20ReservedToken->middle->usdt
 
-                                    await erc20TradedToken.connect(alice).approve(uniswapRouterInstance.address, aliceTradedTokenAfter.sub(aliceTradedTokenBefore));
-                                    await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
-                                        aliceTradedTokenAfter.sub(aliceTradedTokenBefore), 0, [erc20TradedToken.address, fakeUSDT.address], alice.address, timeUntil
-                                    );
+                                        aliceMiddleTokenBefore = await fakeMiddle.balanceOf(alice.address);
+console.log('aliceMiddleTokenBefore=', aliceMiddleTokenBefore);
+                                        await erc20ReservedToken.connect(alice).approve(uniswapRouterInstance.address, aliceReservedTokenAfter.sub(aliceReservedTokenBefore));
+                                        await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
+                                            aliceReservedTokenAfter.sub(aliceReservedTokenBefore), 0, [erc20ReservedToken.address, fakeMiddle.address], alice.address, timeUntil
+                                        );
+                                        aliceMiddleTokenAfter = await fakeMiddle.balanceOf(alice.address);
+console.log('aliceMiddleTokenAfter=', aliceMiddleTokenAfter);
+                                        await fakeMiddle.connect(alice).approve(uniswapRouterInstance.address, aliceMiddleTokenAfter.sub(aliceMiddleTokenBefore));
+                                        await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
+                                            aliceMiddleTokenAfter.sub(aliceMiddleTokenBefore), 0, [fakeMiddle.address, fakeUSDT.address], alice.address, timeUntil
+                                        );
+                                        // erc20TradedToken->middle->usdt
+                                        aliceMiddleTokenBefore = await fakeMiddle.balanceOf(alice.address);
+console.log('aliceMiddleTokenBefore=', aliceMiddleTokenBefore);
+                                        await erc20TradedToken.connect(alice).approve(uniswapRouterInstance.address, aliceTradedTokenAfter.sub(aliceTradedTokenBefore));
+                                        await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
+                                            aliceTradedTokenAfter.sub(aliceTradedTokenBefore), 0, [erc20TradedToken.address, fakeMiddle.address], alice.address, timeUntil
+                                        );
+                                        aliceMiddleTokenAfter = await fakeMiddle.balanceOf(alice.address);
+console.log('aliceMiddleTokenAfter=', aliceMiddleTokenAfter);
+                                        await fakeMiddle.connect(alice).approve(uniswapRouterInstance.address, aliceMiddleTokenAfter.sub(aliceMiddleTokenBefore));
+                                        await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
+                                            aliceMiddleTokenAfter.sub(aliceMiddleTokenBefore), 0, [fakeMiddle.address, fakeUSDT.address], alice.address, timeUntil
+                                        );
+                                        //-------------------------
+
+                                    } else {
+                                        
+                                        await erc20ReservedToken.connect(alice).approve(uniswapRouterInstance.address, aliceReservedTokenAfter.sub(aliceReservedTokenBefore));
+                                        await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
+                                            aliceReservedTokenAfter.sub(aliceReservedTokenBefore), 0, [erc20ReservedToken.address, fakeUSDT.address], alice.address, timeUntil
+                                        );
+
+                                        await erc20TradedToken.connect(alice).approve(uniswapRouterInstance.address, aliceTradedTokenAfter.sub(aliceTradedTokenBefore));
+                                        await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
+                                            aliceTradedTokenAfter.sub(aliceTradedTokenBefore), 0, [erc20TradedToken.address, fakeUSDT.address], alice.address, timeUntil
+                                        );
+
+                                        
+                                    }
 
                                     aliceFakeUSDTToken = await fakeUSDT.balanceOf(alice.address);
-                                    
                                     // and compare with amountAfterSwapLP. it should be the same
                                     expect(amountAfterSwapLP).to.be.eq(aliceFakeUSDTToken);
                                     expect(amountAfterSwapLP).not.to.be.eq(ZERO);
                                     expect(aliceFakeUSDTToken).not.to.be.eq(ZERO);
-
+                                    
                                 }
 
                                 if (forkAction) {
@@ -1690,6 +1801,7 @@ describe("Staking contract tests", function () {
                                 
                                 
                             });
+                        }
                         }
 
                         if (forkAction) {
