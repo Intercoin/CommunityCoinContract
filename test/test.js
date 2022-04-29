@@ -1698,15 +1698,22 @@ describe("Staking contract tests", function () {
                                     if (!forkAction && preferredInstance) {
 
                                         if (swapThroughMiddle) {
-                                            console.log(instanceManagementAddr);
+                                            console.log('instanceManagementAddr =',instanceManagementAddr);
+                                            console.log('fakeMiddle             =',fakeMiddle.address);
+                                            console.log('fakeUSDT               =',fakeUSDT.address);
+                                            console.log('erc20TradedToken       =',erc20TradedToken.address);
+                                            console.log('erc20ReservedToken     =',erc20ReservedToken.address);
                                             //Gettting how much tokens USDT user will obtain if swap all lp to usdt through middle token
+                                            console.log("i am here !!!!!!!!!!!!!!!!");
+
                                             amountAfterSwapLP = await CommunityCoin.connect(alice).amountAfterSwapLP(
                                                 alice.address, 
                                                 shares, 
                                                 pList, 
                                                 [
-                                                    [fakeMiddle.address, instanceManagementAddr],
+                                                    //[fakeMiddle.address, instanceManagementAddr],
                                                     [fakeMiddle.address, fakeUSDT.address]
+                                                    
                                                 ]
                                             );
                                         } else {
@@ -1724,6 +1731,7 @@ describe("Staking contract tests", function () {
                                     }
 
                                     await CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256,address[])' : 'redeemAndRemoveLiquidity(uint256,address[])'}`](shares, pList);
+
                                 } else {
                                     await CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares);
                                 }
@@ -1736,49 +1744,77 @@ describe("Staking contract tests", function () {
                                     // now swap reserve and traded tokens to usdt
                                     const ts = await time.latest();
                                     const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+console.log("JS::START TO SWAP");
+console.log("JS::erc20TradedToken = ",(await erc20TradedToken.balanceOf(alice.address)).toString());
+console.log("JS::erc20ReservedToken = ",(await erc20ReservedToken.balanceOf(alice.address)).toString());
+console.log("JS::erc20TradedToken->erc20ReservedToken");
+console.log("try to swap =", (aliceTradedTokenAfter.sub(aliceTradedTokenBefore)).toString());
 
+let tmp = (await implementationCommunityStakingPoolFactory._swap(
+    erc20TradedToken.address, 
+    erc20ReservedToken.address,
+    aliceTradedTokenAfter.sub(aliceTradedTokenBefore)
+));
+console.log("expect", tmp[1].toString());
+
+
+console.log("````````````````````````````````````````````````````````````````````````````");
+console.log("JS::erc20TradedToken:alice                     ",(await erc20TradedToken.balanceOf(alice.address)).toString());
+console.log("JS::erc20ReservedToken:alice                   ",(await erc20ReservedToken.balanceOf(alice.address)).toString());
+console.log("JS::erc20TradedToken:uniswapRouterInstance     ",(await erc20TradedToken.balanceOf(uniswapRouterInstance.address)).toString());
+console.log("JS::erc20ReservedToken:uniswapRouterInstance   ",(await erc20ReservedToken.balanceOf(uniswapRouterInstance.address)).toString());
+                                    // erc20TradedToken->erc20ReservedToken
+                                    await erc20TradedToken.connect(alice).approve(uniswapRouterInstance.address, aliceTradedTokenAfter.sub(aliceTradedTokenBefore));
+                                    await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
+                                        aliceTradedTokenAfter.sub(aliceTradedTokenBefore), 0, [erc20TradedToken.address, erc20ReservedToken.address], alice.address, timeUntil
+                                    );
+console.log("JS::erc20TradedToken:alice                     ",(await erc20TradedToken.balanceOf(alice.address)).toString());
+console.log("JS::erc20ReservedToken:alice                   ",(await erc20ReservedToken.balanceOf(alice.address)).toString());
+console.log("JS::erc20TradedToken:uniswapRouterInstance     ",(await erc20TradedToken.balanceOf(uniswapRouterInstance.address)).toString());
+console.log("JS::erc20ReservedToken:uniswapRouterInstance   ",(await erc20ReservedToken.balanceOf(uniswapRouterInstance.address)).toString());
+console.log("````````````````````````````````````````````````````````````````````````````");
+console.log("JS::left after swap ",(await erc20TradedToken.balanceOf(alice.address)).toString());
+let tttt= aliceReservedTokenAfter;
+                                    aliceReservedTokenAfter = await erc20ReservedToken.balanceOf(alice.address);
+console.log("JS::obtainReserved  ",(aliceReservedTokenAfter - tttt).toString());
+console.log("JS::erc20ReservedToken = ",(await erc20ReservedToken.balanceOf(alice.address)).toString());
                                     if (swapThroughMiddle) {
-                                        let aliceMiddleTokenBefore, aliceMiddleTokenAfter;
-                                        // erc20ReservedToken->middle->usdt
-
-                                        aliceMiddleTokenBefore = await fakeMiddle.balanceOf(alice.address);
+                                        
+                                        let aliceMiddleTokenBefore = await fakeMiddle.balanceOf(alice.address);
+console.log('aliceReservedTokenAfter=', aliceReservedTokenAfter);
 console.log('aliceMiddleTokenBefore=', aliceMiddleTokenBefore);
+console.log(await implementationCommunityStakingPoolFactory._swap(
+    erc20ReservedToken.address, 
+    fakeMiddle.address,
+    aliceReservedTokenAfter.sub(aliceReservedTokenBefore)
+));
+
+                                        // total erc20ReservedToken->middle->usdt
                                         await erc20ReservedToken.connect(alice).approve(uniswapRouterInstance.address, aliceReservedTokenAfter.sub(aliceReservedTokenBefore));
                                         await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
                                             aliceReservedTokenAfter.sub(aliceReservedTokenBefore), 0, [erc20ReservedToken.address, fakeMiddle.address], alice.address, timeUntil
                                         );
-                                        aliceMiddleTokenAfter = await fakeMiddle.balanceOf(alice.address);
+                                        let aliceMiddleTokenAfter = await fakeMiddle.balanceOf(alice.address);
+console.log("JS::left after swap ",(await erc20ReservedToken.balanceOf(alice.address)).toString());
 console.log('aliceMiddleTokenAfter=', aliceMiddleTokenAfter);
                                         await fakeMiddle.connect(alice).approve(uniswapRouterInstance.address, aliceMiddleTokenAfter.sub(aliceMiddleTokenBefore));
                                         await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
                                             aliceMiddleTokenAfter.sub(aliceMiddleTokenBefore), 0, [fakeMiddle.address, fakeUSDT.address], alice.address, timeUntil
                                         );
-                                        // erc20TradedToken->middle->usdt
-                                        aliceMiddleTokenBefore = await fakeMiddle.balanceOf(alice.address);
-console.log('aliceMiddleTokenBefore=', aliceMiddleTokenBefore);
-                                        await erc20TradedToken.connect(alice).approve(uniswapRouterInstance.address, aliceTradedTokenAfter.sub(aliceTradedTokenBefore));
-                                        await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
-                                            aliceTradedTokenAfter.sub(aliceTradedTokenBefore), 0, [erc20TradedToken.address, fakeMiddle.address], alice.address, timeUntil
-                                        );
-                                        aliceMiddleTokenAfter = await fakeMiddle.balanceOf(alice.address);
-console.log('aliceMiddleTokenAfter=', aliceMiddleTokenAfter);
-                                        await fakeMiddle.connect(alice).approve(uniswapRouterInstance.address, aliceMiddleTokenAfter.sub(aliceMiddleTokenBefore));
-                                        await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
-                                            aliceMiddleTokenAfter.sub(aliceMiddleTokenBefore), 0, [fakeMiddle.address, fakeUSDT.address], alice.address, timeUntil
-                                        );
+                                        //----------------------------------
+                                        
                                         //-------------------------
 
                                     } else {
+
+
                                         
+
                                         await erc20ReservedToken.connect(alice).approve(uniswapRouterInstance.address, aliceReservedTokenAfter.sub(aliceReservedTokenBefore));
                                         await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
                                             aliceReservedTokenAfter.sub(aliceReservedTokenBefore), 0, [erc20ReservedToken.address, fakeUSDT.address], alice.address, timeUntil
                                         );
 
-                                        await erc20TradedToken.connect(alice).approve(uniswapRouterInstance.address, aliceTradedTokenAfter.sub(aliceTradedTokenBefore));
-                                        await uniswapRouterInstance.connect(alice).swapExactTokensForTokens(
-                                            aliceTradedTokenAfter.sub(aliceTradedTokenBefore), 0, [erc20TradedToken.address, fakeUSDT.address], alice.address, timeUntil
-                                        );
 
                                         
                                     }

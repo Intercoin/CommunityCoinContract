@@ -360,15 +360,20 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             if (_instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction != 0) {
                 reserveAmount = reserveAmount - reserveAmount * _instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction / FRACTION;
             }
-            address[20] memory statePairIndexes;
-            uint112[20][2] memory stateReserves;
-            uint256 amountTmp;
-            //2 after swap TradedToken 
-            (amountTmp, statePairIndexes,stateReserves) = expectedAmount(tradedToken, tradedAmount, swapPaths,statePairIndexes,stateReserves);
-            finalAmount += amountTmp;
             
-            //3 after ReservedToken
-            (amountTmp, statePairIndexes,stateReserves) = expectedAmount(reserveToken, reserveAmount, swapPaths,statePairIndexes,stateReserves);
+            uint256 amountTmp;
+
+console.log('tradedAmount after fraction sub            = ', tradedAmount);
+console.log('reserveAmount after fraction sub          = ', reserveAmount);
+            // Always swap traded for reserved before more swaps 
+console.log("TradedToken to reverved");
+            //2 swap TradedToken to reverved
+            amountTmp = expectedAmount(tradedToken, tradedAmount, swapPaths, reserveToken);
+
+console.log("reverved to middle tp usdt");
+            //3 swap total reverved token
+            amountTmp = expectedAmount(reserveToken, amountTmp+reserveAmount, swapPaths, address(0));
+
             finalAmount += amountTmp;
         }
     }
@@ -392,6 +397,11 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         require(tradedToken != address(0) && reserveToken != address(0), "addresses can not be empty");
 
         address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
+        
+console.log('getPairsAmount');
+console.log('tradedToken            = ', tradedToken);
+console.log('reserveToken           = ', reserveToken);
+console.log('pair                   = ', pair);
         require(pair!=address(0), "pair does not exists");
         uint256 balance0 = IERC777Upgradeable(reserveToken).balanceOf(pair);
         uint256 balance1 = IERC777Upgradeable(tradedToken).balanceOf(pair);
@@ -406,150 +416,105 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address tokenFrom,
         uint256 amount0,
         address[][] memory swapPaths,
-        address[20] memory statePairIndexes,
-        uint112[20][2] memory stateReserves
+        address forceTokenSwap
     )
         internal
         view
         returns(
-            uint256 ret,
-            address[20] memory,
-            uint112[20][2] memory
+            uint256 ret
         )
     {
-        address pair;
-        address tokenFromTmp;
-        uint256 amount0Tmp;
-        address[20] memory statePairIndexesTmp;
-        uint112[20][2] memory stateReservesTmp;
 
-        for(uint256 i = 0; i < swapPaths.length; i++) {
-            if (tokenFrom == swapPaths[i][swapPaths[i].length-1]) { // if tokenFrom is already destination token
-                return (amount0, statePairIndexes, stateReserves);
+        
+        if (forceTokenSwap == address(0)) {
+
+            address tokenFromTmp;
+            uint256 amount0Tmp;
+        
+            for(uint256 i = 0; i < swapPaths.length; i++) {
+                if (tokenFrom == swapPaths[i][swapPaths[i].length-1]) { // if tokenFrom is already destination token
+                    return amount0;
+                }
+
+                tokenFromTmp = tokenFrom;
+                amount0Tmp = amount0;
+                ret = 0;
+                for(uint256 j = 0; j < swapPaths[i].length; j++) {
+                
+                    (bool success, uint256 amountOut) = _swap(tokenFromTmp, swapPaths[i][j], amount0Tmp);
+                    if (success) {
+console.log("=======usual ===========");
+console.log("amountIn=", amount0Tmp);
+console.log("amountOut=", amountOut);
+
+                        ret = amountOut;
+                    } else {
+                        
+                        break;
+                    }
+
+                    // if swap didn't brake before last iteration then we think that swap is done
+                    if (j == swapPaths[i].length-1) { 
+                        return ret;
+                    } else {
+                        tokenFromTmp = swapPaths[i][j];
+                        amount0Tmp = ret;
+                    }
+                }
             }
+            revert("paths invalid");
+        } else {
+            (bool success, uint256 amountOut) = _swap(tokenFrom, forceTokenSwap, amount0);
+            if (success) {
+console.log("=======forceTokenSwap===========");
+console.log("amountIn=", amount0);
+console.log("amountOut=", amountOut);
+                return amountOut;
+            }
+            revert("force swap invalid");
+        }
+        
+        
+    }
 
-            tokenFromTmp = tokenFrom;
-            amount0Tmp = amount0;
-            statePairIndexesTmp = statePairIndexes;
-            stateReservesTmp = stateReserves;
-            for(uint256 j = 0; j < swapPaths[i].length; j++) {
-            
-                pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFromTmp, swapPaths[i][j]);
-                if (pair == address(0)) {
-                    break; //"pair does not exists"  just skip
-                }
+    function _swap(
+        address tokenFrom,
+        address tokenTo,
+        uint256 amountFrom
+    )
+    //internal
+    public
+    view 
+    returns (
+        bool success,
+        uint256 ret
+        //address pair
+        )
+    {
+        success = false;
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFrom, tokenTo);
+        
+        if (pair == address(0)) {
+            //break;
+            //revert("pair == address(0)");
+        } else {
 
-                // cache
+            (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(pair).getReserves();
 
-                (uint112 _reserve0, uint112 _reserve1) = getReservesCache(pair, statePairIndexesTmp, stateReservesTmp);
-
-                if (_reserve0 == 0 || _reserve1 == 0) {
-                    break;
-                }
-
-                (_reserve0, _reserve1) = (tokenFromTmp == IUniswapV2Pair(pair).token0()) ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
+            if (_reserve0 == 0 || _reserve1 == 0) {
+                //break;
+            } else {
+                
+                (_reserve0, _reserve1) = (tokenFrom == IUniswapV2Pair(pair).token0()) ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
                                                                         // amountin reservein reserveout
-                ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amount0Tmp, _reserve0, _reserve1);
+                ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amountFrom, _reserve0, _reserve1);
 
-                if (ret == 0) {
-                    break;
+                if (ret != 0) {
+                    success = true;
                 }
-
-                if (tokenFromTmp == IUniswapV2Pair(pair).token0()) {
-                    _reserve0 += uint112(amount0Tmp);
-                    _reserve1 -= uint112(ret);
-                } else {
-                    _reserve0 -= uint112(ret);
-                    _reserve1 += uint112(amount0Tmp);
-                }
-
-                (statePairIndexes, stateReserves) = updateReservesCache(pair, statePairIndexes, stateReserves, _reserve0, _reserve1);
-        
-                // if swap didn't brake before last iteration then we think that swap is done
-                if (j == swapPaths[i].length-1) { 
-                    return (ret, statePairIndexes, stateReserves);
-                } else {
-                    tokenFromTmp = swapPaths[i][j];
-                    amount0Tmp = ret;
-                }
+                
             }
         }
-
-        revert("paths invalid");
-        
     }
 
-    function getReservesCache(
-        address pair, 
-        address[20] memory pairIndexes,
-        uint112[20][2] memory reserves
-    ) 
-        internal
-        view
-        returns(
-            uint112, // reserve0
-            uint112 // reserve1
-        )
-    {
-
-        //find index and get from cache
-        for(uint256 i = 0; i < pairIndexes.length; i++) {
-//console.log("try getting from cache. ");
-            if (pairIndexes[i] == pair) {
-console.log("getting from cache. should be the single one. from second pair");
-                return (reserves[i][0], reserves[i][1]);
-            }
-        }
-        // else try to get external call
-        (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(pair).getReserves();
-console.log("_reserve0/_reserve1");
-console.log(_reserve0);
-console.log(_reserve1);
-        return (_reserve0, _reserve1);
-    }
-
-    function updateReservesCache(
-        address pair, 
-        address[20] memory pairIndexes,
-        uint112[20][2] memory reserves,
-        uint112 _reserve0, 
-        uint112 _reserve1
-    ) 
-        internal
-        view
-        returns(
-            address[20] memory,// pairIndexes,
-            uint112[20][2] memory// reserves,
-        )
-    {
-        bool isUpdated = false;
-        for(uint256 i = 0; i < pairIndexes.length; i++) {
-            if (pairIndexes[i] == pair) {
-                reserves[i][0] = _reserve0;
-                reserves[i][1] = _reserve1;
-                isUpdated = true;
-                break;
-            }
-        }
-
-        
-
-        if (!isUpdated) { // create new
-            uint256 index;
-            for(uint256 i = 0; i > pairIndexes.length; i++) {
-            if (pairIndexes[i] == address(0)) {
-                index = i;
-                break;
-            }
-        }
-console.log("try update to cache");             
-console.log("index"); 
-            pairIndexes[index] = pair;
-            reserves[index][0] = _reserve0;
-            reserves[index][1] = _reserve1;
-
-        }
-        return (pairIndexes, reserves);
-
-    }
 }
