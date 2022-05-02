@@ -30,7 +30,7 @@ import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol";
 //------------------------------------------------------------------------------
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory {
     using ClonesUpgradeable for address;
@@ -354,6 +354,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
                 adjusted //valuesToRedeem[i]
             );
 
+            
+
             if (_instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction != 0) {
                 tradedAmount = tradedAmount - tradedAmount * _instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction / FRACTION;
             }
@@ -363,16 +365,16 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             
             uint256 amountTmp;
 
-console.log('tradedAmount after fraction sub            = ', tradedAmount);
-console.log('reserveAmount after fraction sub          = ', reserveAmount);
+// console.log('tradedAmount after fraction sub            = ', tradedAmount);
+// console.log('reserveAmount after fraction sub          = ', reserveAmount);
             // Always swap traded for reserved before more swaps 
-console.log("TradedToken to reverved");
+// console.log("TradedToken to reverved");
             //2 swap TradedToken to reverved
-            amountTmp = expectedAmount(tradedToken, tradedAmount, swapPaths, reserveToken);
+            amountTmp = expectedAmount(tradedToken, tradedAmount, swapPaths, reserveToken, tradedAmount, reserveAmount);
 
-console.log("reverved to middle tp usdt");
+// // console.log("reverved to middle tp usdt");
             //3 swap total reverved token
-            amountTmp = expectedAmount(reserveToken, amountTmp+reserveAmount, swapPaths, address(0));
+            amountTmp = expectedAmount(reserveToken, amountTmp+reserveAmount, swapPaths, address(0), 0, 0);
 
             finalAmount += amountTmp;
         }
@@ -398,10 +400,6 @@ console.log("reverved to middle tp usdt");
 
         address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
         
-console.log('getPairsAmount');
-console.log('tradedToken            = ', tradedToken);
-console.log('reserveToken           = ', reserveToken);
-console.log('pair                   = ', pair);
         require(pair!=address(0), "pair does not exists");
         uint256 balance0 = IERC777Upgradeable(reserveToken).balanceOf(pair);
         uint256 balance1 = IERC777Upgradeable(tradedToken).balanceOf(pair);
@@ -410,13 +408,17 @@ console.log('pair                   = ', pair);
         uint256 _totalSupply = IERC777Upgradeable(pair).totalSupply();
         reserveAmount = amountLp * balance0 / _totalSupply;
         tradedAmount = amountLp * balance1 / _totalSupply;
+
     }
 
     function expectedAmount(
         address tokenFrom,
         uint256 amount0,
         address[][] memory swapPaths,
-        address forceTokenSwap
+        address forceTokenSwap,
+        uint256 subReserveFrom,
+        uint256 subReserveTo
+
     )
         internal
         view
@@ -425,7 +427,6 @@ console.log('pair                   = ', pair);
         )
     {
 
-        
         if (forceTokenSwap == address(0)) {
 
             address tokenFromTmp;
@@ -441,12 +442,9 @@ console.log('pair                   = ', pair);
                 ret = 0;
                 for(uint256 j = 0; j < swapPaths[i].length; j++) {
                 
-                    (bool success, uint256 amountOut) = _swap(tokenFromTmp, swapPaths[i][j], amount0Tmp);
+                    (bool success, uint256 amountOut) = _swap(tokenFromTmp, swapPaths[i][j], amount0Tmp, subReserveFrom, subReserveTo);
                     if (success) {
-console.log("=======usual ===========");
-console.log("amountIn=", amount0Tmp);
-console.log("amountOut=", amountOut);
-
+// // console.log("=======usual ===========");
                         ret = amountOut;
                     } else {
                         
@@ -464,11 +462,9 @@ console.log("amountOut=", amountOut);
             }
             revert("paths invalid");
         } else {
-            (bool success, uint256 amountOut) = _swap(tokenFrom, forceTokenSwap, amount0);
+            (bool success, uint256 amountOut) = _swap(tokenFrom, forceTokenSwap, amount0, subReserveFrom, subReserveTo);
             if (success) {
-console.log("=======forceTokenSwap===========");
-console.log("amountIn=", amount0);
-console.log("amountOut=", amountOut);
+// // console.log("=======forceTokenSwap===========");
                 return amountOut;
             }
             revert("force swap invalid");
@@ -480,7 +476,9 @@ console.log("amountOut=", amountOut);
     function _swap(
         address tokenFrom,
         address tokenTo,
-        uint256 amountFrom
+        uint256 amountFrom,
+        uint256 subReserveFrom,
+        uint256 subReserveTo
     )
     //internal
     public
@@ -506,13 +504,27 @@ console.log("amountOut=", amountOut);
             } else {
                 
                 (_reserve0, _reserve1) = (tokenFrom == IUniswapV2Pair(pair).token0()) ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
-                                                                        // amountin reservein reserveout
-                ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amountFrom, _reserve0, _reserve1);
+                if (subReserveFrom >= _reserve0 || subReserveTo >= _reserve1) {
+                    //break;
+                } else {
+                    _reserve0 -= uint112(subReserveFrom);
+                    _reserve1 -= uint112(subReserveTo);
+                                                                            // amountin reservein reserveout
+                    ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amountFrom, _reserve0, _reserve1);
 
-                if (ret != 0) {
-                    success = true;
+// // console.log("=======getAmountOut===========");
+// // console.log("from=", tokenFrom);
+// // console.log("to=", tokenTo);
+// // console.log("amountIn=", amountFrom);
+// // console.log("_reserve0=", _reserve0);
+// // console.log("_reserve1=", _reserve1);
+// // console.log("ret=", ret);
+
+
+                    if (ret != 0) {
+                        success = true;
+                    }
                 }
-                
             }
         }
     }
