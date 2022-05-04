@@ -7,6 +7,7 @@ import "./interfaces/ICommunityCoin.sol";
 
 import "./interfaces/ICommunityStakingPool.sol";
 import "./CommunityRolesManagement.sol";
+
 import "./access/TrustedForwarder.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 
@@ -52,7 +53,6 @@ contract CommunityCoin is
 
     ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
     CommunityRolesManagement public rolesManagement; // ICommunityRolesManagement
-    
 
     uint256 internal discountSensitivity;
 
@@ -74,18 +74,6 @@ contract CommunityCoin is
 
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
-    
-
-    // modifier onlyStakingPool() {
-    //     // here need to know that is definetely StakingPool. because with EIP-2771 forwarder can call methods as StakingPool. 
-    //     require(ICommunityStakingPoolFactory(instanceManagment)._instanceInfos[msg.sender].exists == true);
-    //     _;
-    // }
-
-    // modifier onlyRoleWithAccount(bytes32 role, address account) {
-    //     _checkRole(role, account);
-    //     _;
-    // }
    
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
@@ -129,7 +117,7 @@ contract CommunityCoin is
         discountSensitivity = discountSensitivity_;
         
         rolesManagement = CommunityRolesManagement(rolesManagementAddr_);
-        
+                
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
@@ -149,7 +137,6 @@ contract CommunityCoin is
     ) 
         external 
         override
-        //onlyStakingPool
     {
 
         address instance = msg.sender; //here need a msg.sender as a real sender.
@@ -159,7 +146,6 @@ contract CommunityCoin is
   
         require(instanceInfo.exists == true);
      
-        
         _instanceStaked[instance] += amount;
 
         // logic "how much bonus user will obtain"
@@ -181,6 +167,7 @@ contract CommunityCoin is
         //forward conversion( LP -> СС)
         amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
 
+      
         _mint(account, amount, "", "");
         emit Staked(account, amount, priceBeforeStake);
         _minimumsAdd(account, amount, instanceInfo.duration, false);
@@ -260,7 +247,6 @@ contract CommunityCoin is
         __redeem(address(this), from, amount, new address[](0), Strategy.REDEEM);
         
     }
-
 
     ////////////////////////////////////////////////////////////////////////
     // public section //////////////////////////////////////////////////////
@@ -366,53 +352,6 @@ contract CommunityCoin is
         return _produce(tokenErc20, duration, donations, numerator, denominator);
     }
 
-    function _produce(
-        address reserveToken, 
-        address tradedToken, 
-        uint64 duration, 
-        IStructs.StructAddrUint256[] memory donations,
-        uint64 reserveTokenClaimFraction, 
-        uint64 tradedTokenClaimFraction, 
-        uint64 lpClaimFraction,
-        uint64 numerator,
-        uint64 denominator
-    ) 
-        internal
-        returns (address instance) 
-    {
-        instance = instanceManagment.produce(
-            reserveToken, 
-            tradedToken, 
-            duration, 
-            donations,
-            reserveTokenClaimFraction, 
-            tradedTokenClaimFraction, 
-            lpClaimFraction, 
-            numerator, 
-            denominator
-        );
-        emit InstanceCreated(reserveToken, tradedToken, instance);
-    }
-
-    function _produce(
-        address tokenErc20, 
-        uint64 duration, 
-        IStructs.StructAddrUint256[] memory donations,
-        uint64 numerator, 
-        uint64 denominator
-    ) 
-        internal
-        returns (address instance) 
-    {
-        instance = instanceManagment.produceErc20(
-            tokenErc20, 
-            duration, 
-            donations, 
-            numerator,
-            denominator
-        );
-        emit InstanceErc20Created(tokenErc20, instance);
-    }
     /**
     * @notice method like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
     * @param amount The number of wallet tokens that will be unstaked.
@@ -524,12 +463,95 @@ contract CommunityCoin is
     function revokeRole(bytes32 role, address account) onlyOwner() public {
         rolesManagement.revokeRole(role, account);
     }
-    
 
+    /**
+    * @dev calculate how much token user will obtain if redeem and remove liquidity token. 
+    * There are steps:
+    * 1. LP tokens swap to Reserved and Traded Tokens
+    * 2. TradedToken swap to Reverved
+    * 3. All Reserved tokens try to swap in order of swapPaths
+    * @param account address which will be redeem funds from
+    * @param amount liquidity tokens amount 
+    * @param preferredInstances array of preferred Stakingpool instances which will be redeem funds from
+    * @param swapPaths array of arrays uniswap swapPath
+    * @return address destination address
+    * @return uint256 destination amount
+    */
+    function simulateRedeemAndRemoveLiquidity(
+        address account,
+        uint256 amount, //amountLP,
+        address[] memory preferredInstances,
+        address[][] memory swapPaths
+    )
+        public 
+        view 
+        returns(address, uint256)
+    {
+        
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem,/* uint256 len*/) = _poolStakesAvailable(
+            account, 
+            amount, 
+            preferredInstances, 
+            Strategy.REDEEM_AND_REMOVE_LIQUIDITY, 
+            totalSupply()//totalSupplyBefore
+        );
+
+        return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, swapPaths);
+    }
+    
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
     
+    
+    function _produce(
+        address reserveToken, 
+        address tradedToken, 
+        uint64 duration, 
+        IStructs.StructAddrUint256[] memory donations,
+        uint64 reserveTokenClaimFraction, 
+        uint64 tradedTokenClaimFraction, 
+        uint64 lpClaimFraction,
+        uint64 numerator,
+        uint64 denominator
+    ) 
+        internal
+        returns (address instance) 
+    {
+        instance = instanceManagment.produce(
+            reserveToken, 
+            tradedToken, 
+            duration, 
+            donations,
+            reserveTokenClaimFraction, 
+            tradedTokenClaimFraction, 
+            lpClaimFraction, 
+            numerator, 
+            denominator
+        );
+        emit InstanceCreated(reserveToken, tradedToken, instance);
+    }
+
+    function _produce(
+        address tokenErc20, 
+        uint64 duration, 
+        IStructs.StructAddrUint256[] memory donations,
+        uint64 numerator, 
+        uint64 denominator
+    ) 
+        internal
+        returns (address instance) 
+    {
+        instance = instanceManagment.produceErc20(
+            tokenErc20, 
+            duration, 
+            donations, 
+            numerator,
+            denominator
+        );
+        emit InstanceErc20Created(tokenErc20, instance);
+    }
+
     function _unstake(
         address account,
         uint256 amount
@@ -551,7 +573,6 @@ contract CommunityCoin is
             }
         }
     }
-
 
     // create map of instance->amount or LP tokens that need to redeem
     function _poolStakesAvailable(
@@ -578,15 +599,11 @@ contract CommunityCoin is
         instancesAddress = new address[](preferredInstances.length);
         values = new uint256[](preferredInstances.length);
         len = 0;
-        uint256 amountLeft = amount;
         uint256 amountToRedeem;
-        
 
-        if (
-            strategy == Strategy.REDEEM || 
-            strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
-        ) {
-            
+        uint256 amountLeft = amount;
+        if (strategy == Strategy.REDEEM || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+    
             // LPTokens =  WalletTokens * ratio;
             // ratio = A / (A + B * discountSensitivity);
             // где 
@@ -600,12 +617,10 @@ contract CommunityCoin is
 
             // --- proposal from audit to keep precision after division
             // amountLeft = amount * A / (A + B * discountSensitivity / FRACTION);
-            amountLeft = amount * A * FRACTION;
+            amountLeft = amountLeft * A * FRACTION;
             amountLeft = amountLeft / (A + B * discountSensitivity / FRACTION);
             amountLeft = amountLeft / FRACTION;
-            //----
-        } else {
-            amountLeft = amount;
+
         }
 
         for (uint256 i = 0; i < preferredInstances.length; i++) {
@@ -638,13 +653,8 @@ contract CommunityCoin is
                 
                 if (amountToRedeem > 0) {
 
-                    
-
                     instancesAddress[len] = preferredInstances[i]; 
-                    //values[len] = amountToRedeem;
-
                     instanceInfo =  instanceManagment.getInstanceInfoByPoolAddress(preferredInstances[i]); // todo is exist there?
-
                     //backward conversion( СС -> LP)
                     values[len]  = amountToRedeem * (10**instanceInfo.denominator) / (10**instanceInfo.numerator);
                     
@@ -654,7 +664,6 @@ contract CommunityCoin is
                 }
             }
 
-            
         }
         
         require(amountLeft == 0, "insufficient amount");
@@ -668,9 +677,7 @@ contract CommunityCoin is
         Strategy strategy
     ) 
         internal 
-        //onlyRoleWithAccount(roles.redeemRole, account)
     {
-        //_checkRole(roles.redeemRole, account);
         rolesManagement.checkRedeemRole(account);
 
         __redeem(account, account, amount, preferredInstances, strategy);
@@ -701,17 +708,13 @@ contract CommunityCoin is
     {
 
         uint256 totalSupplyBefore = _burn(account2Burn, amount);
-
         require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
-        
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account2Redeem, amount, preferredInstances, strategy/*Strategy.REDEEM*/, totalSupplyBefore);
-        
 
         for (uint256 i = 0; i < len; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
 
                 if (strategy == Strategy.REDEEM) {
-
 
                     try ICommunityStakingPool(instancesToRedeem[i]).redeem(
                         account2Redeem, 
@@ -735,9 +738,6 @@ contract CommunityCoin is
                         revert("Error when redeem in an instance");
                     }
                 }
-               
-
-               
             }
         }
     }
@@ -817,5 +817,6 @@ contract CommunityCoin is
         return TrustedForwarder._msgSender();
     }
 
+    
     
 }

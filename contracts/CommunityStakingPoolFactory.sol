@@ -4,8 +4,6 @@ pragma solidity 0.8.11;
 // import "./interfaces/IHook.sol";
 // import "./interfaces/ICommunityCoin.sol";
 
-
-
 // import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 // import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
@@ -20,12 +18,25 @@ import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./interfaces/IStructs.sol";
-//import "hardhat/console.sol";
+
+//------------------------------------------------------------------------------
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+
+import "./interfaces/ICommunityStakingPoolFactory.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol";
+//------------------------------------------------------------------------------
+
+// import "hardhat/console.sol";
 
 contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory {
     using ClonesUpgradeable for address;
 
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+
+    address internal constant uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address internal constant uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
 
     mapping(address => mapping(
         address => mapping(
@@ -39,8 +50,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     address public implementationErc20;
 
     address public creator;
-
-    
+ 
     enum InstanceType{ USUAL, ERC20 }
 
     address[] private _instances;
@@ -293,4 +303,199 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         );
         emit InstanceCreated(address(0), address(0), instance, _instances.length, tokenErc20);
     }
+
+        
+    /**
+    * @param instancesToRedeem instancesToRedeem
+    * @param valuesToRedeem valuesToRedeem
+    * @param swapPaths array of arrays uniswap swapPath
+    */
+    function amountAfterSwapLP(
+        address[] memory instancesToRedeem, 
+        uint256[] memory valuesToRedeem,
+        address[][] memory swapPaths
+    )
+        external 
+        view 
+        returns(address finalToken, uint256 finalAmount)
+    {
+
+        uint256 tradedAmount;
+        address tradedToken;
+        uint256 reserveAmount;
+        address reserveToken;
+
+        uint256 adjusted;
+        finalAmount = 0;
+        for (uint256 i = 0; i < instancesToRedeem.length; i++) {
+            
+            //1 calculate  how much traded and reserve tokens we will obtain if redeem and remove liquidity from uniswap
+            // take into account LpFraction
+            adjusted = 
+                _instanceInfos[instancesToRedeem[i]].lpClaimFraction != 0
+                ?
+                valuesToRedeem[i] - valuesToRedeem[i] * _instanceInfos[instancesToRedeem[i]].lpClaimFraction / FRACTION
+                :
+                valuesToRedeem[i]
+                ;
+            (tradedAmount, tradedToken, reserveAmount, reserveToken) = getPairsAmount(
+                instancesToRedeem[i], 
+                adjusted //valuesToRedeem[i]
+            );
+
+            if (_instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction != 0) {
+                tradedAmount = tradedAmount - tradedAmount * _instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction / FRACTION;
+            }
+            if (_instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction != 0) {
+                reserveAmount = reserveAmount - reserveAmount * _instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction / FRACTION;
+            }
+            
+            uint256 amountTmp;
+            address tokenTmp;
+
+            // swap TradedToken to reverved
+            (tokenTmp, amountTmp) = expectedAmount(tradedToken, tradedAmount, swapPaths, reserveToken, tradedAmount, reserveAmount);
+
+            // swap total reverved token through swapPaths (in order)
+            (tokenTmp, amountTmp) = expectedAmount(reserveToken, amountTmp+reserveAmount, swapPaths, address(0), 0, 0);
+
+            finalAmount += amountTmp;
+            finalToken = tokenTmp;
+        }
+    }
+        
+    function getPairsAmount(
+        address poolAddress,
+        uint256 amountLp
+    ) 
+        internal 
+        view 
+        returns (
+            uint256 tradedAmount, 
+            address tradedToken,
+            uint256 reserveAmount,
+            address reserveToken
+        )
+    {
+        
+        tradedToken = _instanceInfos[poolAddress].tradedToken;
+        reserveToken = _instanceInfos[poolAddress].reserveToken;
+        require(tradedToken != address(0) && reserveToken != address(0), "addresses can not be empty");
+
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
+        
+        require(pair!=address(0), "pair does not exists");
+        uint256 balance0 = IERC777Upgradeable(reserveToken).balanceOf(pair);
+        uint256 balance1 = IERC777Upgradeable(tradedToken).balanceOf(pair);
+        //bool feeOn = _mintFee(_reserve0, _reserve1);
+        // feeTo calculation (We skip for now), but totalSupply depend of fee that can be minted
+        uint256 _totalSupply = IERC777Upgradeable(pair).totalSupply();
+        reserveAmount = amountLp * balance0 / _totalSupply;
+        tradedAmount = amountLp * balance1 / _totalSupply;
+
+    }
+
+    function expectedAmount(
+        address tokenFrom,
+        uint256 amount0,
+        address[][] memory swapPaths,
+        address forceTokenSwap,
+        uint256 subReserveFrom,
+        uint256 subReserveTo
+    )
+        internal
+        view
+        returns(
+            address,
+            uint256
+        )
+    {
+
+        if (forceTokenSwap == address(0)) {
+
+            address tokenFromTmp;
+            uint256 amount0Tmp;
+        
+            for(uint256 i = 0; i < swapPaths.length; i++) {
+                if (tokenFrom == swapPaths[i][swapPaths[i].length-1]) { // if tokenFrom is already destination token
+                    return (tokenFrom, amount0);
+                }
+
+                tokenFromTmp = tokenFrom;
+                amount0Tmp = amount0;
+                
+                for(uint256 j = 0; j < swapPaths[i].length; j++) {
+                
+                    (bool success, uint256 amountOut) = _swap(tokenFromTmp, swapPaths[i][j], amount0Tmp, subReserveFrom, subReserveTo);
+                    if (success) {
+                        //ret = amountOut;
+                    } else {
+                        break;
+                    }
+
+                    // if swap didn't brake before last iteration then we think that swap is done
+                    if (j == swapPaths[i].length-1) { 
+                        return (swapPaths[i][j], amountOut);
+                    } else {
+                        tokenFromTmp = swapPaths[i][j];
+                        amount0Tmp = amountOut;
+                    }
+                }
+            }
+            revert("paths invalid");
+        } else {
+            (bool success, uint256 amountOut) = _swap(tokenFrom, forceTokenSwap, amount0, subReserveFrom, subReserveTo);
+            if (success) {
+                return (forceTokenSwap, amountOut);
+            }
+            revert("force swap invalid");
+        }
+    }
+
+    function _swap(
+        address tokenFrom,
+        address tokenTo,
+        uint256 amountFrom,
+        uint256 subReserveFrom,
+        uint256 subReserveTo
+    )
+        internal
+        view 
+        returns (
+            bool success,
+            uint256 ret
+            //address pair
+        )
+    {
+        success = false;
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFrom, tokenTo);
+        
+        if (pair == address(0)) {
+            //break;
+            //revert("pair == address(0)");
+        } else {
+
+            (uint112 _reserve0, uint112 _reserve1,) = IUniswapV2Pair(pair).getReserves();
+
+            if (_reserve0 == 0 || _reserve1 == 0) {
+                //break;
+            } else {
+                
+                (_reserve0, _reserve1) = (tokenFrom == IUniswapV2Pair(pair).token0()) ? (_reserve0, _reserve1) : (_reserve1, _reserve0);
+                if (subReserveFrom >= _reserve0 || subReserveTo >= _reserve1) {
+                    //break;
+                } else {
+                    _reserve0 -= uint112(subReserveFrom);
+                    _reserve1 -= uint112(subReserveTo);
+                                                                            // amountin reservein reserveout
+                    ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amountFrom, _reserve0, _reserve1);
+
+                    if (ret != 0) {
+                        success = true;
+                    }
+                }
+            }
+        }
+    }
+
 }
