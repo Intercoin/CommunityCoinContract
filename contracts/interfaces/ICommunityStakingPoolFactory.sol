@@ -30,5 +30,5 @@ interface ICommunityStakingPoolFactory {
     function produce(address reserveToken, address tradedToken, uint64 duration, IStructs.StructAddrUint256[] memory donations, uint64 reserveTokenClaimFraction, uint64 tradedTokenClaimFraction, uint64 lpClaimFraction, uint64 numerator, uint64 denominator) external returns (address instance);
     function produceErc20(address tokenErc20, uint64 duration, IStructs.StructAddrUint256[] memory donations, uint64 numerator, uint64 denominator) external returns (address instance);
     function getInstanceInfoByPoolAddress(address addr) external view returns(InstanceInfo memory);
-    function amountAfterSwapLP(address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, address[][] memory swapPaths) external view returns(uint256);
+    function amountAfterSwapLP(address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, address[][] memory swapPaths) external view returns(address, uint256);
 }

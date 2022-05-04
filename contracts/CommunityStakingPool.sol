@@ -9,10 +9,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
 
-
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/ICommunityCoin.sol";
-
 
 import "./CommunityStakingPoolBase.sol";
 
@@ -62,7 +60,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     // slot 4
     address internal WETH;
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
-    bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
+    //bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
     // slot 5
     IUniswapV2Router02 internal UniswapV2Router02;
     // slot 6
@@ -83,20 +81,6 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     */
     receive() external payable {
     }
-
-    // left when will be implemented
-    // function tokensToSend(
-    //     address operator,
-    //     address from,
-    //     address to,
-    //     uint256 amount,
-    //     bytes calldata userData,
-    //     bytes calldata operatorData
-    // )   override
-    //     virtual
-    //     external
-    // {
-    // }
  
     /**
     * @notice initialize method. Called once by the factory at time of deployment
@@ -123,11 +107,6 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         override 
     {
         CommunityStakingPoolBase_init(stakingProducedBy_, donations_);
-        
-        // register interfaces
-        // _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777Token"), address(this));
-        // _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC20Token"), address(this));
-        // _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
 
         (tradedToken, reserveToken, tradedTokenClaimFraction, reserveTokenClaimFraction, lpClaimFraction)
         = (tradedToken_, reserveToken_, tradedTokenClaimFraction_, reserveTokenClaimFraction_, lpClaimFraction_);

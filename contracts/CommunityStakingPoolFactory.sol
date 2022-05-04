@@ -4,8 +4,6 @@ pragma solidity 0.8.11;
 // import "./interfaces/IHook.sol";
 // import "./interfaces/ICommunityCoin.sol";
 
-
-
 // import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 // import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
@@ -310,7 +308,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     /**
     * @param instancesToRedeem instancesToRedeem
     * @param valuesToRedeem valuesToRedeem
-    * @param swapPaths array of tokens path that method will try to calculate exchange logic
+    * @param swapPaths array of arrays uniswap swapPath
     */
     function amountAfterSwapLP(
         address[] memory instancesToRedeem, 
@@ -319,17 +317,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     )
         external 
         view 
-        returns(uint256 finalAmount)
+        returns(address finalToken, uint256 finalAmount)
     {
-
-        //0 get addresses: token0, token1
-        //  get pair addresses: traded:usdt, reverved:usdt
-        //1 calculate  how much traded and reserve tokens we will obtain if redeem and remove liquidity from uniswap
-        //2 calculate how much USDT we will obtain if swap TradedToken via swapPaths
-        //3 calculate how much USDT we will obtain if swap ReservedToken via swapPaths
-        //4 sum two values
-        //loop 1-4 for preferred instances
-
 
         uint256 tradedAmount;
         address tradedToken;
@@ -354,8 +343,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
                 adjusted //valuesToRedeem[i]
             );
 
-            
-
             if (_instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction != 0) {
                 tradedAmount = tradedAmount - tradedAmount * _instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction / FRACTION;
             }
@@ -364,19 +351,16 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             }
             
             uint256 amountTmp;
+            address tokenTmp;
 
-// console.log('tradedAmount after fraction sub            = ', tradedAmount);
-// console.log('reserveAmount after fraction sub          = ', reserveAmount);
-            // Always swap traded for reserved before more swaps 
-// console.log("TradedToken to reverved");
-            //2 swap TradedToken to reverved
-            amountTmp = expectedAmount(tradedToken, tradedAmount, swapPaths, reserveToken, tradedAmount, reserveAmount);
+            // swap TradedToken to reverved
+            (tokenTmp, amountTmp) = expectedAmount(tradedToken, tradedAmount, swapPaths, reserveToken, tradedAmount, reserveAmount);
 
-// // console.log("reverved to middle tp usdt");
-            //3 swap total reverved token
-            amountTmp = expectedAmount(reserveToken, amountTmp+reserveAmount, swapPaths, address(0), 0, 0);
+            // swap total reverved token through swapPaths (in order)
+            (tokenTmp, amountTmp) = expectedAmount(reserveToken, amountTmp+reserveAmount, swapPaths, address(0), 0, 0);
 
             finalAmount += amountTmp;
+            finalToken = tokenTmp;
         }
     }
         
@@ -418,12 +402,12 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address forceTokenSwap,
         uint256 subReserveFrom,
         uint256 subReserveTo
-
     )
         internal
         view
         returns(
-            uint256 ret
+            address,
+            uint256
         )
     {
 
@@ -434,29 +418,27 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         
             for(uint256 i = 0; i < swapPaths.length; i++) {
                 if (tokenFrom == swapPaths[i][swapPaths[i].length-1]) { // if tokenFrom is already destination token
-                    return amount0;
+                    return (tokenFrom, amount0);
                 }
 
                 tokenFromTmp = tokenFrom;
                 amount0Tmp = amount0;
-                ret = 0;
+                
                 for(uint256 j = 0; j < swapPaths[i].length; j++) {
                 
                     (bool success, uint256 amountOut) = _swap(tokenFromTmp, swapPaths[i][j], amount0Tmp, subReserveFrom, subReserveTo);
                     if (success) {
-// // console.log("=======usual ===========");
-                        ret = amountOut;
+                        //ret = amountOut;
                     } else {
-                        
                         break;
                     }
 
                     // if swap didn't brake before last iteration then we think that swap is done
                     if (j == swapPaths[i].length-1) { 
-                        return ret;
+                        return (swapPaths[i][j], amountOut);
                     } else {
                         tokenFromTmp = swapPaths[i][j];
-                        amount0Tmp = ret;
+                        amount0Tmp = amountOut;
                     }
                 }
             }
@@ -464,13 +446,10 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         } else {
             (bool success, uint256 amountOut) = _swap(tokenFrom, forceTokenSwap, amount0, subReserveFrom, subReserveTo);
             if (success) {
-// // console.log("=======forceTokenSwap===========");
-                return amountOut;
+                return (forceTokenSwap, amountOut);
             }
             revert("force swap invalid");
         }
-        
-        
     }
 
     function _swap(
@@ -480,13 +459,12 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         uint256 subReserveFrom,
         uint256 subReserveTo
     )
-    //internal
-    public
-    view 
-    returns (
-        bool success,
-        uint256 ret
-        //address pair
+        internal
+        view 
+        returns (
+            bool success,
+            uint256 ret
+            //address pair
         )
     {
         success = false;
@@ -511,15 +489,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
                     _reserve1 -= uint112(subReserveTo);
                                                                             // amountin reservein reserveout
                     ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amountFrom, _reserve0, _reserve1);
-
-// // console.log("=======getAmountOut===========");
-// // console.log("from=", tokenFrom);
-// // console.log("to=", tokenTo);
-// // console.log("amountIn=", amountFrom);
-// // console.log("_reserve0=", _reserve0);
-// // console.log("_reserve1=", _reserve1);
-// // console.log("ret=", ret);
-
 
                     if (ret != 0) {
                         success = true;

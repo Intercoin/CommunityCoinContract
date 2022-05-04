@@ -150,7 +150,7 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     
     function _stake(
         address addr, 
-        uint256 amount, 
+        uint256 amount, //lpAmount
         uint256 priceBeforeStake
     ) 
         internal 
@@ -170,12 +170,10 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
             
             
         }
+        
         ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, left, priceBeforeStake);
         
-        
-        
     }
-    
     
     ////////////////////////////////////////////////////////////////////////
     // private section /////////////////////////////////////////////////////
