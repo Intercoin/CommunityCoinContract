@@ -253,32 +253,7 @@ contract CommunityCoin is
     ////////////////////////////////////////////////////////////////////////
     
     /**
-    * @dev function has overloaded. it's simple version for create instance pool.
-    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
-    * @param tradedToken address of traded token. usual it intercoin investor token
-    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
-    * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
-    * @return instance address of created instance pool `CommunityStakingPool`
-    * @custom:shortd creation instance with simple options
-    */
-    function produce(
-        address reserveToken, 
-        address tradedToken, 
-        uint64 duration,
-        IStructs.StructAddrUint256[] memory donations
-    ) 
-        public 
-        returns (address instance) 
-    {
-        // 1% from LP tokens should move to owner while user try to redeem
-        uint64 numerator = uint64(10**(IERC20Dpl(reserveToken).decimals()));
-        uint64 denominator = uint64(10**(IERC20Dpl(tradedToken).decimals()));
-
-        return _produce(reserveToken, tradedToken, duration, donations, 0, 0, 1000, numerator, denominator);
-    }
-    
-    /**
-    * @dev function has overloaded. it's extended version for create instance pool available for owners only.
+    * @dev it's extended version for create instance pool available for owners only.
     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
@@ -309,30 +284,9 @@ contract CommunityCoin is
     {
         return _produce(reserveToken, tradedToken, duration, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
     }
-    
-    /**
-    * @dev it's simple version for create erc20 instance pool.
-    * @param tokenErc20 address of erc20 token.
-    * @param duration duration represented in amount of `LOCKUP_INTERVAL`
-    * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
-    * @return instance address of created instance pool `CommunityStakingPoolErc20`
-    * @custom:shortd creation erc20 instance with simple options
-    */
-    function produce(
-        address tokenErc20, 
-        uint64 duration, 
-        IStructs.StructAddrUint256[] memory donations
-    ) 
-        public 
-        returns (address instance) 
-    {
-        // uint64 numerator = 1;
-        // uint64 denominator = 1;
-        return _produce(tokenErc20, duration, donations, 1, 1);
-    }
 
     /**
-    * @dev it's simple version for create erc20 instance pool.
+    * @dev function for creation erc20 instance pool.
     * @param tokenErc20 address of erc20 token.
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
@@ -347,6 +301,7 @@ contract CommunityCoin is
         uint64 denominator
     ) 
         public 
+        onlyOwner() 
         returns (address instance) 
     {
         return _produce(tokenErc20, duration, donations, numerator, denominator);
