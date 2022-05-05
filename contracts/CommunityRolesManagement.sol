@@ -52,6 +52,15 @@ contract CommunityRolesManagement is ICommunityRolesManagement, Initializable, A
         
     }
 
+    function getRedeemRole(
+    ) 
+        external 
+        view
+        returns(bytes32)
+    {
+        return roles.redeemRole;
+    }
+
     function checkRedeemRole(
         address account
     ) 

@@ -14,6 +14,8 @@ interface ICommunityRolesManagement {
         address admin
     ) external;   
 
+    function getRedeemRole() external view returns(bytes32);
+    
     function checkRedeemRole(address account) external view;
     function checkCirculationRole(address account) external view;
 
