@@ -116,7 +116,7 @@ describe("Staking contract tests", function () {
         mockHook = await MockHookF.deploy();
         mockCommunity = await MockCommunityF.deploy();
 
-        const NONE_COMMUNITY_SETTINGS = [ZERO_ADDRESS, "", "", ""];
+        const NONE_COMMUNITY_SETTINGS = [ZERO_ADDRESS, ADMIN_ROLE, REDEEM_ROLE, CIRCULATE_ROLE];
         const COMMUNITY_SETTINGS = [mockCommunity.address, ADMIN_ROLE, REDEEM_ROLE, CIRCULATE_ROLE];
         
         CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(

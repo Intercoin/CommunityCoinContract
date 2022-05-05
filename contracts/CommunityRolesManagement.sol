@@ -31,23 +31,25 @@ contract CommunityRolesManagement is ICommunityRolesManagement, Initializable, A
         external 
         override 
     {
+
         //setup 
         roles.communityAddr = communitySettings_.addr;
+                
         if (roles.communityAddr == address(0)) {
-            
             roles.adminRole = ADMIN_ROLE;
             roles.redeemRole = REDEEM_ROLE;
             roles.circulationRole = CIRCULATION_ROLE;
-
-            _grantRole(roles.adminRole, admin);
-            _setRoleAdmin(roles.redeemRole, roles.adminRole);
-            _setRoleAdmin(roles.circulationRole, roles.adminRole);
         } else {
-            
             roles.adminRole = stringToBytes32(communitySettings_.adminRole);
             roles.redeemRole = stringToBytes32(communitySettings_.redeemRole);
             roles.circulationRole = stringToBytes32(communitySettings_.circulationRole);
         }
+        
+        _grantRole(roles.adminRole, admin);
+        _setRoleAdmin(roles.redeemRole, roles.adminRole);
+        _setRoleAdmin(roles.circulationRole, roles.adminRole);
+
+        
     }
 
     function checkRedeemRole(
@@ -82,9 +84,8 @@ contract CommunityRolesManagement is ICommunityRolesManagement, Initializable, A
         returns (bool) 
     {
         
-        if (roles.communityAddr == address(0)) {
-            return super.hasRole(role, account);
-        } else {
+        if (roles.communityAddr != address(0)) {
+
             // external call to community contract
             bytes32 keccakRole = keccak256(abi.encodePacked(role));
             bytes32 iKeccakRole;
@@ -97,8 +98,8 @@ contract CommunityRolesManagement is ICommunityRolesManagement, Initializable, A
                 }
             }
 
-            return false;
         }
+        return super.hasRole(role, account);
         
     }
 
