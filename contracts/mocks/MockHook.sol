@@ -17,7 +17,7 @@ contract MockHook is IHook {
         hAmount = amount;
     }
 
-    function bonusCalculation(
+    function bonus(
         address /*instance*/, 
         address /*account*/, 
         uint64 /*duration*/,
