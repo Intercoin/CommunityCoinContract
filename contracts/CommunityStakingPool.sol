@@ -14,6 +14,8 @@ import "./interfaces/ICommunityCoin.sol";
 
 import "./CommunityStakingPoolBase.sol";
 
+// import "hardhat/console.sol";
+
 contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool {
  
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
@@ -163,6 +165,38 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
 
+    /** 
+    * @notice method will receive Traded token, exchange to reserve token via uniswap. 
+    * Finally will add to liquidity pool and stake it.
+    * @custom:shortd  the way to sell traded token and stake liquidity.
+    */
+    function sellAndStakeLiquidity(
+        uint256 amountTradedToken
+    )
+        public 
+        nonReentrant
+    {
+        address account = _msgSender();
+        IERC20Upgradeable(tradedToken).transferFrom(msg.sender, address(this), amountTradedToken);
+
+        _sellTradedAndStake(account, amountTradedToken);
+    }
+
+    /** 
+    * @notice method will receive Traded token, exchange to reserve token via uniswap. 
+    * Finally will add to liquidity pool and stake it. Beneficiary will obtain shares 
+    * @custom:shortd  the way to sell traded token and stake liquidity. Beneficiary will obtain shares 
+    */
+    function sellAndStakeLiquidity(
+        uint256 amountTradedToken,
+        address beneficiary
+    )
+        public 
+        nonReentrant
+    {
+        IERC20Upgradeable(tradedToken).transferFrom(msg.sender, address(this), amountTradedToken);
+        _sellTradedAndStake(beneficiary, amountTradedToken);
+    }
     /** 
     * @notice payble method will receive ETH, convert it to WETH, exchange to reserve token via uniswap. 
     * Finally will add to liquidity pool and stake it. Sender will obtain shares 
@@ -319,6 +353,52 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         amountOut = outputAmounts[1];
     }
     
+    function _sellTradedAndStake(
+        address from, 
+        uint256 incomingTradedToken
+    )
+        internal
+    {
+
+        (uint256 reserve0, uint256 reserve1,) = uniswapV2Pair.getReserves();
+
+        require (reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
+        uint256 priceBeforeStake = (
+            _token0 == tradedToken
+                ? FRACTION * reserve0 / reserve1
+                : FRACTION * reserve1 / reserve0
+        );
+        uint256 r3 = 
+            sqrt(
+                (reserve0 + incomingTradedToken)*(reserve0)
+            ) - reserve0; //    
+        require(r3 > 0 && incomingTradedToken > r3, "BAD_AMOUNT");
+        // remaining (r2-r3) we will exchange at uniswap to traded token
+        uint256 amountReserveToken = doSwapOnUniswap(tradedToken, reserveToken, r3);
+        uint256 amountTradedToken = incomingTradedToken - r3;
+
+        require(
+            IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken)
+            && IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken),
+            "APPROVE_FAILED"
+        );
+
+        (uint256 A, uint256 B, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
+            tradedToken,
+            reserveToken,
+            amountTradedToken,
+            amountReserveToken,
+            0, // there may be some slippage
+            0, // there may be some slippage
+            address(this),
+            block.timestamp
+        );
+        require (lpTokens > 0, "NO_LIQUIDITY");
+
+        _stake(from, lpTokens, priceBeforeStake);
+
+    }
+
     function _buyLiquidityAndStake(
         address from, 
         uint256 incomingReserveToken

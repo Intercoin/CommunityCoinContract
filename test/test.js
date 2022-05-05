@@ -316,11 +316,16 @@ describe("Staking contract tests", function () {
         );
 
 
-        let tx = await CommunityCoin.connect(owner)["produce(address,address,uint64,(address,uint256)[])"](
+        let tx = await CommunityCoin.connect(owner)["produce(address,address,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
             erc20ReservedToken.address,
             erc20TradedToken.address,
             lockupIntervalCount,
-            NO_DONATIONS
+            NO_DONATIONS,
+            reserveTokenClaimFraction,
+            tradedTokenClaimFraction,
+            lpClaimFraction,
+            numerator,
+            denominator
         )
 
         const rc = await tx.wait(); // 0ms, as tx is already confirmed
@@ -563,10 +568,12 @@ describe("Staking contract tests", function () {
     describe("ERC20 pool tests", function () { 
         var communityStakingPoolErc20; 
         beforeEach("deploying", async() => { 
-            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,(address,uint256)[])"](
+            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,(address,uint256)[],uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
-                NO_DONATIONS
+                NO_DONATIONS,
+                numerator,
+                denominator
             );
 
             const rc = await tx.wait(); // 0ms, as tx is already confirmed
@@ -580,11 +587,29 @@ describe("Staking contract tests", function () {
         });
         
         it("shouldnt create another pair with equal tokens", async() => {
-            await expect(CommunityCoin["produce(address,uint64,(address,uint256)[])"](
+            await expect(CommunityCoin["produce(address,uint64,(address,uint256)[],uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
-                NO_DONATIONS
+                NO_DONATIONS,
+                numerator,
+                denominator
             )).to.be.revertedWith("CommunityCoin: PAIR_ALREADY_EXISTS");
+        });
+
+        it("shouldn't produce another instance type", async() => {
+            
+            await expect(CommunityCoin.connect(owner)["produce(address,address,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+                erc20ReservedToken.address,
+                erc20TradedToken.address,
+                lockupIntervalCount,
+                NO_DONATIONS,
+                reserveTokenClaimFraction,
+                tradedTokenClaimFraction,
+                lpClaimFraction,
+                numerator,
+                denominator
+            )).to.be.revertedWith("CommunityCoin: INVALID_INSTANCE_TYPE");
+
         });
 
         
@@ -947,6 +972,19 @@ describe("Staking contract tests", function () {
             )).to.be.revertedWith("CommunityCoin: PAIR_ALREADY_EXISTS");
         });
 
+        it("shouldn't produce another instance type", async() => {
+          await expect(CommunityCoin["produce(address,uint64,(address,uint256)[],uint64,uint64)"](
+                erc20.address,
+                lockupIntervalCount,
+                NO_DONATIONS,
+                numerator,
+                denominator
+            )).to.be.revertedWith("CommunityCoin: INVALID_INSTANCE_TYPE");
+        });
+
+        
+            
+
         it("should stake liquidity", async() => {
             let allLiquidityAmount = await pairInstance.balanceOf(liquidityHolder.address);
             let halfLiquidityAmount = BigNumber.from(allLiquidityAmount).div(TWO);
@@ -958,6 +996,31 @@ describe("Staking contract tests", function () {
             expect(lptokens).not.to.be.eq(lptokensBefore);
 
         });
+
+
+        it("should sellAndStakeLiquidity", async () => {
+            let uniswapV2PairInstance = await ethers.getContractAt("IUniswapV2PairMock",await communityStakingPool.uniswapV2Pair());
+            await erc20TradedToken.mint(bob.address, ONE_ETH.mul(TEN));
+            await erc20TradedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+            let reservesBefore = await uniswapV2PairInstance.getReserves();
+            
+            await communityStakingPool.connect(bob)['sellAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
+            
+            let shares = await CommunityCoin.balanceOf(bob.address);
+            let reservesAfter = await uniswapV2PairInstance.getReserves();
+
+            let token0 = await uniswapV2PairInstance.token0();
+            if (erc20TradedToken.address == token0) {
+                expect(reservesAfter[0]).to.be.gt(reservesBefore[0]);
+                expect(reservesAfter[1]).to.be.eq(reservesBefore[1]);
+            } else {
+                expect(reservesAfter[0]).to.be.eq(reservesBefore[0]);
+                expect(reservesAfter[1]).to.be.gt(reservesBefore[1]);
+            }
+            
+            expect(shares).not.to.be.eq(ZERO);
+        }); 
+
 
         describe("TrustedForwarder", function () {
             it("should be empty after init", async() => {
@@ -1422,6 +1485,7 @@ describe("Staking contract tests", function () {
                 expect(instance).to.be.eq(communityStakingPool.address);
             }); 
         }); 
+ 
  
         describe("unstake/redeem/redeem-and-remove-liquidity tests", function () {
             var shares;
