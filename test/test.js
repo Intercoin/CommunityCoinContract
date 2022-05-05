@@ -587,6 +587,22 @@ describe("Staking contract tests", function () {
             )).to.be.revertedWith("CommunityCoin: PAIR_ALREADY_EXISTS");
         });
 
+        it("shouldn't produce another instance type", async() => {
+            
+            await expect(CommunityCoinWithHook.connect(owner)["produce(address,address,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+                erc20ReservedToken.address,
+                erc20TradedToken.address,
+                lockupIntervalCount,
+                NO_DONATIONS,
+                reserveTokenClaimFraction,
+                tradedTokenClaimFraction,
+                lpClaimFraction,
+                numerator,
+                denominator
+            )).to.be.revertedWith("CommunityCoin: INVALID_INSTANCE_TYPE");
+
+        });
+
         
         it("buyAndStake", async () => {
 
@@ -946,6 +962,17 @@ describe("Staking contract tests", function () {
                 denominator
             )).to.be.revertedWith("CommunityCoin: PAIR_ALREADY_EXISTS");
         });
+
+        it("shouldn't produce another instance type", async() => {
+          await expect(CommunityCoin["produce(address,uint64,(address,uint256)[])"](
+                erc20.address,
+                lockupIntervalCount,
+                NO_DONATIONS
+            )).to.be.revertedWith("CommunityCoin: INVALID_INSTANCE_TYPE");
+        });
+
+        
+            
 
         it("should stake liquidity", async() => {
             let allLiquidityAmount = await pairInstance.balanceOf(liquidityHolder.address);

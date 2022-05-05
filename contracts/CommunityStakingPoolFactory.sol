@@ -51,10 +51,11 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
     address public creator;
  
-    enum InstanceType{ USUAL, ERC20 }
+    enum InstanceType{ USUAL, ERC20, NONE }
 
     address[] private _instances;
     InstanceType[] private _instanceTypes;
+    InstanceType internal typeProducedByFactory;
     mapping(address => uint256) private _instanceIndexes;
     mapping(address => address) private _instanceCreators;
 
@@ -70,6 +71,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         implementation = impl;
         implementationErc20 = implErc20;
         creator = msg.sender;
+
+        typeProducedByFactory = InstanceType.NONE;
     }
 
     function instancesByIndex(uint index) external view returns (address instance_) {
@@ -125,7 +128,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         return _instanceInfos[addr];
     }
 
-    
     function produce(
         address reserveToken,
         address tradedToken,
@@ -158,9 +160,10 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             numerator, 
             denominator
         );
-
+        
         require(instanceCreated != address(0), "CommunityCoin: INSTANCE_CREATION_FAILED");
         require(duration != 0, "cant be zero duration");
+        
         // if (duration == 0) {
         //     IStakingTransferRules(instanceCreated).initialize(
         //         reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
@@ -198,6 +201,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
         require(instanceCreated != address(0), "CommunityCoin: INSTANCE_CREATION_FAILED");
         require(duration != 0, "cant be zero duration");
+        
         // if (duration == 0) {
         //     IStakingTransferRules(instanceCreated).initialize(
         //         reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
@@ -224,6 +228,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
         address instance = getInstance[reserveToken][tradedToken][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
+        require(typeProducedByFactory != InstanceType.ERC20, "CommunityCoin: INVALID_INSTANCE_TYPE");
     }
 
     function _createInstanceErc20Validate(
@@ -232,6 +237,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     ) internal view {
         address instance = getInstanceErc20[tokenErc20][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
+        require(typeProducedByFactory != InstanceType.USUAL, "CommunityCoin: INVALID_INSTANCE_TYPE");
     }
         
     function _createInstance(
@@ -268,6 +274,10 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             uint8(InstanceType.USUAL),
             address(0)
         );
+        
+        if (typeProducedByFactory == InstanceType.NONE) {
+            typeProducedByFactory = InstanceType.USUAL;
+        }
         emit InstanceCreated(reserveToken, tradedToken, instance, _instances.length, address(0));
     }
 
@@ -298,9 +308,12 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             numerator,
             denominator,
             true,
-            uint8(InstanceType.USUAL),
+            uint8(InstanceType.ERC20),
             tokenErc20
         );
+        if (typeProducedByFactory == InstanceType.NONE) {
+            typeProducedByFactory = InstanceType.ERC20;
+        }
         emit InstanceCreated(address(0), address(0), instance, _instances.length, tokenErc20);
     }
 
