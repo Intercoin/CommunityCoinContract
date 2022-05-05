@@ -151,7 +151,7 @@ contract CommunityCoin is
         // logic "how much bonus user will obtain"
         uint256 bonusAmount = 0; 
         if (address(hook) != address(0)) {
-            bonusAmount = hook.bonusCalculation(instance, account, instanceInfo.duration, amount);
+            bonusAmount = hook.bonus(instance, account, instanceInfo.duration, amount);
         }
         
         //totalExtra += bonusAmount;
