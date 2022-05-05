@@ -959,6 +959,24 @@ describe("Staking contract tests", function () {
 
         });
 
+
+        it("should sellAndStakeLiquidity", async () => {
+            let uniswapV2PairInstance = await ethers.getContractAt("IUniswapV2PairMock",await communityStakingPool.uniswapV2Pair());
+            await erc20TradedToken.mint(bob.address, ONE_ETH.mul(TEN));
+            await erc20TradedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+            let reservesBefore = await uniswapV2PairInstance.getReserves();
+            
+            await communityStakingPool.connect(bob)['sellAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
+            
+            let shares = await CommunityCoin.balanceOf(bob.address);
+            let reservesAfter = await uniswapV2PairInstance.getReserves();
+
+            expect(reservesAfter[0]).to.be.gt(reservesBefore[0]);
+            expect(reservesAfter[1]).to.be.eq(reservesBefore[1]);
+            expect(shares).not.to.be.eq(ZERO);
+        }); 
+
+
         describe("TrustedForwarder", function () {
             it("should be empty after init", async() => {
                 expect(await CommunityCoin.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
@@ -1422,6 +1440,7 @@ describe("Staking contract tests", function () {
                 expect(instance).to.be.eq(communityStakingPool.address);
             }); 
         }); 
+ 
  
         describe("unstake/redeem/redeem-and-remove-liquidity tests", function () {
             var shares;
