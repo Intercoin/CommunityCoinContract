@@ -31,22 +31,25 @@ contract CommunityRolesManagement is ICommunityRolesManagement, Initializable, A
         external 
         override 
     {
-        roles.adminRole = ADMIN_ROLE;
-        roles.redeemRole = REDEEM_ROLE;
-        roles.circulationRole = CIRCULATION_ROLE;
-
-        _grantRole(roles.adminRole, admin);
-        _setRoleAdmin(roles.redeemRole, roles.adminRole);
-        _setRoleAdmin(roles.circulationRole, roles.adminRole);
 
         //setup 
         roles.communityAddr = communitySettings_.addr;
-        
-        if (roles.communityAddr != address(0)) {
+                
+        if (roles.communityAddr == address(0)) {
+            roles.adminRole = ADMIN_ROLE;
+            roles.redeemRole = REDEEM_ROLE;
+            roles.circulationRole = CIRCULATION_ROLE;
+        } else {
             roles.adminRole = stringToBytes32(communitySettings_.adminRole);
             roles.redeemRole = stringToBytes32(communitySettings_.redeemRole);
             roles.circulationRole = stringToBytes32(communitySettings_.circulationRole);
         }
+        
+        _grantRole(roles.adminRole, admin);
+        _setRoleAdmin(roles.redeemRole, roles.adminRole);
+        _setRoleAdmin(roles.circulationRole, roles.adminRole);
+
+        
     }
 
     function checkRedeemRole(
