@@ -228,7 +228,11 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
         address instance = getInstance[reserveToken][tradedToken][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
-        require(typeProducedByFactory != InstanceType.ERC20, "CommunityCoin: INVALID_INSTANCE_TYPE");
+        require(
+            typeProducedByFactory == InstanceType.NONE ||
+            typeProducedByFactory == InstanceType.USUAL, 
+            "CommunityCoin: INVALID_INSTANCE_TYPE"
+        );
     }
 
     function _createInstanceErc20Validate(
@@ -237,7 +241,11 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     ) internal view {
         address instance = getInstanceErc20[tokenErc20][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
-        require(typeProducedByFactory != InstanceType.USUAL, "CommunityCoin: INVALID_INSTANCE_TYPE");
+        require(
+            typeProducedByFactory == InstanceType.NONE ||
+            typeProducedByFactory == InstanceType.ERC20, 
+            "CommunityCoin: INVALID_INSTANCE_TYPE"
+        );
     }
         
     function _createInstance(

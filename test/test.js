@@ -589,7 +589,7 @@ describe("Staking contract tests", function () {
 
         it("shouldn't produce another instance type", async() => {
             
-            await expect(CommunityCoinWithHook.connect(owner)["produce(address,address,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+            await expect(CommunityCoin.connect(owner)["produce(address,address,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
                 erc20TradedToken.address,
                 lockupIntervalCount,
@@ -998,8 +998,15 @@ describe("Staking contract tests", function () {
             let shares = await CommunityCoin.balanceOf(bob.address);
             let reservesAfter = await uniswapV2PairInstance.getReserves();
 
-            expect(reservesAfter[0]).to.be.gt(reservesBefore[0]);
-            expect(reservesAfter[1]).to.be.eq(reservesBefore[1]);
+            let token0 = await uniswapV2PairInstance.token0();
+            if (erc20TradedToken.address == token0) {
+                expect(reservesAfter[0]).to.be.gt(reservesBefore[0]);
+                expect(reservesAfter[1]).to.be.eq(reservesBefore[1]);
+            } else {
+                expect(reservesAfter[0]).to.be.eq(reservesBefore[0]);
+                expect(reservesAfter[1]).to.be.gt(reservesBefore[1]);
+            }
+            
             expect(shares).not.to.be.eq(ZERO);
         }); 
 
