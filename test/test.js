@@ -70,7 +70,7 @@ describe("Staking contract tests", function () {
     const percentLimitLeftTokenB = 0.001;
 
     const wrongClaimFraction = 99999999999;
-    const discountSensitivity = 0;
+    const discountSensitivity = 1*FRACTION;
 
     var implementationCommunityCoin;
     var implementationCommunityStakingPoolFactory;
@@ -958,6 +958,41 @@ describe("Staking contract tests", function () {
 
         });
 
+        it("should add tokens to circulation, transfer to some1 and remove from circulation", async() => {
+            let amount = ONE_ETH;
+            let balanceBefore = await CommunityCoin.balanceOf(charlie.address);
+
+            if (communityExternalMode) {
+                // imitate exists role
+                //await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',CIRCULATE_ROLE]);
+                await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC',CIRCULATE_ROLE,'DDD']);
+
+            } else {
+                await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(CIRCULATE_ROLE), charlie.address);
+            }
+            // adding
+            await CommunityCoin.connect(charlie).addToCirculation(amount);
+            let balanceAfter = await CommunityCoin.balanceOf(charlie.address);
+            expect(balanceAfter).not.to.be.eq(ZERO_ADDRESS);
+            expect(balanceAfter).to.be.eq(amount);
+
+            //transfers
+                //to david
+            await CommunityCoin.connect(charlie).transfer(david.address, amount);
+                //back to charlie david
+            await CommunityCoin.connect(david).transfer(charlie.address, amount);
+
+            //removing
+            await CommunityCoin.connect(charlie).removeFromCirculation(amount);
+
+            // let balanceAfter2 = await CommunityCoin.balanceOf(charlie.address);
+
+            // expect(balanceBefore).to.be.eq(balanceAfter2);
+
+        });
+
+
+
         it("shouldnt create another pair with equal tokens", async() => {
             await expect(CommunityCoin["produce(address,address,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
                 erc20ReservedToken.address,
@@ -981,9 +1016,6 @@ describe("Staking contract tests", function () {
                 denominator
             )).to.be.revertedWith("CommunityCoin: INVALID_INSTANCE_TYPE");
         });
-
-        
-            
 
         it("should stake liquidity", async() => {
             let allLiquidityAmount = await pairInstance.balanceOf(liquidityHolder.address);
@@ -1722,6 +1754,7 @@ describe("Staking contract tests", function () {
                         var aliceReservedTokenBefore;
                         var aliceTradedTokenBefore;
                         var aliceLPTokenAfter;
+                        
                         beforeEach("before each callback", async() => {
                             // pass some mtime
                             await time.increase(lockupIntervalCount*dayInSeconds+9);    
@@ -1869,6 +1902,38 @@ describe("Staking contract tests", function () {
                                 aliceLPTokenAfter = await uniswapV2PairInstance.balanceOf(alice.address);
 
                                 expect(aliceLPTokenAfter).gt(aliceLPTokenBefore);
+                            });
+
+                            describe("discountSensivityTests", function () {
+                                var amountWithout, amountWith;
+                                it("calculate amount obtain without circulation", async () => {
+
+                                    await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
+                                    amountWithout = await uniswapV2PairInstance.balanceOf(alice.address);
+                                });
+
+                                it("calculate amount obtain with circulation", async () => {
+                                    
+                                    if (communityExternalMode) {
+                                        // imitate exists role
+                                        //await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',CIRCULATE_ROLE]);
+                                        await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC',CIRCULATE_ROLE,REDEEM_ROLE]);
+
+                                    } else {
+                                        await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(CIRCULATE_ROLE), charlie.address);
+                                    }
+                                    
+                                    await CommunityCoin.connect(charlie).addToCirculation(shares);
+
+                                    await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
+                                    amountWith = await uniswapV2PairInstance.balanceOf(alice.address);
+                                });
+                                it("check correct sensivity discount", async () => {
+                                    // if total shares = X and admin will add to circulation on X more
+                                    // then the user will obtain in a two times less
+                                    expect(amountWithout.div(amountWith)).to.be.eq(TWO);
+                                });
+                                
                             });
                         }
                         

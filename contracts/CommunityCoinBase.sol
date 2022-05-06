@@ -741,12 +741,25 @@ abstract contract CommunityCoinBase is
                         if (locked > 0 && locked >= amount ) {
                             minimumsTransfer(from, ZERO_ADDRESS, amount);
                         }
+                        //-----------------------------------
+                        // uint256 r = unstakeable[from] - remainingAmount;
+                        // unstakeable[from] -= r;
+                        // totalUnstakeable -= r;
+                        // totalRedeemable += r;
+                        // -------
+                        // total supply should be equal sum of totalUnstakeable and totalRedeemable.
+                        // it's works before owner will add some to circulate.
+                        // circulation tokens is not part of unstakeable or redeemable. it's tokens emission mechanism.
+                        // so any time when user transfer somth and have not enough unstakeable tokens, we will not calculate unstakeable and redeemable
 
-                        uint256 r = unstakeable[from] - remainingAmount;
-                        unstakeable[from] -= r;
-                        totalUnstakeable -= r;
-                        totalRedeemable += r;
-    
+                        if (unstakeable[from] >= remainingAmount) {
+                            uint256 r = unstakeable[from] - remainingAmount;
+                            // if (totalUnstakeable >= r) {
+                            unstakeable[from] -= r;
+                            totalUnstakeable -= r;
+                            totalRedeemable += r;
+                            // }
+                        }
                     }
                     
                 } else {
