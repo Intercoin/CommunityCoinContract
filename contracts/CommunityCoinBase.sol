@@ -149,12 +149,14 @@ abstract contract CommunityCoinBase is
      
         _instanceStaked[instance] += amount;
 
-        // logic "how much bonus user will obtain"
-        uint256 bonusAmount = 0; 
-        if (address(hook) != address(0)) {
-            bonusAmount = hook.bonus(instance, account, instanceInfo.duration, amount);
-        }
         
+        // uint256 bonusAmount = 0; 
+        // if (address(hook) != address(0)) {
+        //     bonusAmount = hook.bonus(instance, account, instanceInfo.duration, amount);
+        // }
+        if (address(hook) != address(0)) {
+            hook.bonus(instance, account, instanceInfo.duration, amount);
+        }
         //totalExtra += bonusAmount;
         
         unstakeable[account] += amount;
@@ -163,7 +165,7 @@ abstract contract CommunityCoinBase is
         // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
         // also keep in mind that user can unstake only unstakeable[account] which saved w/o bonusTokens, but minimums and mint with it.
         // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
-        amount += bonusAmount;
+        // amount += bonusAmount;
 
         //forward conversion( LP -> СС)
         amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
