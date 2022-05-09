@@ -24,12 +24,10 @@ contract MockHook is IHook {
         uint256 /*amount*/
     )
         external
-        view
         override
-        returns(uint256)
         
     {
-        return hAmount;
+        // return hAmount;
     }
 
     

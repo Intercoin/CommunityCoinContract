@@ -519,17 +519,6 @@ describe("Staking contract tests", function () {
                
         });
 
-        it("test bonus tokens if set", async() => {
-            await mockHook.setupVars(TEN,true);
-            await communityStakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
-            
-            walletTokens = await CommunityCoinWithHook.balanceOf(bob.address);
-            lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
-
-            expect(lptokens).not.to.be.eq(ZERO);
-            expect(walletTokens.sub(lptokens)).to.be.eq(TEN);
-        });
-
         describe("test transferHook ", function () {   
             beforeEach("before each", async() => {
                 await communityStakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
