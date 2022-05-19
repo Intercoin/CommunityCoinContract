@@ -414,6 +414,16 @@ abstract contract CommunityCoinBase is
         amount = _getMinimum(account);
     }   
 
+    function viewLockedWalletTokensList(
+        address account
+    ) 
+        public 
+        view 
+        returns (uint256[][] memory) 
+    {
+        return _getMinimumList(account);
+    }   
+
     function grantRole(bytes32 role, address account) onlyOwner() public {
         rolesManagement.grantRole(role, account);
     }

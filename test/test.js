@@ -701,9 +701,11 @@ describe("Staking contract tests", function () {
             let bobSharesAfter = await CommunityCoin.balanceOf(bob.address);
 
             let bobLockedBalanceAfter = await CommunityCoin.connect(bob).viewLockedWalletTokens(bob.address);
+            let bobLockedListAfter = await CommunityCoin.connect(bob).viewLockedWalletTokensList(bob.address);
             let aliceLockedBalanceAfter = await CommunityCoin.connect(bob).viewLockedWalletTokens(alice.address);
             expect(aliceLockedBalanceAfter).to.be.eq(ZERO);
             expect(bobLockedBalanceAfter).to.be.eq(bobSharesAfter);
+            expect(bobLockedBalanceAfter).to.be.eq(bobLockedListAfter[0][0]);
 
             await CommunityCoin.connect(bob).transfer(alice.address, bobSharesAfter);
 

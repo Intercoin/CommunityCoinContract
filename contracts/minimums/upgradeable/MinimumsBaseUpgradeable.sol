@@ -171,6 +171,42 @@ locked2 = 40/(100-40)*(100-70) = 20
             }
         }
     }
+
+    function _getMinimumList(
+        address addr
+    ) 
+        internal 
+        view
+        returns (uint256[][] memory ) 
+    {
+        
+        uint256 mapIndex;
+        uint256 tmp;
+        uint256 len = users[addr].minimumsIndexes.length();
+
+        uint256[][] memory ret = new uint256[][](len);
+
+
+        for (uint256 i=0; i<len; i++) {
+            mapIndex = users[addr].minimumsIndexes.at(i);
+            
+            if (block.timestamp <= mapIndex) { // block.timestamp<timestampEnd
+                tmp = users[addr].minimums[mapIndex].speedGradualUnlock * (mapIndex - block.timestamp);
+                ret[i] = new uint256[](2);
+                ret[i][1] = mapIndex;
+                ret[i][0] = (
+                                tmp < users[addr].minimums[mapIndex].amountGradualWithdrawn 
+                                ? 
+                                0 
+                                : 
+                                tmp - (users[addr].minimums[mapIndex].amountGradualWithdrawn)
+                            ) +
+                            (users[addr].minimums[mapIndex].amountNoneGradual);
+            }
+        }
+
+        return ret;
+    }
     
     /**
     * @dev clear expired items from mapping. used while addingMinimum
