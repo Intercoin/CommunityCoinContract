@@ -13,7 +13,7 @@ import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/ICommunityCoin.sol";
 
 import "./CommunityStakingPoolBase.sol";
-
+import "./libs/SwapSettingsLib.sol";
 // import "hardhat/console.sol";
 
 contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool {
@@ -56,8 +56,8 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     address private _token1;
     
 
-    address internal constant uniswapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-    address internal constant uniswapRouterFactory = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+    address internal uniswapRouter;
+    address internal uniswapRouterFactory;
 
     // slot 4
     address internal WETH;
@@ -108,6 +108,9 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         external 
         override 
     {
+        // setup swap addresses
+        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
+
         CommunityStakingPoolBase_init(stakingProducedBy_, donations_);
 
         (tradedToken, reserveToken, tradedTokenClaimFraction, reserveTokenClaimFraction, lpClaimFraction)
