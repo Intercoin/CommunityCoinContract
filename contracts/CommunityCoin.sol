@@ -12,6 +12,8 @@ contract CommunityCoin is CommunityCoinBase {
     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
     * @param rolesManagementAddr_ contract that would will manage roles(admin,redeem,circulate)
+    * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken_ address of traded token. usual it intercoin investor token
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
     */
@@ -21,13 +23,15 @@ contract CommunityCoin is CommunityCoinBase {
         address hook_,
         address communityCoinInstanceAddr,
         uint256 discountSensitivity_,
-        address rolesManagementAddr_
+        address rolesManagementAddr_,
+        address reserveToken_,
+        address tradedToken_
     ) 
         initializer 
         external 
         virtual
         override 
     {
-        CommunityCoinBase__init("Staking Tokens", "STAKE", impl, implErc20, hook_, communityCoinInstanceAddr, discountSensitivity_, rolesManagementAddr_);
+        CommunityCoinBase__init("Staking Tokens", "STAKE", impl, implErc20, hook_, communityCoinInstanceAddr, discountSensitivity_, rolesManagementAddr_, reserveToken_, tradedToken_);
     }
 }

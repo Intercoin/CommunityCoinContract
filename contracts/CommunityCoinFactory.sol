@@ -34,6 +34,9 @@ contract CommunityCoinFactory is Ownable {
     */
     address public immutable rolesManagementImplementation;
 
+    address public immutable reserveToken;
+    address public immutable tradedToken;
+
     address[] public instances;
     
     event InstanceCreated(address instance, uint instancesCount);
@@ -44,13 +47,17 @@ contract CommunityCoinFactory is Ownable {
     * @param stakingPoolImpl address of StakingPool implementation
     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
     * @param rolesManagementImpl address of RolesManagement implementation
+    * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken_ address of traded token. usual it intercoin investor token
     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address stakingPoolImplErc20,
-        address rolesManagementImpl
+        address rolesManagementImpl,
+        address reserveToken_,
+        address tradedToken_
     ) 
     {
         communityCoinImplementation = communityCoinImpl;
@@ -58,6 +65,8 @@ contract CommunityCoinFactory is Ownable {
         stakingPoolImplementation = stakingPoolImpl;
         stakingPoolErc20Implementation = stakingPoolImplErc20;
         rolesManagementImplementation = rolesManagementImpl;
+        reserveToken = reserveToken_;
+        tradedToken = tradedToken_;
         
     }
 
@@ -112,7 +121,7 @@ contract CommunityCoinFactory is Ownable {
 
         ICommunityRolesManagement(rolesManagementClone).initialize(communitySettings, instance);
 
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone);
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone, reserveToken, tradedToken);
         
         Ownable(instance).transferOwnership(_msgSender());
         

@@ -9,7 +9,9 @@ interface ICommunityCoin {
         address hook,
         address instancesImpl,
         uint256 discountSensitivity,
-        address rolesManagementClone
+        address rolesManagementClone,
+        address reserveToken,
+        address tradedToken
     ) external;
 
     event InstanceCreated(address indexed tokenA, address indexed tokenB, address instance);

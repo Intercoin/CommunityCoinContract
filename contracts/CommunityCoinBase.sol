@@ -60,7 +60,8 @@ abstract contract CommunityCoinBase is
     uint256 internal totalRedeemable;
     //uint256 totalExtra;         // extra tokens minted by factory when staked
 
-    
+    address internal reserveToken;
+    address internal tradedToken;
 
     // staked balance in instances. increase when stakes, descrease when unstake/redeem
     mapping(address => uint256) private _instanceStaked;
@@ -86,6 +87,8 @@ abstract contract CommunityCoinBase is
     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
     * @param rolesManagementAddr_ contract that would will manage roles(admin,redeem,circulate)
+    * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken_ address of traded token. usual it intercoin investor token
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
     */
@@ -97,7 +100,9 @@ abstract contract CommunityCoinBase is
         address hook_,
         address communityCoinInstanceAddr,
         uint256 discountSensitivity_,
-        address rolesManagementAddr_
+        address rolesManagementAddr_,
+        address reserveToken_,
+        address tradedToken_
     ) 
         onlyInitializing 
         internal 
@@ -118,7 +123,10 @@ abstract contract CommunityCoinBase is
         discountSensitivity = discountSensitivity_;
         
         rolesManagement = CommunityRolesManagement(rolesManagementAddr_);
-                
+
+        reserveToken = reserveToken_;
+        tradedToken = tradedToken_;
+
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
@@ -257,8 +265,6 @@ abstract contract CommunityCoinBase is
     
     /**
     * @dev it's extended version for create instance pool available for owners only.
-    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
-    * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @param reserveTokenClaimFraction fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
@@ -271,8 +277,6 @@ abstract contract CommunityCoinBase is
     * @custom:shortd creation instance with extended options
     */
     function produce(
-        address reserveToken, 
-        address tradedToken, 
         uint64 duration, 
         IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction, 
@@ -285,7 +289,7 @@ abstract contract CommunityCoinBase is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(reserveToken, tradedToken, duration, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
+        return _produce(duration, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
     }
 
     /**
@@ -473,8 +477,6 @@ abstract contract CommunityCoinBase is
     
     
     function _produce(
-        address reserveToken, 
-        address tradedToken, 
         uint64 duration, 
         IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction, 
