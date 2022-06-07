@@ -1513,19 +1513,47 @@ describe("Staking contract tests", function () {
                     }); 
                 });
                 describe("should unstake", function () {
-                    it("successfull", async () => {
+                        var uniswapV2PairInstance;
+                    beforeEach("before each callback", async() => {
+                        let uniswapV2PairAddress = await communityStakingPool.uniswapV2Pair();
+                        uniswapV2PairInstance = await ethers.getContractAt("ERC20Mintable",uniswapV2PairAddress);
+                    });
+                    it("successfull ", async () => {
                         // pass some mtime
                         await time.increase(lockupIntervalCount*dayInSeconds+9);    
-                        
+
+                        let bobLPTokenBefore = await uniswapV2PairInstance.balanceOf(bob.address);
                         let bobReservedTokenBefore = await erc20ReservedToken.balanceOf(bob.address);
                         let bobTradedTokenBefore = await erc20TradedToken.balanceOf(bob.address);
 
                         await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
                         await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
 
+                        let bobLPTokenAfter = await uniswapV2PairInstance.balanceOf(bob.address);
+                        let bobReservedTokenAfter = await erc20ReservedToken.balanceOf(bob.address);
+                        let bobTradedTokenAfter = await erc20TradedToken.balanceOf(bob.address);
+                        
+                        expect(bobLPTokenAfter).gt(bobLPTokenBefore);
+                        expect(bobReservedTokenAfter).eq(bobReservedTokenBefore);
+                        expect(bobTradedTokenAfter).eq(bobTradedTokenBefore);
+
+                    });
+                    it("successfull RRL", async () => {
+                        // pass some mtime
+                        await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                        
+                        let bobLPTokenBefore = await uniswapV2PairInstance.balanceOf(bob.address);
+                        let bobReservedTokenBefore = await erc20ReservedToken.balanceOf(bob.address);
+                        let bobTradedTokenBefore = await erc20TradedToken.balanceOf(bob.address);
+
+                        await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+                        await CommunityCoin.connect(bob)["unstakeAndRemoveLiquidity(uint256)"](shares);
+
+                        let bobLPTokenAfter = await uniswapV2PairInstance.balanceOf(bob.address);
                         let bobReservedTokenAfter = await erc20ReservedToken.balanceOf(bob.address);
                         let bobTradedTokenAfter = await erc20TradedToken.balanceOf(bob.address);
 
+                        expect(bobLPTokenAfter).eq(bobLPTokenBefore);
                         expect(bobReservedTokenAfter).gt(bobReservedTokenBefore);
                         expect(bobTradedTokenAfter).gt(bobTradedTokenBefore);
                     });

@@ -42,7 +42,7 @@ abstract contract CommunityCoinBase is
     /**
     * strategy ENUM VARS used in calculation algos
     */
-    enum Strategy{ UNSTAKE, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
+    enum Strategy{ UNSTAKE, UNSTAKE_AND_REMOVE_LIQUIDITY, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
     
     uint32 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
@@ -327,6 +327,33 @@ abstract contract CommunityCoinBase is
     {
         address account = _msgSender();
 
+        _validateUnstake(account, amount);
+        
+        _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
+        
+    }
+
+    function unstakeAndRemoveLiquidity(
+        uint256 amount
+    ) 
+        public 
+        nonReentrant
+    {
+        address account = _msgSender();
+
+        _validateUnstake(account, amount);
+
+        _unstake(account, amount, new address[](0), Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY);
+        
+    }
+
+    function _validateUnstake(
+        address account, 
+        uint256 amount
+    ) 
+        internal 
+    {
+
         uint256 balance = balanceOf(account);
         
         require (amount <= balance, "INSUFFICIENT_BALANCE");
@@ -335,8 +362,6 @@ abstract contract CommunityCoinBase is
         uint256 remainingAmount = balance - amount;
         require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
 
-        _unstake(account, amount);
-        
     }
 
     /**
@@ -524,24 +549,28 @@ abstract contract CommunityCoinBase is
 
     function _unstake(
         address account,
-        uint256 amount
+        uint256 amount,
+        address[] memory preferredInstances,
+        Strategy strategy
     ) 
         internal 
     {
         uint256 totalSupplyBefore = _burn(account, amount);
 
-        (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE, totalSupplyBefore);
+        (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
         for (uint256 i = 0; i < len; i++) {
-            try ICommunityStakingPool(instancesList[i]).redeemAndRemoveLiquidity(
-                account, 
-                values[i]
-            ) {
-                _instanceStaked[instancesList[i]] -= values[i];
-            }
-            catch {
-                revert("Error when unstake");
-            }
+            _instanceStaked[instancesList[i]] -= values[i];
+
+            proceedPool(
+                account,
+                instancesList[i],
+                values[i],
+                strategy,
+                "Error when unstake"
+            );
+                        
         }
+
     }
 
     // create map of instance->amount or LP tokens that need to redeem
@@ -596,7 +625,8 @@ abstract contract CommunityCoinBase is
         for (uint256 i = 0; i < preferredInstances.length; i++) {
             
             if (_instanceStaked[preferredInstances[i]] > 0) {
-                if (strategy == Strategy.UNSTAKE) {
+                if (strategy == Strategy.UNSTAKE || 
+                    strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY ) {
                     amountToRedeem = 
                         amountLeft > _instanceStaked[preferredInstances[i]]
                         ? 
@@ -683,32 +713,46 @@ abstract contract CommunityCoinBase is
 
         for (uint256 i = 0; i < len; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
+                _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                totalRedeemable -= valuesToRedeem[i];
 
-                if (strategy == Strategy.REDEEM) {
-
-                    try ICommunityStakingPool(instancesToRedeem[i]).redeem(
-                        account2Redeem, 
-                        valuesToRedeem[i]
-                    ) {
-                        _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-                        totalRedeemable -= valuesToRedeem[i];
-                    }
-                    catch {
-                        revert("Error when redeem in an instance");
-                    }
-                } else if (strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-                    try ICommunityStakingPool(instancesToRedeem[i]).redeemAndRemoveLiquidity(
-                        account2Redeem, 
-                        valuesToRedeem[i]
-                    ) {
-                        _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-                        totalRedeemable -= valuesToRedeem[i];
-                    }
-                    catch {
-                        revert("Error when redeem in an instance");
-                    }
-                }
+                proceedPool(
+                    account2Redeem,
+                    instancesToRedeem[i],
+                    valuesToRedeem[i],
+                    strategy,
+                    "Error when redeem in an instance"
+                );
             }
+        }
+    }
+
+    function proceedPool(address account,address pool, uint256 amount, Strategy strategy, string memory errmsg) internal {
+        if (strategy == Strategy.REDEEM || strategy == Strategy.UNSTAKE) {
+
+            try ICommunityStakingPool(pool).redeem(
+                account, 
+                amount
+            ) {
+                // _instanceStaked[pool] -= amount;
+                // totalRedeemable -= amount;
+            }
+            catch {
+                revert(errmsg);
+            }
+        } else if (strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+            try ICommunityStakingPool(pool).redeemAndRemoveLiquidity(
+                account, 
+                amount
+            ) {
+                // _instanceStaked[pool] -= valuesToRedeem[i];
+                // totalRedeemable -= valuesToRedeem[i];
+            }
+            catch {
+                revert(errmsg);
+            }
+        // } else {
+        //     revert("unknown strategy");
         }
     }
 

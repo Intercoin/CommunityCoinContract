@@ -345,15 +345,20 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         internal 
         returns(uint256 amountOut) 
     {
-        require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
-        address[] memory path = new address[](2);
-        path[0] = address(tokenIn);
-        path[1] = address(tokenOut);
-        // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
-        uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
-            amountIn, 0, path, address(this), block.timestamp
-        );
-        amountOut = outputAmounts[1];
+        if (tokenIn == tokenOut) {
+            // situation when WETH is a reserve token
+            amountOut = amountIn;
+        } else {
+            require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
+            address[] memory path = new address[](2);
+            path[0] = address(tokenIn);
+            path[1] = address(tokenOut);
+            // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
+            uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
+                amountIn, 0, path, address(this), block.timestamp
+            );
+            amountOut = outputAmounts[1];
+        }
     }
     
     function _sellTradedAndStake(
