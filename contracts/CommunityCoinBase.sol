@@ -42,7 +42,7 @@ abstract contract CommunityCoinBase is
     /**
     * strategy ENUM VARS used in calculation algos
     */
-    enum Strategy{ UNSTAKE, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
+    enum Strategy{ UNSTAKE, UNSTAKE_AND_REMOVE_LIQUIDITY, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
     
     uint32 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
@@ -60,7 +60,8 @@ abstract contract CommunityCoinBase is
     uint256 internal totalRedeemable;
     //uint256 totalExtra;         // extra tokens minted by factory when staked
 
-    
+    address internal reserveToken;
+    address internal tradedToken;
 
     // staked balance in instances. increase when stakes, descrease when unstake/redeem
     mapping(address => uint256) private _instanceStaked;
@@ -86,6 +87,8 @@ abstract contract CommunityCoinBase is
     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
     * @param rolesManagementAddr_ contract that would will manage roles(admin,redeem,circulate)
+    * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken_ address of traded token. usual it intercoin investor token
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
     */
@@ -97,7 +100,9 @@ abstract contract CommunityCoinBase is
         address hook_,
         address communityCoinInstanceAddr,
         uint256 discountSensitivity_,
-        address rolesManagementAddr_
+        address rolesManagementAddr_,
+        address reserveToken_,
+        address tradedToken_
     ) 
         onlyInitializing 
         internal 
@@ -118,7 +123,10 @@ abstract contract CommunityCoinBase is
         discountSensitivity = discountSensitivity_;
         
         rolesManagement = CommunityRolesManagement(rolesManagementAddr_);
-                
+
+        reserveToken = reserveToken_;
+        tradedToken = tradedToken_;
+
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
     }
@@ -257,8 +265,6 @@ abstract contract CommunityCoinBase is
     
     /**
     * @dev it's extended version for create instance pool available for owners only.
-    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
-    * @param tradedToken address of traded token. usual it intercoin investor token
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @param reserveTokenClaimFraction fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
@@ -271,8 +277,6 @@ abstract contract CommunityCoinBase is
     * @custom:shortd creation instance with extended options
     */
     function produce(
-        address reserveToken, 
-        address tradedToken, 
         uint64 duration, 
         IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction, 
@@ -285,7 +289,7 @@ abstract contract CommunityCoinBase is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(reserveToken, tradedToken, duration, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
+        return _produce(duration, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
     }
 
     /**
@@ -323,6 +327,33 @@ abstract contract CommunityCoinBase is
     {
         address account = _msgSender();
 
+        _validateUnstake(account, amount);
+        
+        _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
+        
+    }
+
+    function unstakeAndRemoveLiquidity(
+        uint256 amount
+    ) 
+        public 
+        nonReentrant
+    {
+        address account = _msgSender();
+
+        _validateUnstake(account, amount);
+
+        _unstake(account, amount, new address[](0), Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY);
+        
+    }
+
+    function _validateUnstake(
+        address account, 
+        uint256 amount
+    ) 
+        internal 
+    {
+
         uint256 balance = balanceOf(account);
         
         require (amount <= balance, "INSUFFICIENT_BALANCE");
@@ -331,8 +362,6 @@ abstract contract CommunityCoinBase is
         uint256 remainingAmount = balance - amount;
         require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
 
-        _unstake(account, amount);
-        
     }
 
     /**
@@ -473,8 +502,6 @@ abstract contract CommunityCoinBase is
     
     
     function _produce(
-        address reserveToken, 
-        address tradedToken, 
         uint64 duration, 
         IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction, 
@@ -522,24 +549,28 @@ abstract contract CommunityCoinBase is
 
     function _unstake(
         address account,
-        uint256 amount
+        uint256 amount,
+        address[] memory preferredInstances,
+        Strategy strategy
     ) 
         internal 
     {
         uint256 totalSupplyBefore = _burn(account, amount);
 
-        (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, new address[](0), Strategy.UNSTAKE, totalSupplyBefore);
+        (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
         for (uint256 i = 0; i < len; i++) {
-            try ICommunityStakingPool(instancesList[i]).redeemAndRemoveLiquidity(
-                account, 
-                values[i]
-            ) {
-                _instanceStaked[instancesList[i]] -= values[i];
-            }
-            catch {
-                revert("Error when unstake");
-            }
+            _instanceStaked[instancesList[i]] -= values[i];
+
+            proceedPool(
+                account,
+                instancesList[i],
+                values[i],
+                strategy,
+                "Error when unstake"
+            );
+                        
         }
+
     }
 
     // create map of instance->amount or LP tokens that need to redeem
@@ -594,7 +625,8 @@ abstract contract CommunityCoinBase is
         for (uint256 i = 0; i < preferredInstances.length; i++) {
             
             if (_instanceStaked[preferredInstances[i]] > 0) {
-                if (strategy == Strategy.UNSTAKE) {
+                if (strategy == Strategy.UNSTAKE || 
+                    strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY ) {
                     amountToRedeem = 
                         amountLeft > _instanceStaked[preferredInstances[i]]
                         ? 
@@ -681,32 +713,46 @@ abstract contract CommunityCoinBase is
 
         for (uint256 i = 0; i < len; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
+                _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
+                totalRedeemable -= valuesToRedeem[i];
 
-                if (strategy == Strategy.REDEEM) {
-
-                    try ICommunityStakingPool(instancesToRedeem[i]).redeem(
-                        account2Redeem, 
-                        valuesToRedeem[i]
-                    ) {
-                        _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-                        totalRedeemable -= valuesToRedeem[i];
-                    }
-                    catch {
-                        revert("Error when redeem in an instance");
-                    }
-                } else if (strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-                    try ICommunityStakingPool(instancesToRedeem[i]).redeemAndRemoveLiquidity(
-                        account2Redeem, 
-                        valuesToRedeem[i]
-                    ) {
-                        _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-                        totalRedeemable -= valuesToRedeem[i];
-                    }
-                    catch {
-                        revert("Error when redeem in an instance");
-                    }
-                }
+                proceedPool(
+                    account2Redeem,
+                    instancesToRedeem[i],
+                    valuesToRedeem[i],
+                    strategy,
+                    "Error when redeem in an instance"
+                );
             }
+        }
+    }
+
+    function proceedPool(address account,address pool, uint256 amount, Strategy strategy, string memory errmsg) internal {
+        if (strategy == Strategy.REDEEM || strategy == Strategy.UNSTAKE) {
+
+            try ICommunityStakingPool(pool).redeem(
+                account, 
+                amount
+            ) {
+                // _instanceStaked[pool] -= amount;
+                // totalRedeemable -= amount;
+            }
+            catch {
+                revert(errmsg);
+            }
+        } else if (strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+            try ICommunityStakingPool(pool).redeemAndRemoveLiquidity(
+                account, 
+                amount
+            ) {
+                // _instanceStaked[pool] -= valuesToRedeem[i];
+                // totalRedeemable -= valuesToRedeem[i];
+            }
+            catch {
+                revert(errmsg);
+            }
+        // } else {
+        //     revert("unknown strategy");
         }
     }
 
