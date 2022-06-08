@@ -65,6 +65,7 @@ contract CommunityCoinFactory is Ownable {
         stakingPoolImplementation = stakingPoolImpl;
         stakingPoolErc20Implementation = stakingPoolImplErc20;
         rolesManagementImplementation = rolesManagementImpl;
+
         reserveToken = reserveToken_;
         tradedToken = tradedToken_;
         
