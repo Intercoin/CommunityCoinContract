@@ -163,7 +163,7 @@ abstract contract CommunityCoinBase is
         //     bonusAmount = hook.bonus(instance, account, instanceInfo.duration, amount);
         // }
 
-        amount = amount * instanceInfo.bonusTokenFraction / FRACTION;
+        amount += amount * instanceInfo.bonusTokenFraction / FRACTION;
 
         if (address(hook) != address(0)) {
             hook.bonus(instance, account, instanceInfo.duration, amount);

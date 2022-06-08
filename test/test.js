@@ -33,7 +33,7 @@ const FRACTION = 100000;
 
 const NO_DONATIONS = [];
 
-const BONUSFRACTION = ONE.mul(FRACTION); // no bonus. means amount*BONUSFRACTION/FRACTION = amount
+const BONUSFRACTION = ZERO; // no bonus. means 0*BONUSFRACTION/FRACTION = 0
 
 
 
