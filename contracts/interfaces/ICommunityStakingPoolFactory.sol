@@ -8,6 +8,7 @@ interface ICommunityStakingPoolFactory {
     struct InstanceInfo {
         address reserveToken;
         uint64 duration;
+        uint64 bonusTokenFraction;
         address tradedToken;
         uint64 reserveTokenClaimFraction;
         uint64 tradedTokenClaimFraction;
@@ -27,8 +28,8 @@ interface ICommunityStakingPoolFactory {
     function instancesByIndex(uint index) external view returns (address instance);
     function instances() external view returns (address[] memory instances);
     function instancesCount() external view returns (uint);
-    function produce(address reserveToken, address tradedToken, uint64 duration, IStructs.StructAddrUint256[] memory donations, uint64 reserveTokenClaimFraction, uint64 tradedTokenClaimFraction, uint64 lpClaimFraction, uint64 numerator, uint64 denominator) external returns (address instance);
-    function produceErc20(address tokenErc20, uint64 duration, IStructs.StructAddrUint256[] memory donations, uint64 numerator, uint64 denominator) external returns (address instance);
+    function produce(address reserveToken, address tradedToken, uint64 duration, uint64 bonusTokenFraction, IStructs.StructAddrUint256[] memory donations, uint64 reserveTokenClaimFraction, uint64 tradedTokenClaimFraction, uint64 lpClaimFraction, uint64 numerator, uint64 denominator) external returns (address instance);
+    function produceErc20(address tokenErc20, uint64 duration, uint64 bonusTokenFraction, IStructs.StructAddrUint256[] memory donations, uint64 numerator, uint64 denominator) external returns (address instance);
     function getInstanceInfoByPoolAddress(address addr) external view returns(InstanceInfo memory);
     function amountAfterSwapLP(address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, address[][] memory swapPaths) external view returns(address, uint256);
 }

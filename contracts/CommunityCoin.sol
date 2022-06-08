@@ -32,6 +32,19 @@ contract CommunityCoin is CommunityCoinBase {
         virtual
         override 
     {
-        CommunityCoinBase__init("Staking Tokens", "STAKE", impl, implErc20, hook_, communityCoinInstanceAddr, discountSensitivity_, rolesManagementAddr_, reserveToken_, tradedToken_);
+        CommunityCoinBase__init(
+            // "Staking Tokens", 
+            // "STAKE", 
+            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), " commnunity")), 
+            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), " c")), 
+            impl, 
+            implErc20, 
+            hook_, 
+            communityCoinInstanceAddr, 
+            discountSensitivity_, 
+            rolesManagementAddr_, 
+            reserveToken_, 
+            tradedToken_
+        );
     }
 }

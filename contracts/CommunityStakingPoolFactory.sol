@@ -134,10 +134,24 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         return _instanceInfos[addr];
     }
 
+    function getInstancesInfo(
+    ) 
+        external
+        view 
+        returns(InstanceInfo[] memory) 
+    {
+        InstanceInfo[] memory ret = new InstanceInfo[](_instances.length);
+        for (uint256 i = 0; i < _instances.length; i++) {
+            ret[i] = _instanceInfos[_instances[i]];
+        }
+        return ret;
+    }
+
     function produce(
         address reserveToken,
         address tradedToken,
         uint64 duration,
+        uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction,
         uint64 tradedTokenClaimFraction,
@@ -152,7 +166,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         require (msg.sender == creator);
 
         _createInstanceValidate(
-            reserveToken, tradedToken, duration, 
+            reserveToken, tradedToken, duration, bonusTokenFraction, 
             reserveTokenClaimFraction, tradedTokenClaimFraction
         );
 
@@ -160,6 +174,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             reserveToken, 
             tradedToken, 
             duration, 
+            bonusTokenFraction,
             reserveTokenClaimFraction, 
             tradedTokenClaimFraction, 
             lpClaimFraction, 
@@ -187,6 +202,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function produceErc20(
         address tokenErc20,
         uint64 duration,
+        uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
         uint64 numerator,
         uint64 denominator
@@ -196,11 +212,12 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     {
         require (msg.sender == creator);
 
-        _createInstanceErc20Validate(tokenErc20, duration);
+        _createInstanceErc20Validate(tokenErc20, duration, bonusTokenFraction);
 
         address instanceCreated = _createInstanceErc20(
             tokenErc20, 
             duration, 
+            bonusTokenFraction,
             numerator, 
             denominator
         );
@@ -226,6 +243,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address reserveToken, 
         address tradedToken, 
         uint64 duration, 
+        uint64 bonusTokenFraction,
         uint64 tradedClaimFraction, 
         uint64 reserveClaimFraction
     ) internal view {
@@ -243,7 +261,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
     function _createInstanceErc20Validate(
         address tokenErc20,
-        uint64 duration
+        uint64 duration,
+        uint64 bonusTokenFraction
     ) internal view {
         address instance = getInstanceErc20[tokenErc20][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
@@ -258,6 +277,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address reserveToken, 
         address tradedToken, 
         uint64 duration, 
+        uint64 bonusTokenFraction,
         uint64 reserveTokenClaimFraction, 
         uint64 tradedTokenClaimFraction, 
         uint64 lpClaimFraction,
@@ -278,6 +298,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         _instanceInfos[instance] = InstanceInfo(
             reserveToken,
             duration, 
+            bonusTokenFraction,
             tradedToken,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
@@ -298,6 +319,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function _createInstanceErc20(
         address tokenErc20,
         uint64 duration,
+        uint64 bonusTokenFraction,
         uint64 numerator,
         uint64 denominator
     ) internal returns (address instance) {
@@ -315,6 +337,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         _instanceInfos[instance] = InstanceInfo(
             address(0),
             duration, 
+            bonusTokenFraction,
             address(0),
             0,
             0,

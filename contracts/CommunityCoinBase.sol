@@ -15,7 +15,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 //import "./lib/PackedMapping32.sol";
 
 //import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "./interfaces/IERC20Dpl.sol";
+//import "./interfaces/IERC20Dpl.sol";
 
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
@@ -162,6 +162,9 @@ abstract contract CommunityCoinBase is
         // if (address(hook) != address(0)) {
         //     bonusAmount = hook.bonus(instance, account, instanceInfo.duration, amount);
         // }
+
+        amount = amount * instanceInfo.bonusTokenFraction / FRACTION;
+
         if (address(hook) != address(0)) {
             hook.bonus(instance, account, instanceInfo.duration, amount);
         }
@@ -266,6 +269,7 @@ abstract contract CommunityCoinBase is
     /**
     * @dev it's extended version for create instance pool available for owners only.
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distirbuted when user stakes
     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @param reserveTokenClaimFraction fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
     * @param tradedTokenClaimFraction fraction of traded token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
@@ -278,6 +282,7 @@ abstract contract CommunityCoinBase is
     */
     function produce(
         uint64 duration, 
+        uint64 bonusTokenFraction, 
         IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction, 
         uint64 tradedTokenClaimFraction, 
@@ -289,13 +294,14 @@ abstract contract CommunityCoinBase is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(duration, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
+        return _produce(duration, bonusTokenFraction, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
     }
 
     /**
     * @dev function for creation erc20 instance pool.
     * @param tokenErc20 address of erc20 token.
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
+    * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distirbuted when user stakes
     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @return instance address of created instance pool `CommunityStakingPoolErc20`
     * @custom:shortd creation erc20 instance with simple options
@@ -303,6 +309,7 @@ abstract contract CommunityCoinBase is
     function produce(       
         address tokenErc20, 
         uint64 duration, 
+        uint64 bonusTokenFraction, 
         IStructs.StructAddrUint256[] memory donations, 
         uint64 numerator, 
         uint64 denominator
@@ -311,7 +318,7 @@ abstract contract CommunityCoinBase is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(tokenErc20, duration, donations, numerator, denominator);
+        return _produce(tokenErc20, duration, bonusTokenFraction, donations, numerator, denominator);
     }
 
     /**
@@ -503,6 +510,7 @@ abstract contract CommunityCoinBase is
     
     function _produce(
         uint64 duration, 
+        uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
         uint64 reserveTokenClaimFraction, 
         uint64 tradedTokenClaimFraction, 
@@ -517,6 +525,7 @@ abstract contract CommunityCoinBase is
             reserveToken, 
             tradedToken, 
             duration, 
+            bonusTokenFraction,
             donations,
             reserveTokenClaimFraction, 
             tradedTokenClaimFraction, 
@@ -530,6 +539,7 @@ abstract contract CommunityCoinBase is
     function _produce(
         address tokenErc20, 
         uint64 duration, 
+        uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
         uint64 numerator, 
         uint64 denominator
@@ -540,6 +550,7 @@ abstract contract CommunityCoinBase is
         instance = instanceManagment.produceErc20(
             tokenErc20, 
             duration, 
+            bonusTokenFraction,
             donations, 
             numerator,
             denominator
