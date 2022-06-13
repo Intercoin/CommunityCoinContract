@@ -33,8 +33,8 @@ const FRACTION = 100000;
 
 const NO_DONATIONS = [];
 
-const BONUSFRACTION = ZERO; // no bonus. means 0*BONUSFRACTION/FRACTION = 0
-
+const NO_BONUS_FRACTIONS = ZERO; // no bonus. means amount*NO_BONUS_FRACTIONS/FRACTION = X*0/100000 = 0
+const BONUS_FRACTIONS = 50000; // 50%
 
 
 function convertToHex(str) {
@@ -214,7 +214,7 @@ describe("Staking contract tests", function () {
     it("shouldnt create with uniswap pair exists", async() => {
         await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
             lockupIntervalCount,
-            BONUSFRACTION,
+            NO_BONUS_FRACTIONS,
             NO_DONATIONS,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
@@ -228,7 +228,7 @@ describe("Staking contract tests", function () {
 
         await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
             lockupIntervalCount,
-            BONUSFRACTION,
+            NO_BONUS_FRACTIONS,
             NO_DONATIONS,
             wrongClaimFraction,
             tradedTokenClaimFraction,
@@ -238,7 +238,7 @@ describe("Staking contract tests", function () {
         )).to.be.revertedWith("CommunityCoin: WRONG_CLAIM_FRACTION");
         await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
             lockupIntervalCount,
-            BONUSFRACTION,
+            NO_BONUS_FRACTIONS,
             NO_DONATIONS,
             reserveTokenClaimFraction,
             wrongClaimFraction,
@@ -280,7 +280,7 @@ describe("Staking contract tests", function () {
 
         let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
             lockupIntervalCount,
-            BONUSFRACTION,
+            NO_BONUS_FRACTIONS,
             NO_DONATIONS,
             reserveTokenClaimFraction,
             tradedTokenClaimFraction,
@@ -335,7 +335,7 @@ describe("Staking contract tests", function () {
 
             let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
                 lockupIntervalCount,
-                BONUSFRACTION,
+                NO_BONUS_FRACTIONS,
                 DONATIONS,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
@@ -393,6 +393,150 @@ describe("Staking contract tests", function () {
 
     });
 
+    describe("Bonus tests", function () {
+        var uniswapRouterFactoryInstance;
+        var uniswapRouterInstance;
+        var communityStakingPool;
+        var communityStakingPoolBonus;
+        var pairInstance;
+
+        beforeEach("deploying", async() => {
+        
+            uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
+            uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+            await uniswapRouterFactoryInstance.createPair(erc20ReservedToken.address, erc20TradedToken.address);
+        
+            let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20ReservedToken.address, erc20TradedToken.address);
+
+            pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
+
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(TEN));
+            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(TEN));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
+            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
+
+            const ts = await time.latest();
+            const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                erc20ReservedToken.address,
+                erc20TradedToken.address,
+                ONE_ETH.mul(SEVEN),
+                ONE_ETH.mul(SEVEN),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            
+        });
+
+        it("buyAddLiquidityAndStake (Bonus:50%)", async () => {
+
+            let func = async (param_bonus_fractions) => {
+                
+                let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+                    lockupIntervalCount,
+                    param_bonus_fractions,
+                    NO_DONATIONS,
+                    reserveTokenClaimFraction,
+                    tradedTokenClaimFraction,
+                    lpClaimFraction,
+                    numerator,
+                    denominator
+                )
+
+                const rc = await tx.wait(); // 0ms, as tx is already confirmed
+                const event = rc.events.find(event => event.event === 'InstanceCreated');
+                const [tokenA, tokenB, instance] = event.args;
+                //console.log(tokenA, tokenB, instance, instancesCount);
+
+                communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
+                //console.log("before each №2");
+
+                await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(TEN));
+                await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
+
+                const ts2 = await time.latest();
+                const timeUntil2 = parseInt(ts2)+parseInt(lockupIntervalCount*dayInSeconds);
+
+                await uniswapRouterInstance.connect(liquidityHolder).addLiquidityETH(
+                    erc20ReservedToken.address,
+                    ONE_ETH.mul(TEN),
+                    0,
+                    0,
+                    liquidityHolder.address,
+                    timeUntil2,
+                    {value: ONE_ETH.mul(TEN) }
+                );
+                //--------------------------------------------------------
+                await communityStakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+            
+                let bobWalletTokens = await CommunityCoin.balanceOf(bob.address);
+
+                
+
+                return bobWalletTokens;
+            }
+            // here we: 
+            // - calculate how much tokens user will obtain without bonuses 
+            // - store them in `tokensWithNoBonus`
+            // - revert snapshot
+            // - calculate how much tokens user will obtain WITH bonuses (50%)
+            // - store them in `tokensWithBonus`
+            // - validate that bonus token shouldn't be unstaked even if duration pass
+            // - validate that bonus token can be transfer and consuming in first order
+
+
+            let snapId;
+
+            // make snapshot before time manipulations
+            snapId = await ethers.provider.send('evm_snapshot', []);
+            let tokensWithNoBonus = await func(NO_BONUS_FRACTIONS);
+
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+
+            // pass some mtime
+            await time.increase(lockupIntervalCount*dayInSeconds+9);    
+
+            await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithNoBonus);
+            await CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus);
+
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+            //--------------------------------------------------------------
+            snapId = await ethers.provider.send('evm_snapshot', []);
+            let tokensWithBonus = await func(BONUS_FRACTIONS);
+
+            
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+
+            // pass some mtime
+            await time.increase(lockupIntervalCount*dayInSeconds+9);    
+
+
+            await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithBonus);
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith("insufficient amount");
+
+            await CommunityCoin.connect(bob).transfer(alice.address, tokensWithBonus.sub(tokensWithNoBonus));
+
+            await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithNoBonus);
+            await CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus);
+
+
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+
+            // finally check correct amount of bonuses
+            let expectedBonusAmount = tokensWithNoBonus.mul(BONUS_FRACTIONS).div(FRACTION);
+            expect(tokensWithBonus).to.be.eq(tokensWithNoBonus.add(expectedBonusAmount));
+
+        });  
+    });
+
     describe("Hook tests", function () {   
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;
@@ -432,7 +576,7 @@ describe("Staking contract tests", function () {
 
             let tx = await CommunityCoinWithHook.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
                 lockupIntervalCount,
-                BONUSFRACTION,
+                NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
@@ -519,7 +663,7 @@ describe("Staking contract tests", function () {
             let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
-                BONUSFRACTION,
+                NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
                 numerator,
                 denominator
@@ -539,7 +683,7 @@ describe("Staking contract tests", function () {
             await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
-                BONUSFRACTION,
+                NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
                 numerator,
                 denominator
@@ -550,7 +694,7 @@ describe("Staking contract tests", function () {
             
             await expect(CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
                 lockupIntervalCount,
-                BONUSFRACTION,
+                NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
@@ -845,7 +989,7 @@ describe("Staking contract tests", function () {
 
             let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
                 lockupIntervalCount,
-                BONUSFRACTION,
+                NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
@@ -946,7 +1090,7 @@ describe("Staking contract tests", function () {
         it("shouldnt create another pair with equal tokens", async() => {
             await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
                 lockupIntervalCount,
-                BONUSFRACTION,
+                NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
                 reserveTokenClaimFraction,
                 tradedTokenClaimFraction,
@@ -960,7 +1104,7 @@ describe("Staking contract tests", function () {
           await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
-                BONUSFRACTION,
+                NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
                 numerator,
                 denominator
@@ -1464,7 +1608,7 @@ describe("Staking contract tests", function () {
                 expect(data[0].reserveToken).to.be.eq(erc20ReservedToken.address);
                 expect(data[0].tradedToken).to.be.eq(erc20TradedToken.address);
                 expect(data[0].duration).to.be.eq(lockupIntervalCount);
-                expect(data[0].bonusTokenFraction).to.be.eq(BONUSFRACTION);
+                expect(data[0].bonusTokenFraction).to.be.eq(NO_BONUS_FRACTIONS);
                 
             }); 
             

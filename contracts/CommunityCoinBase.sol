@@ -20,7 +20,8 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 
-import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
+//import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
+import "./minimums/libs/MinimumsLib.sol";
 
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "./interfaces/ICommunity.sol";
@@ -33,18 +34,19 @@ abstract contract CommunityCoinBase is
     ICommunityCoin,
     ERC777Upgradeable, 
     
-    MinimumsBaseUpgradeable, 
+    //MinimumsBaseUpgradeable, 
     IERC777RecipientUpgradeable, 
     ReentrancyGuardUpgradeable
 {
-    
+    using MinimumsLib for MinimumsLib.UserStruct;
 
     /**
     * strategy ENUM VARS used in calculation algos
     */
     enum Strategy{ UNSTAKE, UNSTAKE_AND_REMOVE_LIQUIDITY, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
     
-    uint32 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
+    uint64 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
+    uint64 internal constant LOCKUP_BONUS_INTERVAL = 1000*365*24*60*60; // 300 years in seconds
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
     //uint64 public constant CIRCULATION_DURATION = 365*24*60*60; //year by default. will be used if circulation added to minimums
@@ -72,6 +74,10 @@ abstract contract CommunityCoinBase is
     //EnumerableSet.AddressSet private rewardTokensList;
     //mapping(address => uint256) public rewardTokenRatios;
     mapping(address => uint256) internal unstakeable;
+
+
+    mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
+    mapping(address => MinimumsLib.UserStruct) internal tokensBonus;
 
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
@@ -110,7 +116,6 @@ abstract contract CommunityCoinBase is
         //__Ownable_init();
         __TrustedForwarder_init();
         __ERC777_init(tokenName, tokenSymbol, (new address[](0)));
-        __MinimumsBaseUpgradeable_init(LOCKUP_INTERVAL);
 
         //__AccessControl_init();
         __ReentrancyGuard_init();
@@ -155,36 +160,37 @@ abstract contract CommunityCoinBase is
   
         require(instanceInfo.exists == true);
      
-        _instanceStaked[instance] += amount;
+        uint256 bonusAmount = amount * instanceInfo.bonusTokenFraction / FRACTION;
+        uint256 totalAmount = amount + bonusAmount;
 
-        
-        // uint256 bonusAmount = 0; 
-        // if (address(hook) != address(0)) {
-        //     bonusAmount = hook.bonus(instance, account, instanceInfo.duration, amount);
-        // }
+        //forward conversion( LP -> СС)
+        totalAmount = totalAmount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
+        bonusAmount = bonusAmount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
+        amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
 
-        amount += amount * instanceInfo.bonusTokenFraction / FRACTION;
+        _instanceStaked[instance] += totalAmount;
+
 
         if (address(hook) != address(0)) {
             hook.bonus(instance, account, instanceInfo.duration, amount);
         }
         //totalExtra += bonusAmount;
         
-        unstakeable[account] += amount;
-        totalUnstakeable += amount;
+        unstakeable[account] += totalAmount;
+        totalUnstakeable += totalAmount;
         
         // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
         // also keep in mind that user can unstake only unstakeable[account] which saved w/o bonusTokens, but minimums and mint with it.
         // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
         // amount += bonusAmount;
 
-        //forward conversion( LP -> СС)
-        amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
 
       
-        _mint(account, amount, "", "");
-        emit Staked(account, amount, priceBeforeStake);
-        _minimumsAdd(account, amount, instanceInfo.duration, false);
+        _mint(account, totalAmount, "", "");
+        emit Staked(account, totalAmount, priceBeforeStake);
+
+        tokensLocked[account]._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+        tokensBonus[account]._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
 
     }
     
@@ -365,7 +371,7 @@ abstract contract CommunityCoinBase is
         
         require (amount <= balance, "INSUFFICIENT_BALANCE");
         
-        uint256 locked = _getMinimum(account);
+        uint256 locked = tokensLocked[account]._getMinimum();
         uint256 remainingAmount = balance - amount;
         require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
 
@@ -447,7 +453,7 @@ abstract contract CommunityCoinBase is
         view 
         returns (uint256 amount) 
     {
-        amount = _getMinimum(account);
+        amount = tokensLocked[account]._getMinimum()+tokensBonus[account]._getMinimum();
     }   
 
     function viewLockedWalletTokensList(
@@ -457,7 +463,7 @@ abstract contract CommunityCoinBase is
         view 
         returns (uint256[][] memory) 
     {
-        return _getMinimumList(account);
+        return tokensLocked[account]._getMinimumList();
     }   
 
     function grantRole(bytes32 role, address account) onlyOwner() public {
@@ -632,6 +638,11 @@ abstract contract CommunityCoinBase is
             amountLeft = amountLeft / FRACTION;
 
         }
+        if (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
+            require(totalSupplyBefore-tokensBonus[account]._getMinimum() >= amountLeft, "insufficient amount");
+            // tokensLocked[account]._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+            // tokensBonus[account]._minimumsAdd(bonusAmount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+        }
 
         for (uint256 i = 0; i < preferredInstances.length; i++) {
             
@@ -804,11 +815,22 @@ abstract contract CommunityCoinBase is
                         // unstakeable[from] means as locked var. but not equal: locked can be less than unstakeable[from]
                         
                         
-                        uint256 locked = _getMinimum(from);
+                        uint256 locked = tokensLocked[from]._getMinimum();
+                        uint256 lockedBonus = tokensBonus[from]._getMinimum();
                         //else drop locked minimum, but remove minimums even if remaining was enough
                         //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
-                        if (locked > 0 && locked >= amount ) {
-                            minimumsTransfer(from, ZERO_ADDRESS, amount);
+                        if (locked+lockedBonus > 0 && locked+lockedBonus >= amount ) {
+                            if (lockedBonus >= amount) {
+                                tokensBonus[from].minimumsTransfer(tokensLocked[address(0)], true, amount);
+                            } else {
+                                uint256 left = amount;
+                                if (lockedBonus > 0) {
+                                    tokensBonus[from].minimumsTransfer(tokensLocked[address(0)], true, lockedBonus);
+                                    left-= lockedBonus;
+                                }
+                                tokensLocked[from].minimumsTransfer(tokensLocked[address(0)], true, left);
+                            }
+                            
                         }
                         //-----------------------------------
                         // uint256 r = unstakeable[from] - remainingAmount;
