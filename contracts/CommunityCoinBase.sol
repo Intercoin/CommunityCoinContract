@@ -461,9 +461,12 @@ abstract contract CommunityCoinBase is
     ) 
         public 
         view 
-        returns (uint256[][] memory) 
+        returns (uint256[][] memory, uint256[][] memory) 
     {
-        return tokensLocked[account]._getMinimumList();
+        return(
+            tokensLocked[account]._getMinimumList(),
+            tokensBonus[account]._getMinimumList()
+        );
     }   
 
     function grantRole(bytes32 role, address account) onlyOwner() public {

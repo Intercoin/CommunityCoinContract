@@ -514,9 +514,22 @@ describe("Staking contract tests", function () {
             await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
             await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
 
+            ////// validate `viewLockedWalletTokens` and `viewLockedWalletTokensList`
+            let bobSharesAfter = await CommunityCoin.balanceOf(bob.address);
+            let bobLockedListAfter, bobBonusesListAfter;
+
+            let bobLockedBalanceAfter = await CommunityCoin.connect(bob).viewLockedWalletTokens(bob.address);
+            [bobLockedListAfter, bobBonusesListAfter] = await CommunityCoin.connect(bob).viewLockedWalletTokensList(bob.address);
+
+            expect(bobLockedBalanceAfter).to.be.eq(bobSharesAfter);
+            expect(bobLockedBalanceAfter).to.be.eq(tokensWithBonus);
+
+            expect(tokensWithNoBonus).to.be.eq(bobLockedListAfter[0][0]);
+            expect(tokensWithBonus.sub(tokensWithNoBonus)).to.be.eq(bobBonusesListAfter[0][0]);
+            ////// ENDOF validate `viewLockedWalletTokens` and `viewLockedWalletTokensList`
+            
             // pass some mtime
             await time.increase(lockupIntervalCount*dayInSeconds+9);    
-
 
             await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithBonus);
             await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith("insufficient amount");
@@ -803,9 +816,11 @@ describe("Staking contract tests", function () {
             await communityStakingPoolErc20.connect(bob)['buyAndStake(uint256)'](ONE_ETH.mul(ONE));
 
             let bobSharesAfter = await CommunityCoin.balanceOf(bob.address);
+            let bobLockedListAfter, bobBonusesListAfter;
 
             let bobLockedBalanceAfter = await CommunityCoin.connect(bob).viewLockedWalletTokens(bob.address);
-            let bobLockedListAfter = await CommunityCoin.connect(bob).viewLockedWalletTokensList(bob.address);
+            [bobLockedListAfter, bobBonusesListAfter] = await CommunityCoin.connect(bob).viewLockedWalletTokensList(bob.address);
+
             let aliceLockedBalanceAfter = await CommunityCoin.connect(bob).viewLockedWalletTokens(alice.address);
             expect(aliceLockedBalanceAfter).to.be.eq(ZERO);
             expect(bobLockedBalanceAfter).to.be.eq(bobSharesAfter);
