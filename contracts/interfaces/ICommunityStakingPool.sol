@@ -9,9 +9,8 @@ interface ICommunityStakingPool {
         address reserveToken_,
         address tradedToken_, 
         IStructs.StructAddrUint256[] memory donations_,
-        uint64 tradedTokenClaimFraction_, 
-        uint64 reserveTokenClaimFraction_,
-        uint64 lpClaimFraction_
+        uint64 lpFraction_,
+        address lpFractionBeneficiary_
     ) external;
     /*
     function stake(address addr, uint256 amount) external;

@@ -153,9 +153,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         uint64 duration,
         uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
-        uint64 reserveTokenClaimFraction,
-        uint64 tradedTokenClaimFraction,
-        uint64 lpClaimFraction,
+        uint64 lpFraction,
+        address lpFractionBeneficiary,
         uint64 numerator,
         uint64 denominator
         
@@ -166,8 +165,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         require (msg.sender == creator);
 
         _createInstanceValidate(
-            reserveToken, tradedToken, duration, bonusTokenFraction, 
-            reserveTokenClaimFraction, tradedTokenClaimFraction
+            reserveToken, tradedToken, duration, bonusTokenFraction, lpFraction, lpFractionBeneficiary
         );
 
         address instanceCreated = _createInstance(
@@ -175,9 +173,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             tradedToken, 
             duration, 
             bonusTokenFraction,
-            reserveTokenClaimFraction, 
-            tradedTokenClaimFraction, 
-            lpClaimFraction, 
+            lpFraction, 
+            lpFractionBeneficiary,
             numerator, 
             denominator
         );
@@ -191,7 +188,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //     );
         // } else {
             ICommunityStakingPool(instanceCreated).initialize(
-                creator, reserveToken,  tradedToken, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
+                creator, reserveToken,  tradedToken, donations, lpFraction, lpFractionBeneficiary
             );
         // }
         
@@ -204,6 +201,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         uint64 duration,
         uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
+        uint64 lpFraction,
+        address lpFractionBeneficiary,
         uint64 numerator,
         uint64 denominator
     ) 
@@ -212,12 +211,14 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     {
         require (msg.sender == creator);
 
-        _createInstanceErc20Validate(tokenErc20, duration, bonusTokenFraction);
+        _createInstanceErc20Validate(tokenErc20, duration, bonusTokenFraction, lpFraction, lpFractionBeneficiary);
 
         address instanceCreated = _createInstanceErc20(
             tokenErc20, 
             duration, 
             bonusTokenFraction,
+            lpFraction,
+            lpFractionBeneficiary,
             numerator, 
             denominator
         );
@@ -231,7 +232,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //     );
         // } else {
             ICommunityStakingPoolErc20(instanceCreated).initialize(
-                creator, tokenErc20, donations
+                creator, tokenErc20, donations, lpFraction, lpFractionBeneficiary
             );
         // }
         
@@ -244,12 +245,12 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address tradedToken, 
         uint64 duration, 
         uint64 bonusTokenFraction,
-        uint64 tradedClaimFraction, 
-        uint64 reserveClaimFraction
+        uint64 lpFraction,
+        address lpFractionBeneficiary
     ) internal view {
         require(reserveToken != tradedToken, "CommunityCoin: IDENTICAL_ADDRESSES");
         require(reserveToken != address(0) && tradedToken != address(0), "CommunityCoin: ZERO_ADDRESS");
-        require(tradedClaimFraction <= FRACTION && reserveClaimFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
+        require(lpFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
         address instance = getInstance[reserveToken][tradedToken][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
         require(
@@ -262,10 +263,13 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function _createInstanceErc20Validate(
         address tokenErc20,
         uint64 duration,
-        uint64 bonusTokenFraction
+        uint64 bonusTokenFraction,
+        uint64 lpFraction,
+        address lpFractionBeneficiary
     ) internal view {
         address instance = getInstanceErc20[tokenErc20][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
+        require(lpFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
         require(
             typeProducedByFactory == InstanceType.NONE ||
             typeProducedByFactory == InstanceType.ERC20, 
@@ -278,9 +282,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address tradedToken, 
         uint64 duration, 
         uint64 bonusTokenFraction,
-        uint64 reserveTokenClaimFraction, 
-        uint64 tradedTokenClaimFraction, 
-        uint64 lpClaimFraction,
+        uint64 lpFraction,
+        address lpFractionBeneficiary,
         uint64 numerator,
         uint64 denominator
     ) internal returns (address instance) {
@@ -300,9 +303,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             duration, 
             bonusTokenFraction,
             tradedToken,
-            reserveTokenClaimFraction,
-            tradedTokenClaimFraction,
-            lpClaimFraction,
+            lpFraction,
+            lpFractionBeneficiary,
             numerator,
             denominator,
             true,
@@ -320,6 +322,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address tokenErc20,
         uint64 duration,
         uint64 bonusTokenFraction,
+        uint64 lpFraction,
+        address lpFractionBeneficiary,
         uint64 numerator,
         uint64 denominator
     ) internal returns (address instance) {
@@ -339,9 +343,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             duration, 
             bonusTokenFraction,
             address(0),
-            0,
-            0,
-            0,
+            lpFraction,
+            lpFractionBeneficiary,
             numerator,
             denominator,
             true,
@@ -382,9 +385,9 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             //1 calculate  how much traded and reserve tokens we will obtain if redeem and remove liquidity from uniswap
             // take into account LpFraction
             adjusted = 
-                _instanceInfos[instancesToRedeem[i]].lpClaimFraction != 0
+                _instanceInfos[instancesToRedeem[i]].lpFraction != 0
                 ?
-                valuesToRedeem[i] - valuesToRedeem[i] * _instanceInfos[instancesToRedeem[i]].lpClaimFraction / FRACTION
+                valuesToRedeem[i] - valuesToRedeem[i] * _instanceInfos[instancesToRedeem[i]].lpFraction / FRACTION
                 :
                 valuesToRedeem[i]
                 ;
@@ -393,12 +396,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
                 adjusted //valuesToRedeem[i]
             );
 
-            if (_instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction != 0) {
-                tradedAmount = tradedAmount - tradedAmount * _instanceInfos[instancesToRedeem[i]].tradedTokenClaimFraction / FRACTION;
-            }
-            if (_instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction != 0) {
-                reserveAmount = reserveAmount - reserveAmount * _instanceInfos[instancesToRedeem[i]].reserveTokenClaimFraction / FRACTION;
-            }
             
             uint256 amountTmp;
             address tokenTmp;

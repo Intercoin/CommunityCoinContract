@@ -34,6 +34,18 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     // if donations does not empty then after staking any tokens will obtain proportionally by donations.address(end user) in donations.amount(ratio)
     IStructs.StructAddrUint256[] donations;
 
+    /**
+    * @custom:shortd beneficiary's address which obtain lpFraction of LP tokens
+    * @notice beneficiary's address which obtain lpFraction of LP tokens
+    */
+
+    address public lpFractionBeneficiary;
+    /**
+    * @custom:shortd fraction of LP token multiplied by `FRACTION`
+    * @notice fraction of LP token multiplied by `FRACTION`
+    */
+    uint64 public lpFraction;
+
     modifier onlyStaking() {
         require(stakingProducedBy == msg.sender);
         _;
@@ -82,16 +94,22 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     * @notice initialize method. Called once by the factory at time of deployment
     * @param stakingProducedBy_ address of Community Coin token. 
     * @param donations_ array of tuples [[address,uint256],...] account, ratio
+    * @param lpFraction_ fraction of LP token multiplied by `FRACTION`. 
+    * @param lpFractionBeneficiary_ beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function CommunityStakingPoolBase_init(
         address stakingProducedBy_,
-        IStructs.StructAddrUint256[] memory donations_
+        IStructs.StructAddrUint256[] memory donations_,
+        uint64 lpFraction_,
+        address lpFractionBeneficiary_
     ) 
         onlyInitializing
         internal
     {
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
+        lpFraction = lpFraction_;
+        lpFractionBeneficiary = lpFractionBeneficiary_;
 
         //donations = donations_; 
         // UnimplementedFeatureError: Copying of type struct IStructs.StructAddrUint256 memory[] memory to storage not yet supported.

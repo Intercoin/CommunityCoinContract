@@ -277,9 +277,8 @@ abstract contract CommunityCoinBase is
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
     * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distirbuted when user stakes
     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
-    * @param reserveTokenClaimFraction fraction of reserved token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
-    * @param tradedTokenClaimFraction fraction of traded token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
-    * @param lpClaimFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
+    * @param lpFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
+    * @param lpFractionBeneficiary beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
     * @param numerator used in conversion LP/CC
     * @param denominator used in conversion LP/CC
     * @return instance address of created instance pool `CommunityStakingPool`
@@ -290,9 +289,8 @@ abstract contract CommunityCoinBase is
         uint64 duration, 
         uint64 bonusTokenFraction, 
         IStructs.StructAddrUint256[] memory donations,
-        uint64 reserveTokenClaimFraction, 
-        uint64 tradedTokenClaimFraction, 
-        uint64 lpClaimFraction,
+        uint64 lpFraction,
+        address lpFractionBeneficiary,
         uint64 numerator,
         uint64 denominator
     ) 
@@ -300,7 +298,7 @@ abstract contract CommunityCoinBase is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(duration, bonusTokenFraction, donations, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction, numerator, denominator);
+        return _produce(duration, bonusTokenFraction, donations, lpFraction, lpFractionBeneficiary, numerator, denominator);
     }
 
     /**
@@ -309,6 +307,8 @@ abstract contract CommunityCoinBase is
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
     * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distirbuted when user stakes
     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
+    * @param lpFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
+    * @param lpFractionBeneficiary beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
     * @return instance address of created instance pool `CommunityStakingPoolErc20`
     * @custom:shortd creation erc20 instance with simple options
     */
@@ -317,6 +317,8 @@ abstract contract CommunityCoinBase is
         uint64 duration, 
         uint64 bonusTokenFraction, 
         IStructs.StructAddrUint256[] memory donations, 
+        uint64 lpFraction,
+        address lpFractionBeneficiary,
         uint64 numerator, 
         uint64 denominator
     ) 
@@ -324,7 +326,7 @@ abstract contract CommunityCoinBase is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(tokenErc20, duration, bonusTokenFraction, donations, numerator, denominator);
+        return _produce(tokenErc20, duration, bonusTokenFraction, donations, lpFraction, lpFractionBeneficiary, numerator, denominator);
     }
 
     /**
@@ -528,9 +530,8 @@ abstract contract CommunityCoinBase is
         uint64 duration, 
         uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
-        uint64 reserveTokenClaimFraction, 
-        uint64 tradedTokenClaimFraction, 
-        uint64 lpClaimFraction,
+        uint64 lpFraction,
+        address lpFractionBeneficiary,
         uint64 numerator,
         uint64 denominator
     ) 
@@ -543,9 +544,8 @@ abstract contract CommunityCoinBase is
             duration, 
             bonusTokenFraction,
             donations,
-            reserveTokenClaimFraction, 
-            tradedTokenClaimFraction, 
-            lpClaimFraction, 
+            lpFraction, 
+            lpFractionBeneficiary,
             numerator, 
             denominator
         );
@@ -557,6 +557,8 @@ abstract contract CommunityCoinBase is
         uint64 duration, 
         uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
+        uint64 lpFraction,
+        address lpFractionBeneficiary,
         uint64 numerator, 
         uint64 denominator
     ) 
@@ -568,6 +570,8 @@ abstract contract CommunityCoinBase is
             duration, 
             bonusTokenFraction,
             donations, 
+            lpFraction, 
+            lpFractionBeneficiary,
             numerator,
             denominator
         );

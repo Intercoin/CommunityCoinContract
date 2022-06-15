@@ -7,7 +7,9 @@ interface ICommunityStakingPoolErc20 {
     function initialize(
         address stakingProducedBy_,
         address token_,
-        IStructs.StructAddrUint256[] memory donations_
+        IStructs.StructAddrUint256[] memory donations_,
+        uint64 lpFraction_,
+        address lpFractionBeneficiary_
     ) external;
 
     function redeem(address account, uint256 amount) external;

@@ -4,6 +4,10 @@ pragma solidity ^0.8.0;
 import "../interfaces/IHook.sol";
 contract MockHook is IHook {
 
+    // caller which can call methods `bonus`
+    address internal caller;
+
+
     bool internal hTransferFlag;
     uint256 internal hAmount;
 
@@ -15,6 +19,18 @@ contract MockHook is IHook {
     {
         hTransferFlag = boolFlag;
         hAmount = amount;
+    }
+
+    
+    modifier onlyCaller() {
+        require(msg.sender == caller, "access denied");
+        _;
+    }
+
+    
+    function setupCaller() external override {
+        require(caller == address(0), "already setup");
+        caller = msg.sender;
     }
 
     function claim(

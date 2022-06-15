@@ -61,17 +61,13 @@ describe("Staking contract tests", function () {
     const david = accounts[4];
     const frank = accounts[5];
     
-    
-    const reserveTokenClaimFraction = 0;
-    const tradedTokenClaimFraction = 0;
-    const lpClaimFraction = 1000;
+    const lpFraction = 1000;
     const numerator = 1;
     const denominator = 1;
     const dayInSeconds = 24*60*60; // * interval: DAY in seconds
     const lockupIntervalCount = 365; // year in days(dayInSeconds)
     const percentLimitLeftTokenB = 0.001;
 
-    const wrongClaimFraction = 99999999999;
     const discountSensitivity = 1*FRACTION;
 
     var implementationCommunityCoin;
@@ -212,42 +208,17 @@ describe("Staking contract tests", function () {
     }); 
 
     it("shouldnt create with uniswap pair exists", async() => {
-        await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+        await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
             lockupIntervalCount,
             NO_BONUS_FRACTIONS,
             NO_DONATIONS,
-            reserveTokenClaimFraction,
-            tradedTokenClaimFraction,
-            lpClaimFraction,
+            lpFraction,
+            ZERO_ADDRESS,
             numerator,
             denominator
         )).to.be.revertedWith("NO_UNISWAP_V2_PAIR");
     });
     
-    it("shouldnt create with wrong fractions", async() => {
-
-        await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
-            lockupIntervalCount,
-            NO_BONUS_FRACTIONS,
-            NO_DONATIONS,
-            wrongClaimFraction,
-            tradedTokenClaimFraction,
-            lpClaimFraction,
-            numerator,
-            denominator
-        )).to.be.revertedWith("CommunityCoin: WRONG_CLAIM_FRACTION");
-        await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
-            lockupIntervalCount,
-            NO_BONUS_FRACTIONS,
-            NO_DONATIONS,
-            reserveTokenClaimFraction,
-            wrongClaimFraction,
-            lpClaimFraction,
-            numerator,
-            denominator
-        )).to.be.revertedWith("CommunityCoin: WRONG_CLAIM_FRACTION");
-    });
-
     it("should produce with default values", async() => {
         let uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
         let uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
@@ -278,13 +249,12 @@ describe("Staking contract tests", function () {
         );
 
 
-        let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+        let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
             lockupIntervalCount,
             NO_BONUS_FRACTIONS,
             NO_DONATIONS,
-            reserveTokenClaimFraction,
-            tradedTokenClaimFraction,
-            lpClaimFraction,
+            lpFraction,
+            ZERO_ADDRESS,
             numerator,
             denominator
         )
@@ -333,13 +303,12 @@ describe("Staking contract tests", function () {
                 timeUntil
             );
 
-            let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+            let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 DONATIONS,
-                reserveTokenClaimFraction,
-                tradedTokenClaimFraction,
-                lpClaimFraction,
+                lpFraction,
+                ZERO_ADDRESS,
                 numerator,
                 denominator
             )
@@ -437,13 +406,12 @@ describe("Staking contract tests", function () {
 
             let func = async (param_bonus_fractions) => {
                 
-                let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+                let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                     lockupIntervalCount,
                     param_bonus_fractions,
                     NO_DONATIONS,
-                    reserveTokenClaimFraction,
-                    tradedTokenClaimFraction,
-                    lpClaimFraction,
+                    lpFraction,
+                    ZERO_ADDRESS,
                     numerator,
                     denominator
                 )
@@ -587,13 +555,12 @@ describe("Staking contract tests", function () {
                 timeUntil
             );
 
-            let tx = await CommunityCoinWithHook.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+            let tx = await CommunityCoinWithHook.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
-                reserveTokenClaimFraction,
-                tradedTokenClaimFraction,
-                lpClaimFraction,
+                lpFraction,
+                ZERO_ADDRESS,
                 numerator,
                 denominator
             )
@@ -673,11 +640,13 @@ describe("Staking contract tests", function () {
     describe("ERC20 pool tests", function () { 
         var communityStakingPoolErc20; 
         beforeEach("deploying", async() => { 
-            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64)"](
+            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
+                lpFraction,
+                ZERO_ADDRESS,
                 numerator,
                 denominator
             );
@@ -693,11 +662,13 @@ describe("Staking contract tests", function () {
         });
         
         it("shouldnt create another pair with equal tokens", async() => {
-            await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64)"](
+            await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
+                lpFraction,
+                ZERO_ADDRESS,
                 numerator,
                 denominator
             )).to.be.revertedWith("CommunityCoin: PAIR_ALREADY_EXISTS");
@@ -705,13 +676,12 @@ describe("Staking contract tests", function () {
 
         it("shouldn't produce another instance type", async() => {
             
-            await expect(CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+            await expect(CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
-                reserveTokenClaimFraction,
-                tradedTokenClaimFraction,
-                lpClaimFraction,
+                lpFraction,
+                ZERO_ADDRESS,
                 numerator,
                 denominator
             )).to.be.revertedWith("CommunityCoin: INVALID_INSTANCE_TYPE");
@@ -1002,13 +972,12 @@ describe("Staking contract tests", function () {
 
             //--------------------------------------------------
 
-            let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+            let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
-                reserveTokenClaimFraction,
-                tradedTokenClaimFraction,
-                lpClaimFraction,
+                lpFraction,
+                ZERO_ADDRESS,
                 numerator,
                 denominator
             )
@@ -1103,24 +1072,25 @@ describe("Staking contract tests", function () {
 
 
         it("shouldnt create another pair with equal tokens", async() => {
-            await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,uint64,uint64,uint64,uint64)"](
+            await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
-                reserveTokenClaimFraction,
-                tradedTokenClaimFraction,
-                lpClaimFraction,
+                lpFraction,
+                ZERO_ADDRESS,
                 numerator,
                 denominator
             )).to.be.revertedWith("CommunityCoin: PAIR_ALREADY_EXISTS");
         });
 
         it("shouldn't produce another instance type", async() => {
-          await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64)"](
+          await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
+                lpFraction,
+                ZERO_ADDRESS,
                 numerator,
                 denominator
             )).to.be.revertedWith("CommunityCoin: INVALID_INSTANCE_TYPE");
