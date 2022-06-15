@@ -22,7 +22,7 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>15/15</span>
+        <span class='fraction'>17/17</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">50% </span>
@@ -37,7 +37,7 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>15/15</span>
+        <span class='fraction'>17/17</span>
       </div>
     </div>
   </div>
@@ -168,7 +168,17 @@
 123
 124
 125
-126</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -223,11 +233,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">429×</span>
-<span class="cline-any cline-yes">429×</span>
-<span class="cline-any cline-yes">429×</span>
-<span class="cline-any cline-yes">429×</span>
-<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">501×</span>
+<span class="cline-any cline-yes">501×</span>
+<span class="cline-any cline-yes">501×</span>
+<span class="cline-any cline-yes">501×</span>
+<span class="cline-any cline-yes">501×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">501×</span>
+<span class="cline-any cline-yes">501×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -269,22 +289,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">429×</span>
-<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">501×</span>
+<span class="cline-any cline-yes">501×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">501×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">501×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">501×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">501×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">501×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">501×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">429×</span>
+<span class="cline-any cline-yes">501×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -329,6 +349,9 @@ contract CommunityCoinFactory is Ownable {
     */
     address public immutable rolesManagementImplementation;
 &nbsp;
+    address public immutable reserveToken;
+    address public immutable tradedToken;
+&nbsp;
     address[] public instances;
     
     event InstanceCreated(address instance, uint instancesCount);
@@ -339,13 +362,17 @@ contract CommunityCoinFactory is Ownable {
     * @param stakingPoolImpl address of StakingPool implementation
     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
     * @param rolesManagementImpl address of RolesManagement implementation
+    * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken_ address of traded token. usual it intercoin investor token
     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address stakingPoolImplErc20,
-        address rolesManagementImpl
+        address rolesManagementImpl,
+        address reserveToken_,
+        address tradedToken_
     ) 
     {
         communityCoinImplementation = communityCoinImpl;
@@ -353,6 +380,9 @@ contract CommunityCoinFactory is Ownable {
         stakingPoolImplementation = stakingPoolImpl;
         stakingPoolErc20Implementation = stakingPoolImplErc20;
         rolesManagementImplementation = rolesManagementImpl;
+&nbsp;
+        reserveToken = reserveToken_;
+        tradedToken = tradedToken_;
         
     }
 &nbsp;
@@ -407,7 +437,7 @@ contract CommunityCoinFactory is Ownable {
 &nbsp;
         ICommunityRolesManagement(rolesManagementClone).initialize(communitySettings, instance);
 &nbsp;
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone);
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone, reserveToken, tradedToken);
         
         Ownable(instance).transferOwnership(_msgSender());
         
@@ -424,7 +454,7 @@ contract CommunityCoinFactory is Ownable {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Apr 08 2022 19:26:26 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Jun 15 2022 17:15:33 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>

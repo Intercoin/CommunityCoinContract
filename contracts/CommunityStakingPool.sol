@@ -20,52 +20,29 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
  
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
-    // slot 0
     /**
     * @custom:shortd address of traded token. ie investor token - ITR
     * @notice address of traded token. ie investor token - ITR
     */
     address public tradedToken;
-    /**
-    * @custom:shortd fraction of traded token multiplied by `FRACTION`
-    * @notice fraction of traded token multiplied by `FRACTION`
-    */
-    uint64 public tradedTokenClaimFraction;
 
-    // slot 1
     /**
     * @custom:shortd address of reserve token. ie WETH,USDC,USDT,etc
     * @notice address of reserve token. ie WETH,USDC,USDT,etc
     */
     address public reserveToken;
-    /**
-    * @custom:shortd fraction of reserved token multiplied by `FRACTION`
-    * @notice fraction of reserved token multiplied by `FRACTION`
-    */
-    uint64 public reserveTokenClaimFraction;
 
-    // slot 2
     address private _token0;
-    /**
-    * @custom:shortd fraction of LP token multiplied by `FRACTION`
-    * @notice fraction of LP token multiplied by `FRACTION`
-    */
-    uint64 public lpClaimFraction;
-
-    // slot 3
     address private _token1;
-    
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
 
-    // slot 4
     address internal WETH;
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     //bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
-    // slot 5
     IUniswapV2Router02 internal UniswapV2Router02;
-    // slot 6
+
     /**
     * @custom:shortd uniswap v2 pair
     * @notice uniswap v2 pair
@@ -90,9 +67,8 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     * @param reserveToken_ address of reserve token. ie WETH,USDC,USDT,etc
     * @param tradedToken_ address of traded token. ie investor token - ITR
     * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
-    * @param tradedTokenClaimFraction_ fraction of traded token multiplied by `FRACTION`. 
-    * @param reserveTokenClaimFraction_ fraction of reserved token multiplied by `FRACTION`. 
-    * @param lpClaimFraction_ fraction of LP token multiplied by `FRACTION`. 
+    * @param lpFraction_ fraction of LP token multiplied by `FRACTION`. 
+    * @param lpFractionBeneficiary_ beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function initialize(
@@ -100,9 +76,8 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         address reserveToken_,
         address tradedToken_, 
         IStructs.StructAddrUint256[] memory donations_,
-        uint64 tradedTokenClaimFraction_, 
-        uint64 reserveTokenClaimFraction_,
-        uint64 lpClaimFraction_
+        uint64 lpFraction_,
+        address lpFractionBeneficiary_
     ) 
         initializer 
         external 
@@ -111,10 +86,9 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         // setup swap addresses
         (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
 
-        CommunityStakingPoolBase_init(stakingProducedBy_, donations_);
+        CommunityStakingPoolBase_init(stakingProducedBy_, donations_, lpFraction_, lpFractionBeneficiary_);
 
-        (tradedToken, reserveToken, tradedTokenClaimFraction, reserveTokenClaimFraction, lpClaimFraction)
-        = (tradedToken_, reserveToken_, tradedTokenClaimFraction_, reserveTokenClaimFraction_, lpClaimFraction_);
+        (tradedToken, reserveToken) = (tradedToken_, reserveToken_);
         
         UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
         WETH = UniswapV2Router02.WETH();
@@ -476,8 +450,11 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
             address(this),//address to,
             block.timestamp//uint deadline
         );
-        _fractionAmountSend(tradedToken, amountA, tradedTokenClaimFraction, stakingProducedBy, sender);
-        _fractionAmountSend(reserveToken, amountB, reserveTokenClaimFraction, stakingProducedBy, sender);
+        // _fractionAmountSend(tradedToken, amountA, tradedTokenClaimFraction, stakingProducedBy, sender);
+        // _fractionAmountSend(reserveToken, amountB, reserveTokenClaimFraction, stakingProducedBy, sender);
+        _fractionAmountSend(tradedToken, amountA, 0, stakingProducedBy, sender);
+        _fractionAmountSend(reserveToken, amountB, 0, stakingProducedBy, sender);
+        
     }
     
     function __redeem(
@@ -491,7 +468,13 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
         // transfer and burn moved to upper level
-        amount2Redeem = _fractionAmountSend(address(uniswapV2Pair), amount, lpClaimFraction, stakingProducedBy, address(0));
+        amount2Redeem = _fractionAmountSend(
+            address(uniswapV2Pair), 
+            amount, 
+            lpFraction, 
+            lpFractionBeneficiary == address(0) ? stakingProducedBy : lpFractionBeneficiary, 
+            address(0)
+        );
     }
 
     /**

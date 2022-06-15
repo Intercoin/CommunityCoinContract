@@ -25,12 +25,7 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
     * @notice address of ERC20 token. ie investor token - ITR
     */
     address public erc20Token;
-    /**
-    * @custom:shortd fraction of ERC20 token multiplied by `FRACTION`
-    * @notice fraction of ERC20 token multiplied by `FRACTION`
-    */
-    uint64 public erc20TokenClaimFraction;
-    
+        
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -62,20 +57,24 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
     * @param stakingProducedBy_ address of Community Coin token. 
     * @param erc20Token_ address of ERC20 token.
     * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
+    * @param lpFraction_ fraction of LP token multiplied by `FRACTION`. 
+    * @param lpFractionBeneficiary_ beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function initialize(
         address stakingProducedBy_,
         address erc20Token_,
-        IStructs.StructAddrUint256[] memory donations_
+        IStructs.StructAddrUint256[] memory donations_,
+        uint64 lpFraction_,
+        address lpFractionBeneficiary_
     ) 
         initializer 
         external 
         override 
     {
-        CommunityStakingPoolBase_init(stakingProducedBy_, donations_);
+        CommunityStakingPoolBase_init(stakingProducedBy_, donations_, lpFraction_, lpFractionBeneficiary_);
         
-        (erc20Token) = (erc20Token_);
+        erc20Token = erc20Token_;
         
     }
 
@@ -179,7 +178,15 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
         // transfer and burn moved to upper level
-        amount2Redeem = _fractionAmountSend(erc20Token, amount, erc20TokenClaimFraction, stakingProducedBy, address(0));
+        amount2Redeem = _fractionAmountSend(
+            erc20Token, 
+            amount, 
+            lpFraction, 
+            lpFractionBeneficiary == address(0) ? stakingProducedBy : lpFractionBeneficiary, 
+            address(0)
+        );
     }
+
+    
     
 }
