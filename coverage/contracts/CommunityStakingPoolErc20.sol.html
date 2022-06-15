@@ -228,12 +228,14 @@
 183
 184
 185
-186</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+186
+187
+188
+189
+190
+191
+192
+193</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -303,9 +305,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -410,6 +416,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -440,12 +454,7 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
     * @notice address of ERC20 token. ie investor token - ITR
     */
     address public erc20Token;
-    /**
-    * @custom:shortd fraction of ERC20 token multiplied by `FRACTION`
-    * @notice fraction of ERC20 token multiplied by `FRACTION`
-    */
-    uint64 public erc20TokenClaimFraction;
-    
+        
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -477,20 +486,24 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
     * @param stakingProducedBy_ address of Community Coin token. 
     * @param erc20Token_ address of ERC20 token.
     * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
+    * @param lpFraction_ fraction of LP token multiplied by `FRACTION`. 
+    * @param lpFractionBeneficiary_ beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
     * @custom:shortd initialize method. Called once by the factory at time of deployment
     */
     function initialize(
         address stakingProducedBy_,
         address erc20Token_,
-        IStructs.StructAddrUint256[] memory donations_
+        IStructs.StructAddrUint256[] memory donations_,
+        uint64 lpFraction_,
+        address lpFractionBeneficiary_
     ) 
         initializer 
         external 
         override 
     {
-        CommunityStakingPoolBase_init(stakingProducedBy_, donations_);
+        CommunityStakingPoolBase_init(stakingProducedBy_, donations_, lpFraction_, lpFractionBeneficiary_);
         
-        (erc20Token) = (erc20Token_);
+        erc20Token = erc20Token_;
         
     }
 &nbsp;
@@ -594,8 +607,16 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
 &nbsp;
         // validate free amount to redeem was moved to method _beforeTokenTransfer
         // transfer and burn moved to upper level
-        amount2Redeem = _fractionAmountSend(erc20Token, amount, erc20TokenClaimFraction, stakingProducedBy, address(0));
+        amount2Redeem = _fractionAmountSend(
+            erc20Token, 
+            amount, 
+            lpFraction, 
+            lpFractionBeneficiary == address(0) ? stakingProducedBy : lpFractionBeneficiary, 
+            address(0)
+        );
     }
+&nbsp;
+    
     
 }
 &nbsp;</pre></td></tr>
@@ -604,7 +625,7 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Apr 08 2022 19:26:26 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Jun 15 2022 17:15:33 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>
