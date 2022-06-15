@@ -17,6 +17,16 @@ contract MockHook is IHook {
         hAmount = amount;
     }
 
+    function claim(
+        address /*account*/
+    )
+        external
+        override
+        
+    {
+        
+    }
+
     function bonus(
         address /*instance*/, 
         address /*account*/, 

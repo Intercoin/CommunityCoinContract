@@ -511,6 +511,13 @@ abstract contract CommunityCoinBase is
 
         return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, swapPaths);
     }
+
+    function claim() public {
+        if (address(hook) != address(0)) {
+            hook.claim(_msgSender());
+        }
+    
+    }
     
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
