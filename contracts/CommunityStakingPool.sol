@@ -2,9 +2,7 @@
 pragma solidity 0.8.11;
 
 import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
@@ -13,7 +11,7 @@ import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/ICommunityCoin.sol";
 
 import "./CommunityStakingPoolBase.sol";
-import "./libs/SwapSettingsLib.sol";
+
 // import "hardhat/console.sol";
 
 contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool {
@@ -35,13 +33,10 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     address private _token0;
     address private _token1;
 
-    address internal uniswapRouter;
-    address internal uniswapRouterFactory;
-
-    address internal WETH;
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     //bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
-    IUniswapV2Router02 internal UniswapV2Router02;
+    
+    address internal WETH;
 
     /**
     * @custom:shortd uniswap v2 pair
@@ -83,15 +78,11 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         external 
         override 
     {
-        // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
+        
 
         CommunityStakingPoolBase_init(stakingProducedBy_, donations_, lpFraction_, lpFractionBeneficiary_);
 
         (tradedToken, reserveToken) = (tradedToken_, reserveToken_);
-        
-        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
-        WETH = UniswapV2Router02.WETH();
         
         address pair =  IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
         require(pair != address(0), "NO_UNISWAP_V2_PAIR");
@@ -99,6 +90,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         _token0 = uniswapV2Pair.token0();
         _token1 = uniswapV2Pair.token1();
 
+        WETH = UniswapV2Router02.WETH();
     }
 
     /**
@@ -347,33 +339,10 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
     
-    function doSwapOnUniswap(
-        address tokenIn, 
-        address tokenOut, 
-        uint256 amountIn
-    ) 
-        internal 
-        returns(uint256 amountOut) 
-    {
-        if (tokenIn == tokenOut) {
-            // situation when WETH is a reserve token
-            amountOut = amountIn;
-        } else {
-            require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
-            address[] memory path = new address[](2);
-            path[0] = address(tokenIn);
-            path[1] = address(tokenOut);
-            // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
-            uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
-                amountIn, 0, path, address(this), block.timestamp
-            );
-            amountOut = outputAmounts[1];
-        }
-    }
-    
     function uniswapPrices(
     ) 
         internal 
+        view 
         // reserveTraded, reserveReserved, priceTraded, priceReserved
         returns(uint256, uint256, uint256, uint256)
     {
