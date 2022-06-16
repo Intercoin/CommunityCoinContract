@@ -340,7 +340,7 @@ describe("Staking contract tests", function () {
 
         it("buyAddLiquidityAndStake (donations:50% and 25%. left for sender)", async () => {
             
-            await communityStakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+            await communityStakingPool.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
             
             let bobWalletTokens = await CommunityCoin.balanceOf(bob.address);
             let poolLptokens = await pairInstance.balanceOf(communityStakingPool.address);
@@ -438,7 +438,7 @@ describe("Staking contract tests", function () {
                     {value: ONE_ETH.mul(TEN) }
                 );
                 //--------------------------------------------------------
-                await communityStakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                await communityStakingPool.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
             
                 let bobWalletTokens = await CommunityCoin.balanceOf(bob.address);
 
@@ -657,7 +657,7 @@ describe("Staking contract tests", function () {
 
         it("test bonus tokens if not set", async() => {
             await mockHook.setupVars(ZERO,true);
-            await communityStakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+            await communityStakingPoolWithHook.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
             
             walletTokens = await CommunityCoinWithHook.balanceOf(bob.address);
             lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
@@ -669,7 +669,7 @@ describe("Staking contract tests", function () {
 
         describe("test transferHook ", function () {   
             beforeEach("before each", async() => {
-                await communityStakingPoolWithHook.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                await communityStakingPoolWithHook.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
                 
                 walletTokens = await CommunityCoinWithHook.balanceOf(bob.address);
                 lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
@@ -1134,8 +1134,6 @@ describe("Staking contract tests", function () {
 
         });
 
-
-
         it("shouldnt create another pair with equal tokens", async() => {
             await expect(CommunityCoin["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64)"](
                 lockupIntervalCount,
@@ -1161,42 +1159,10 @@ describe("Staking contract tests", function () {
             )).to.be.revertedWith("CommunityCoin: INVALID_INSTANCE_TYPE");
         });
 
-        it("should stake liquidity", async() => {
-            let allLiquidityAmount = await pairInstance.balanceOf(liquidityHolder.address);
-            let halfLiquidityAmount = BigNumber.from(allLiquidityAmount).div(TWO);
-            await pairInstance.connect(liquidityHolder).transfer(alice.address, halfLiquidityAmount);
-            await pairInstance.connect(alice).approve(communityStakingPool.address, halfLiquidityAmount);
-            let lptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
-            await communityStakingPool.connect(alice)['stakeLiquidity(uint256)'](halfLiquidityAmount);
-            let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
-            expect(lptokens).not.to.be.eq(lptokensBefore);
 
-        });
+        
 
-
-        it("should sellAndStakeLiquidity", async () => {
-            let uniswapV2PairInstance = await ethers.getContractAt("IUniswapV2PairMock",await communityStakingPool.uniswapV2Pair());
-            await erc20TradedToken.mint(bob.address, ONE_ETH.mul(TEN));
-            await erc20TradedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
-            let reservesBefore = await uniswapV2PairInstance.getReserves();
-            
-            await communityStakingPool.connect(bob)['sellAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
-            
-            let shares = await CommunityCoin.balanceOf(bob.address);
-            let reservesAfter = await uniswapV2PairInstance.getReserves();
-
-            let token0 = await uniswapV2PairInstance.token0();
-            if (erc20TradedToken.address == token0) {
-                expect(reservesAfter[0]).to.be.gt(reservesBefore[0]);
-                expect(reservesAfter[1]).to.be.eq(reservesBefore[1]);
-            } else {
-                expect(reservesAfter[0]).to.be.eq(reservesBefore[0]);
-                expect(reservesAfter[1]).to.be.gt(reservesBefore[1]);
-            }
-            
-            expect(shares).not.to.be.eq(ZERO);
-        }); 
-
+        
 
         describe("TrustedForwarder", function () {
             it("should be empty after init", async() => {
@@ -1232,6 +1198,87 @@ describe("Staking contract tests", function () {
                         await CommunityCoin.connect(owner).setTrustedForwarder(trustedForwarder.address);
                     }
                 });
+
+                
+                it("should stake liquidity", async() => {
+                    let allLiquidityAmount = await pairInstance.balanceOf(liquidityHolder.address);
+                    let halfLiquidityAmount = BigNumber.from(allLiquidityAmount).div(TWO);
+                    await pairInstance.connect(liquidityHolder).transfer(alice.address, halfLiquidityAmount);
+                    await pairInstance.connect(alice).approve(communityStakingPool.address, halfLiquidityAmount);
+                    let lptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
+
+                    if (trustedForwardMode) {
+                        const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['stakeLiquidity(uint256)'](halfLiquidityAmount);
+                        dataTx.data = dataTx.data.concat((alice.address).substring(2));
+                        await trustedForwarder.sendTransaction(dataTx);
+                    } else {
+                        await communityStakingPool.connect(alice)['stakeLiquidity(uint256)'](halfLiquidityAmount);
+                    }
+                    let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
+                    expect(lptokens).not.to.be.eq(lptokensBefore);
+
+                });
+
+                it("should sellAndStakeLiquidity", async () => {
+                    let uniswapV2PairInstance = await ethers.getContractAt("IUniswapV2PairMock",await communityStakingPool.uniswapV2Pair());
+                    await erc20TradedToken.mint(bob.address, ONE_ETH.mul(TEN));
+                    await erc20TradedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+                    let reservesBefore = await uniswapV2PairInstance.getReserves();
+                    
+                    if (trustedForwardMode) {
+                        const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['sellAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
+                        dataTx.data = dataTx.data.concat((bob.address).substring(2));
+                        await trustedForwarder.sendTransaction(dataTx);
+                    } else {
+                        await communityStakingPool.connect(bob)['sellAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
+                    }
+                    let shares = await CommunityCoin.balanceOf(bob.address);
+                    let reservesAfter = await uniswapV2PairInstance.getReserves();
+
+                    let token0 = await uniswapV2PairInstance.token0();
+                    if (erc20TradedToken.address == token0) {
+                        expect(reservesAfter[0]).to.be.gt(reservesBefore[0]);
+                        expect(reservesAfter[1]).to.be.eq(reservesBefore[1]);
+                    } else {
+                        expect(reservesAfter[0]).to.be.eq(reservesBefore[0]);
+                        expect(reservesAfter[1]).to.be.gt(reservesBefore[1]);
+                    }
+                    
+                    expect(shares).not.to.be.eq(ZERO);
+                }); 
+
+                it("should addAndStakeLiquidity", async () => {
+                    let uniswapV2PairInstance = await ethers.getContractAt("IUniswapV2PairMock",await communityStakingPool.uniswapV2Pair());
+                    await erc20TradedToken.mint(bob.address, ONE_ETH.mul(TEN));
+                    await erc20TradedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+                    await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(TEN));
+                    await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+
+                    let reservesBefore = await uniswapV2PairInstance.getReserves();
+                    
+                    if (trustedForwardMode) {
+                        const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['addAndStakeLiquidity(uint256,uint256)'](ONE_ETH.mul(ONE), ONE_ETH.mul(ONE));
+                        dataTx.data = dataTx.data.concat((bob.address).substring(2));
+                        await trustedForwarder.sendTransaction(dataTx);
+                    } else {
+                        await expect( communityStakingPool.connect(bob).addAndStakeLiquidity(ZERO, ONE_ETH.mul(ONE)) ).to.be.revertedWith("AMOUNT_EMPTY");
+                        await expect( communityStakingPool.connect(bob).addAndStakeLiquidity(ONE_ETH.mul(ONE),ZERO) ).to.be.revertedWith("AMOUNT_EMPTY");
+                        await communityStakingPool.connect(bob).addAndStakeLiquidity(ONE_ETH.mul(ONE), ONE_ETH.mul(ONE));
+                    }
+                    
+                    let shares = await CommunityCoin.balanceOf(bob.address);
+                    let reservesAfter = await uniswapV2PairInstance.getReserves();
+            
+                    expect(reservesAfter[0]).to.be.gt(reservesBefore[0]);
+                    expect(reservesAfter[1]).to.be.gt(reservesBefore[1]);
+                    
+                    
+                    expect(shares).not.to.be.eq(ZERO);
+
+                }); 
+
+                describe("through erc20ReservedToken", function () {
+                });
                 
                 describe("through erc20ReservedToken", function () {
                     if (!trustedForwardMode) {
@@ -1243,7 +1290,7 @@ describe("Staking contract tests", function () {
                             let walletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
                             let lptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
                             
-                            await communityStakingPool.connect(bob)['buyLiquidityAndStake(uint256,address)'](ONE_ETH.mul(ONE), charlie.address);
+                            await communityStakingPool.connect(bob)['buyAndStakeLiquidity(uint256,address)'](ONE_ETH.mul(ONE), charlie.address);
 
                             let walletTokens = await CommunityCoin.balanceOf(charlie.address);
                             let lptokens = await pairInstance.balanceOf(communityStakingPool.address);
@@ -1266,9 +1313,9 @@ describe("Staking contract tests", function () {
                     //     let walletTokensBefore = await CommunityCoin.balanceOf(bob.address);
                     //     let lptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
 
-                    //     //await communityStakingPool.connect(alice)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                    //     //await communityStakingPool.connect(alice)['buyAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
                     //     // trick with set up msgsender for TrustedForwarder calls
-                    //     const lqBuyTx = await communityStakingPool.connect(alice).populateTransaction['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                    //     const lqBuyTx = await communityStakingPool.connect(alice).populateTransaction['buyAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
                     //     lqBuyTx.data = lqBuyTx.data.concat((bob.address).substring(2));
                     //     await alice.sendTransaction(lqBuyTx);
                     //     //-----
@@ -1303,11 +1350,11 @@ describe("Staking contract tests", function () {
                             stakingBalanceToken2Before = await erc20TradedToken.balanceOf(communityStakingPool.address);
 
                             if (trustedForwardMode) {
-                                const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                                const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
                                 await trustedForwarder.sendTransaction(dataTx);
                             } else {
-                                await communityStakingPool.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                                await communityStakingPool.connect(bob)['buyAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
                             }
 
                             stakingBalanceToken1After = await erc20ReservedToken.balanceOf(communityStakingPool.address);
@@ -1465,11 +1512,11 @@ describe("Staking contract tests", function () {
                             stakingBalanceToken2Before = await erc20TradedToken.balanceOf(communityStakingPool.address);
 
                             if (trustedForwardMode) {
-                                const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                                const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
                                 await trustedForwarder.sendTransaction(dataTx);
                             } else {
-                                await communityStakingPool.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                                await communityStakingPool.connect(bob)['buyAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
                             }
 
                             stakingBalanceToken1After = await erc20ReservedToken.balanceOf(communityStakingPool.address);
@@ -1519,11 +1566,11 @@ describe("Staking contract tests", function () {
                 
                         // now addinig liquidity through paying token will be successful
                         if (trustedForwardMode) {
-                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(address,uint256)'](erc20.address, ONE_ETH.mul(ONE));
+                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyAndStakeLiquidity(address,uint256)'](erc20.address, ONE_ETH.mul(ONE));
                             dataTx.data = dataTx.data.concat((bob.address).substring(2));
                             await trustedForwarder.sendTransaction(dataTx);
                         } else {
-                            await communityStakingPool.connect(bob)['buyLiquidityAndStake(address,uint256)'](erc20.address, ONE_ETH.mul(ONE));
+                            await communityStakingPool.connect(bob)['buyAndStakeLiquidity(address,uint256)'](erc20.address, ONE_ETH.mul(ONE));
                         }
                     
                         let walletTokens = await CommunityCoin.balanceOf(bob.address);
@@ -1543,11 +1590,11 @@ describe("Staking contract tests", function () {
 
                         // now addinig liquidity through paying token will be successful
                         if (trustedForwardMode) {
-                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(address,uint256,address)'](erc20.address, ONE_ETH.mul(ONE), charlie.address);
+                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyAndStakeLiquidity(address,uint256,address)'](erc20.address, ONE_ETH.mul(ONE), charlie.address);
                             dataTx.data = dataTx.data.concat((bob.address).substring(2));
                             await trustedForwarder.sendTransaction(dataTx);
                         } else {
-                            await communityStakingPool.connect(bob)['buyLiquidityAndStake(address,uint256,address)'](erc20.address, ONE_ETH.mul(ONE), charlie.address);
+                            await communityStakingPool.connect(bob)['buyAndStakeLiquidity(address,uint256,address)'](erc20.address, ONE_ETH.mul(ONE), charlie.address);
                         }
                     
                         let walletTokens = await CommunityCoin.balanceOf(charlie.address);
@@ -1563,8 +1610,6 @@ describe("Staking contract tests", function () {
                     
                     });    
                 });
-
-                
 
                 describe("through ETH", function () {
                     beforeEach("deploying", async() => {
@@ -1589,13 +1634,13 @@ describe("Staking contract tests", function () {
                     
                     it("buyAddLiquidityAndStake", async () => {
                         
-                        await communityStakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                        await communityStakingPool.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
                         if (trustedForwardMode) {
-                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
                             dataTx.data = dataTx.data.concat((bob.address).substring(2));
                             await trustedForwarder.sendTransaction(dataTx);
                         } else {
-                            await communityStakingPool.connect(bob)['buyLiquidityAndStake()']({value: ONE_ETH.mul(ONE) });
+                            await communityStakingPool.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
                         }
     
                         let walletTokens = await CommunityCoin.balanceOf(bob.address);
@@ -1612,11 +1657,11 @@ describe("Staking contract tests", function () {
                         let lptokensBefore = await pairInstance.balanceOf(communityStakingPool.address);
 
                         if (trustedForwardMode) {
-                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyLiquidityAndStake(address)'](charlie.address, {value: ONE_ETH.mul(ONE) });
+                            const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['buyAndStakeLiquidity(address)'](charlie.address, {value: ONE_ETH.mul(ONE) });
                             dataTx.data = dataTx.data.concat((bob.address).substring(2));
                             await trustedForwarder.sendTransaction(dataTx);
                         } else {
-                            await communityStakingPool.connect(bob)['buyLiquidityAndStake(address)'](charlie.address, {value: ONE_ETH.mul(ONE) });
+                            await communityStakingPool.connect(bob)['buyAndStakeLiquidity(address)'](charlie.address, {value: ONE_ETH.mul(ONE) });
                         }
 
                         
@@ -1681,7 +1726,7 @@ describe("Staking contract tests", function () {
                 
                 await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
                 await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
-                await communityStakingPool.connect(bob)['buyLiquidityAndStake(uint256)'](ONE_ETH.mul(ONE));
+                await communityStakingPool.connect(bob)['buyAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
                 shares = await CommunityCoin.balanceOf(bob.address);
             });
 
