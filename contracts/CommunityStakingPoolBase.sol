@@ -13,9 +13,15 @@ import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ITrustedForwarder.sol";
 import "./interfaces/IStructs.sol";
+
+import "./libs/SwapSettingsLib.sol";
 
 //import "hardhat/console.sol";
 
@@ -45,6 +51,11 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     * @notice fraction of LP token multiplied by `FRACTION`
     */
     uint64 public lpFraction;
+
+    address internal uniswapRouter;
+    address internal uniswapRouterFactory;
+
+    IUniswapV2Router02 internal UniswapV2Router02;
 
     modifier onlyStaking() {
         require(stakingProducedBy == msg.sender);
@@ -120,6 +131,12 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
 
         __ReentrancyGuard_init();
 
+        // setup swap addresses
+        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
+        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
+        
+        
+
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -129,6 +146,30 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+    
+    function doSwapOnUniswap(
+        address tokenIn, 
+        address tokenOut, 
+        uint256 amountIn
+    ) 
+        internal 
+        returns(uint256 amountOut) 
+    {
+        if (tokenIn == tokenOut) {
+            // situation when WETH is a reserve token
+            amountOut = amountIn;
+        } else {
+            require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
+            address[] memory path = new address[](2);
+            path[0] = address(tokenIn);
+            path[1] = address(tokenOut);
+            // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
+            uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
+                amountIn, 0, path, address(this), block.timestamp
+            );
+            amountOut = outputAmounts[1];
+        }
+    }
     
     /**
      * method will send `fraction_` of `amount_` of token `token_` to address `fractionAddr_`.

@@ -119,28 +119,7 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
         _redeem(account, amount);
     }
 
-    
-    /** 
-    * @notice method will receive erc20 tokens and stake it. Sender will obtain shares 
-    * @custom:shortd  the way to stake tokens
-    */
-    function buyAndStake(
-        uint256 tokenAmount
-    ) 
-        public 
-        nonReentrant
-    {
-
-        address account = _msgSender();
-        IERC20Upgradeable(erc20Token).transferFrom(account, address(this), tokenAmount);
-        _stake(account, tokenAmount, 0);
-    }
-    
-    /** 
-    * @notice method will receive reserveToken token then will add to liquidity pool and stake it. Beneficiary will obtain shares 
-    * @custom:shortd  the way to buy liquidity and stake via reserveToken. Beneficiary will obtain shares 
-    */
-    function buyAndStake(
+    function stake(
         uint256 tokenAmount,
         address beneficiary
     ) 
@@ -151,6 +130,33 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
         IERC20Upgradeable(erc20Token).transferFrom(account, address(this), tokenAmount);
         _stake(beneficiary, tokenAmount, 0);
     }
+
+    /**
+    * @param tokenAddress token that will swap to `erc20Address` token
+    * @param tokenAmount amount of `tokenAddress` token
+    * @param beneficiary wallet which obtain LP tokens
+    * @notice method will receive `tokenAmount` of token `tokenAddress` then will swap all to `erc20address` and finally stake it. Beneficiary will obtain shares 
+    * @custom:shortd  the way to receive `tokenAmount` of token `tokenAddress` then will swap all to `erc20address` and finally stake it. Beneficiary will obtain shares 
+    */
+    function buyAndStake(
+        address tokenAddress,
+        uint256 tokenAmount,
+        address beneficiary
+    )
+        public 
+        nonReentrant
+    {
+        IERC20Upgradeable(tokenAddress).transferFrom(_msgSender(), address(this), tokenAmount);
+
+        address pair =  IUniswapV2Factory(uniswapRouterFactory).getPair(erc20Token, tokenAddress);
+        require(pair != address(0), "NO_UNISWAP_V2_PAIR");
+        //uniswapV2Pair = IUniswapV2Pair(pair);
+
+        uint256 erc20TokenAmount = doSwapOnUniswap(tokenAddress, erc20Token, tokenAmount);
+        require(erc20TokenAmount != 0, "insufficient on uniswap");
+        _stake(beneficiary, erc20TokenAmount, 0);
+    }
+
    
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
