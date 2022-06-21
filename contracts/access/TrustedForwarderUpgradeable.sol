@@ -3,18 +3,20 @@
 
 pragma solidity 0.8.11;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "../interfaces/ITrustedForwarder.sol";
 
-abstract contract TrustedForwarder is Ownable, ITrustedForwarder {
+abstract contract TrustedForwarderUpgradeable is OwnableUpgradeable, ITrustedForwarder {
 
     address private _trustedForwarder;
 
-
-    constructor() 
-        Ownable()
-    {
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    function __TrustedForwarder_init() internal onlyInitializing {
+        __Ownable_init();
         _trustedForwarder = address(0);
+
     }
 
 
@@ -29,7 +31,7 @@ abstract contract TrustedForwarder is Ownable, ITrustedForwarder {
     ) 
         public 
         onlyOwner 
-
+        //excludeTrustedForwarder 
     {
         require(owner() != forwarder, "FORWARDER_CAN_NOT_BE_OWNER");
         _trustedForwarder = forwarder;

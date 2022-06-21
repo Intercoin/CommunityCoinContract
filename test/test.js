@@ -583,6 +583,49 @@ describe("Staking contract tests", function () {
         });  
     });
 
+    describe("XXX TrustedForwarder Rewards", function () {
+
+        var rewards;
+        
+        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
+        beforeEach("deploying", async() => {
+
+            const RewardsF = await ethers.getContractFactory("Rewards");
+            rewards = await RewardsF.deploy(
+                frank.address, //address sellingToken,
+                [], //uint256[] memory timestamps,
+                [], //uint256[] memory prices,
+                [], //uint256[] memory thresholds,
+                [], //uint256[] memory bonuses
+            );
+
+        });
+
+        it("should be empty after init", async() => {
+            expect(await rewards.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
+        });
+
+        it("should be setup by owner", async() => {
+            await expect(rewards.connect(bob).setTrustedForwarder(charlie.address)).to.be.revertedWith("Ownable: caller is not the owner");
+            expect(await rewards.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
+            await rewards.connect(owner).setTrustedForwarder(charlie.address);
+            expect(await rewards.connect(bob).isTrustedForwarder(charlie.address)).to.be.true;
+        });
+        
+        it("should drop trusted forward if trusted forward become owner ", async() => {
+            await rewards.connect(owner).setTrustedForwarder(charlie.address);
+            expect(await rewards.connect(bob).isTrustedForwarder(charlie.address)).to.be.true;
+            await rewards.connect(owner).transferOwnership(charlie.address);
+            expect(await rewards.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
+        });
+
+        it("shouldnt become owner and trusted forwarder", async() => {
+            await expect(rewards.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith("FORWARDER_CAN_NOT_BE_OWNER");
+        });
+        
+    });
+        
+
     describe("Hook tests", function () {   
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;

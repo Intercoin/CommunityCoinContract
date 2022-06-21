@@ -8,7 +8,7 @@ import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 import "./CommunityRolesManagement.sol";
 
-import "./access/TrustedForwarder.sol";
+import "./access/TrustedForwarderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -30,7 +30,7 @@ import "./interfaces/IStructs.sol";
 
 abstract contract CommunityCoinBase is 
     //OwnableUpgradeable, 
-    TrustedForwarder,
+    TrustedForwarderUpgradeable,
     ICommunityCoin,
     ERC777Upgradeable, 
     
@@ -885,10 +885,10 @@ abstract contract CommunityCoinBase is
         internal 
         view 
         virtual
-        override(ContextUpgradeable, TrustedForwarder)
+        override(ContextUpgradeable, TrustedForwarderUpgradeable)
         returns (address signer) 
     {
-        return TrustedForwarder._msgSender();
+        return TrustedForwarderUpgradeable._msgSender();
     }
 
     
