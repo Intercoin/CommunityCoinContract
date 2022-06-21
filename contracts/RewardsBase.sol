@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./access/TrustedForwarder.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-abstract contract RewardsBase is Ownable {
+abstract contract RewardsBase is TrustedForwarder {
     
     address internal sellingToken;
     uint256[] internal timestamps;
@@ -50,6 +50,7 @@ abstract contract RewardsBase is Ownable {
         uint256[] memory _thresholds,
         uint256[] memory _bonuses
     ) 
+        TrustedForwarder()
     {
         
         require(_sellingToken != address(0), "_sellingToken can not be zero");
