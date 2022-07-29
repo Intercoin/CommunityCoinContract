@@ -34,9 +34,6 @@ contract CommunityCoinFactory is Ownable {
     */
     address public immutable rolesManagementImplementation;
 
-    address public immutable reserveToken;
-    address public immutable tradedToken;
-
     address[] public instances;
     
     event InstanceCreated(address instance, uint instancesCount);
@@ -47,17 +44,13 @@ contract CommunityCoinFactory is Ownable {
     * @param stakingPoolImpl address of StakingPool implementation
     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
     * @param rolesManagementImpl address of RolesManagement implementation
-    * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
-    * @param tradedToken_ address of traded token. usual it intercoin investor token
     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address stakingPoolImplErc20,
-        address rolesManagementImpl,
-        address reserveToken_,
-        address tradedToken_
+        address rolesManagementImpl
     ) 
     {
         communityCoinImplementation = communityCoinImpl;
@@ -66,9 +59,6 @@ contract CommunityCoinFactory is Ownable {
         stakingPoolErc20Implementation = stakingPoolImplErc20;
         rolesManagementImplementation = rolesManagementImpl;
 
-        reserveToken = reserveToken_;
-        tradedToken = tradedToken_;
-        
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -93,6 +83,8 @@ contract CommunityCoinFactory is Ownable {
     ////////////////////////////////////////////////////////////////////////
 
     /**
+    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
+    * @param tradedToken address of traded token. usual it intercoin investor token
     * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
     * @param communitySettings tuple of community settings (address of contract and roles(admin,redeem,circulate))
@@ -100,6 +92,8 @@ contract CommunityCoinFactory is Ownable {
     * @custom:shortd creation instance
     */
     function produce(
+        address reserveToken,
+        address tradedToken,
         address hook,
         uint256 discountSensitivity,
         ICommunityRolesManagement.CommunitySettings memory communitySettings

@@ -127,28 +127,26 @@ describe("Staking contract tests", function () {
             implementationCommunityStakingPoolFactory.address, 
             implementationCommunityStakingPool.address, 
             implementationCommunityStakingPoolErc20.address,
-            implementationCommunityRolesManagement.address, 
-            erc20ReservedToken.address,
-            erc20TradedToken.address
+            implementationCommunityRolesManagement.address
         );
 
         let tx,rc,event,instance,instancesCount;
         // without hook
-        tx = await CommunityCoinFactory.connect(owner).produce(ZERO_ADDRESS, discountSensitivity, NONE_COMMUNITY_SETTINGS);
+        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, ZERO_ADDRESS, discountSensitivity, NONE_COMMUNITY_SETTINGS);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoin = await ethers.getContractAt("CommunityCoin",instance);
 
         // with hook
-        tx = await CommunityCoinFactory.connect(owner).produce(mockHook.address, discountSensitivity, NONE_COMMUNITY_SETTINGS);
+        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, mockHook.address, discountSensitivity, NONE_COMMUNITY_SETTINGS);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoinWithHook = await ethers.getContractAt("CommunityCoin",instance);
 
         // without hook and external community
-        tx = await CommunityCoinFactory.connect(owner).produce(ZERO_ADDRESS, discountSensitivity, COMMUNITY_SETTINGS);
+        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, ZERO_ADDRESS, discountSensitivity, COMMUNITY_SETTINGS);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;

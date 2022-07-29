@@ -13,3 +13,4 @@ TODO.txt
 remix-compiler.config.js
 .DS_Store
 /bin
+scripts/arguments.json
