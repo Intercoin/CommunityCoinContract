@@ -6,7 +6,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityRolesManagement.sol";
 
-contract CommunityCoinFactory is Ownable {
+import "releasemanager/contracts/CostManagerFactoryHelper.sol";
+import "releasemanager/contracts/ReleaseManagerHelper.sol";
+
+contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManagerHelper {
     using Clones for address;
 
     /**
@@ -44,14 +47,17 @@ contract CommunityCoinFactory is Ownable {
     * @param stakingPoolImpl address of StakingPool implementation
     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
     * @param rolesManagementImpl address of RolesManagement implementation
+    * @param costManager_ address of costmanager
     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address stakingPoolImplErc20,
-        address rolesManagementImpl
+        address rolesManagementImpl,
+        address costManager_
     ) 
+        CostManagerFactoryHelper(costManager_)
     {
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
@@ -116,9 +122,12 @@ contract CommunityCoinFactory is Ownable {
 
         ICommunityRolesManagement(rolesManagementClone).initialize(communitySettings, instance);
 
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone, reserveToken, tradedToken);
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone, reserveToken, tradedToken, costManager);
         
         Ownable(instance).transferOwnership(_msgSender());
+
+        // register instance in release manager
+        registerInstance(instance);
         
     }
 

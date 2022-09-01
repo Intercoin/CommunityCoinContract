@@ -25,7 +25,8 @@ contract CommunityCoin is CommunityCoinBase {
         uint256 discountSensitivity_,
         address rolesManagementAddr_,
         address reserveToken_,
-        address tradedToken_
+        address tradedToken_,
+        address costManager_
     ) 
         initializer 
         external 
@@ -44,7 +45,8 @@ contract CommunityCoin is CommunityCoinBase {
             discountSensitivity_, 
             rolesManagementAddr_, 
             reserveToken_, 
-            tradedToken_
+            tradedToken_,
+            costManager_
         );
     }
 }

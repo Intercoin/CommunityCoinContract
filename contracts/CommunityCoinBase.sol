@@ -1,42 +1,27 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.11;
-
 import "./interfaces/IHook.sol";
-
 import "./interfaces/ICommunityCoin.sol";
-
 import "./interfaces/ICommunityStakingPool.sol";
 import "./CommunityRolesManagement.sol";
-
-import "./access/TrustedForwarderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
-
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-//import "./lib/PackedMapping32.sol";
-
-//import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-//import "./interfaces/IERC20Dpl.sol";
-
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
-
-//import "./minimums/upgradeable/MinimumsBaseUpgradeable.sol";
 import "./minimums/libs/MinimumsLib.sol";
-
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "./interfaces/ICommunity.sol";
-//import "hardhat/console.sol";
 import "./interfaces/IStructs.sol";
+import "releasemanager/contracts/CostManagerHelperERC2771Support.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+//import "hardhat/console.sol";
 
 abstract contract CommunityCoinBase is 
-    //OwnableUpgradeable, 
-    TrustedForwarderUpgradeable,
+    OwnableUpgradeable, 
+    ReentrancyGuardUpgradeable, TrustedForwarder, CostManagerHelperERC2771Support,
     ICommunityCoin,
     ERC777Upgradeable, 
-    
-    //MinimumsBaseUpgradeable, 
-    IERC777RecipientUpgradeable, 
-    ReentrancyGuardUpgradeable
+    IERC777RecipientUpgradeable 
 {
     using MinimumsLib for MinimumsLib.UserStruct;
 
@@ -108,16 +93,18 @@ abstract contract CommunityCoinBase is
         uint256 discountSensitivity_,
         address rolesManagementAddr_,
         address reserveToken_,
-        address tradedToken_
+        address tradedToken_,
+        address costManager_
     ) 
         onlyInitializing 
         internal 
     {
-        //__Ownable_init();
-        __TrustedForwarder_init();
+        __CostManagerHelper_init(_msgSender());
+        _setCostManager(costManager_);
+        __Ownable_init();
+
         __ERC777_init(tokenName, tokenSymbol, (new address[](0)));
 
-        //__AccessControl_init();
         __ReentrancyGuard_init();
 
         instanceManagment = ICommunityStakingPoolFactory(communityCoinInstanceAddr);//new ICommunityStakingPoolFactory(impl);
@@ -520,6 +507,39 @@ abstract contract CommunityCoinBase is
         }
     
     }
+
+     /**
+    * @dev setup trusted forwarder address
+    * @param forwarder trustedforwarder's address to set
+    * @custom:shortd setup trusted forwarder
+    * @custom:calledby owner
+    */
+    function setTrustedForwarder(
+        address forwarder
+    ) 
+        public 
+        override
+        onlyOwner 
+        //excludeTrustedForwarder 
+    {
+        require(owner() != forwarder, "FORWARDER_CAN_NOT_BE_OWNER");
+        _setTrustedForwarder(forwarder);
+    }
+
+     function transferOwnership(
+        address newOwner
+    ) public 
+        virtual 
+        override 
+        onlyOwner 
+    {
+        require(!_isTrustedForwarder(msg.sender), "DENIED_FOR_FORWARDER");
+        if (_isTrustedForwarder(newOwner)) {
+            _setTrustedForwarder(address(0));
+        }
+        super.transferOwnership(newOwner);
+        
+    }
     
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
@@ -875,8 +895,8 @@ abstract contract CommunityCoinBase is
         super._beforeTokenTransfer(operator, from, to, amount);
 
     }
-
-    /**
+   
+     /**
     * @dev implemented EIP-2771
     * @return signer return address of msg.sender. but consider EIP-2771 for trusted forwarder will return from msg.data payload
     */
@@ -885,12 +905,10 @@ abstract contract CommunityCoinBase is
         internal 
         view 
         virtual
-        override(ContextUpgradeable, TrustedForwarderUpgradeable)
+        override(ContextUpgradeable, TrustedForwarder)
         returns (address signer) 
     {
-        return TrustedForwarderUpgradeable._msgSender();
+        return TrustedForwarder._msgSender();
     }
 
-    
-    
 }

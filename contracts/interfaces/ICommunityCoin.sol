@@ -11,7 +11,8 @@ interface ICommunityCoin {
         uint256 discountSensitivity,
         address rolesManagementClone,
         address reserveToken,
-        address tradedToken
+        address tradedToken,
+        address costManager
     ) external;
 
     event InstanceCreated(address indexed tokenA, address indexed tokenB, address instance);

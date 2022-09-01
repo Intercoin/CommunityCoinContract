@@ -144,10 +144,6 @@ module.exports = {
     sources: "./contracts"
     
   },
-  gasReporter: {
-    currency: 'USD',
-    enabled: (process.env.REPORT_GAS === "true") ? true : false
-  },
   mocha: {
     timeout: 200000
   }
