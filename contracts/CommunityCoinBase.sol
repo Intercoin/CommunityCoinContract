@@ -98,6 +98,8 @@ abstract contract CommunityCoinBase is
     error OwnTokensPermittedOnly();
     error UNSTAKE_ERROR();
     error REDEEM_ERROR();
+    error HookTransferPrevent(address from, address to, uint256 amount);
+    error AmountExceedsAllowance(address account,uint256 amount);
 
     /**
     * @param impl address of StakingPool implementation
@@ -809,7 +811,9 @@ abstract contract CommunityCoinBase is
 
         }
         if (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
-            require(totalSupplyBefore-tokensBonus[account]._getMinimum() >= amountLeft, "insufficient amount");
+            //require(totalSupplyBefore-tokensBonus[account]._getMinimum() >= amountLeft, "insufficient amount");
+            if (totalSupplyBefore - tokensBonus[account]._getMinimum() < amountLeft) { revert InsufficientAmount(account, amount);}
+
             // tokensLocked[account]._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
             // tokensBonus[account]._minimumsAdd(bonusAmount, instanceInfo.duration, LOCKUP_INTERVAL, false);
         }
@@ -887,8 +891,10 @@ abstract contract CommunityCoinBase is
     {
         totalSupplyBefore = totalSupply();
         if (account != address(this)) {
-            require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+            //require(allowance(account, address(this))  >= amount, "Amount exceeds allowance");
+            if (allowance(account, address(this))  < amount) {revert AmountExceedsAllowance(account, amount);}
         }
+                    
         _burn(account, amount, "", "");
     }
     
@@ -985,7 +991,9 @@ abstract contract CommunityCoinBase is
                         uint256(uint160(from)),
                         uint256(uint160(to))
                     );
-                    require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
+                    //require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
+                    if (hook.transferHook(operator, from, to, amount) == false) { revert HookTransferPrevent(from, to, amount);}
+
                 }
 
                 uint256 balance = balanceOf(from);

@@ -121,13 +121,16 @@ describe("Staking contract tests", function () {
 
         const NONE_COMMUNITY_SETTINGS = [ZERO_ADDRESS, ADMIN_ROLE, REDEEM_ROLE, CIRCULATE_ROLE];
         const COMMUNITY_SETTINGS = [mockCommunity.address, ADMIN_ROLE, REDEEM_ROLE, CIRCULATE_ROLE];
+
+        const NO_COSTMANAGER = ZERO_ADDRESS;
         
         CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(
             implementationCommunityCoin.address, 
             implementationCommunityStakingPoolFactory.address, 
             implementationCommunityStakingPool.address, 
             implementationCommunityStakingPoolErc20.address,
-            implementationCommunityRolesManagement.address
+            implementationCommunityRolesManagement.address,
+            NO_COSTMANAGER
         );
 
         let tx,rc,event,instance,instancesCount;
