@@ -89,10 +89,15 @@ abstract contract CommunityCoinBase is
 
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
-   
-    ////////////////////////////////////////////////////////////////////////
-    // external section ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
+    
+    error InsufficientBalance(address account, uint256 amount);
+    error InsufficientAmount(address account, uint256 amount);
+    error StakeNotUnlockedYet(address account, uint256 locked, uint256 remainingAmount);
+    error TrustedForwarderCanNotBeOwner(address account);
+    error DeniedForTrustedForwarder(address account);
+    error OwnTokensPermittedOnly();
+    error UNSTAKE_ERROR();
+    error REDEEM_ERROR();
 
     /**
     * @param impl address of StakingPool implementation
@@ -154,6 +159,11 @@ abstract contract CommunityCoinBase is
             0
         );
     }
+
+    
+    ////////////////////////////////////////////////////////////////////////
+    // external section ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
 
     /**
     * @notice method to distribute tokens after user stake. called externally only by pool contract
@@ -295,7 +305,9 @@ abstract contract CommunityCoinBase is
         override
     {
 
-        require((_msgSender() == address(this) && to == address(this)), "own tokens permitted only");
+        //require((_msgSender() == address(this) && to == address(this)), "own tokens permitted only");
+        if (!(_msgSender() == address(this) && to == address(this))) {revert OwnTokensPermittedOnly();}
+        
         
         rolesManagement.checkRedeemRole(from);
         //_checkRole(roles.redeemRole, from);
@@ -416,14 +428,16 @@ abstract contract CommunityCoinBase is
 
         uint256 balance = balanceOf(account);
         
-        require (amount <= balance, "INSUFFICIENT_BALANCE");
+        //require (amount <= balance, "INSUFFICIENT_BALANCE");
+        if (amount > balance) {revert InsufficientBalance(account, amount);}
         
         uint256 locked = tokensLocked[account]._getMinimum();
         uint256 remainingAmount = balance - amount;
-        require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
+        //require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
+        if (locked > remainingAmount) {revert StakeNotUnlockedYet(account, locked, remainingAmount);}
 
     }
-
+    
     /**
     * @dev function has overloaded. wallet tokens will be redeemed from pools in order from deployed
     * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
@@ -619,7 +633,9 @@ abstract contract CommunityCoinBase is
         onlyOwner 
         //excludeTrustedForwarder 
     {
-        require(owner() != forwarder, "FORWARDER_CAN_NOT_BE_OWNER");
+        //require(owner() != forwarder, "FORWARDER_CAN_NOT_BE_OWNER");
+        if (owner() == forwarder) {revert TrustedForwarderCanNotBeOwner(forwarder);}
+
         _setTrustedForwarder(forwarder);
         _accountForOperation(
             OPERATION_SET_TRUSTEDFORWARDER << OPERATION_SHIFT_BITS,
@@ -635,7 +651,9 @@ abstract contract CommunityCoinBase is
         override 
         onlyOwner 
     {
-        require(!_isTrustedForwarder(msg.sender), "DENIED_FOR_FORWARDER");
+        //require(!_isTrustedForwarder(msg.sender), "DENIED_FOR_FORWARDER");
+        if (_isTrustedForwarder(msg.sender)) {revert DeniedForTrustedForwarder(msg.sender);}
+
         if (_isTrustedForwarder(newOwner)) {
             _setTrustedForwarder(address(0));
         }
@@ -735,8 +753,7 @@ abstract contract CommunityCoinBase is
                 account,
                 instancesList[i],
                 values[i],
-                strategy,
-                "Error when unstake"
+                strategy
             );
                         
         }
@@ -841,9 +858,12 @@ abstract contract CommunityCoinBase is
 
         }
         
-        require(amountLeft == 0, "insufficient amount");
+        //require(amountLeft == 0, "insufficient amount");
+        if(amountLeft > 0) {revert InsufficientAmount(account, amount);}
 
     }
+
+    
 
     function _redeem(
         address account,
@@ -883,7 +903,9 @@ abstract contract CommunityCoinBase is
     {
 
         uint256 totalSupplyBefore = _burn(account2Burn, amount);
-        require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
+        //require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
+        if (amount > totalRedeemable) {revert InsufficientBalance(account2Redeem, amount);}
+
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account2Redeem, amount, preferredInstances, strategy/*Strategy.REDEEM*/, totalSupplyBefore);
 
         for (uint256 i = 0; i < len; i++) {
@@ -895,14 +917,13 @@ abstract contract CommunityCoinBase is
                     account2Redeem,
                     instancesToRedeem[i],
                     valuesToRedeem[i],
-                    strategy,
-                    "Error when redeem in an instance"
+                    strategy
                 );
             }
         }
     }
 
-    function proceedPool(address account,address pool, uint256 amount, Strategy strategy, string memory errmsg) internal {
+    function proceedPool(address account,address pool, uint256 amount, Strategy strategy/*, string memory errmsg*/) internal {
         if (strategy == Strategy.REDEEM || strategy == Strategy.UNSTAKE) {
 
             try ICommunityStakingPool(pool).redeem(
@@ -913,7 +934,12 @@ abstract contract CommunityCoinBase is
                 // totalRedeemable -= amount;
             }
             catch {
-                revert(errmsg);
+                if (strategy == Strategy.REDEEM) {
+                    revert REDEEM_ERROR();
+                } else if (strategy == Strategy.UNSTAKE){
+                    revert UNSTAKE_ERROR();
+                }
+                //revert(errmsg);
             }
         } else if (strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
             try ICommunityStakingPool(pool).redeemAndRemoveLiquidity(
@@ -924,7 +950,12 @@ abstract contract CommunityCoinBase is
                 // totalRedeemable -= valuesToRedeem[i];
             }
             catch {
-                revert(errmsg);
+                if (strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+                    revert REDEEM_ERROR();
+                } else if (strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY){
+                    revert UNSTAKE_ERROR();
+                }
+                //revert(errmsg);
             }
         // } else {
         //     revert("unknown strategy");

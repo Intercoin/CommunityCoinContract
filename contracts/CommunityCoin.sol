@@ -52,5 +52,6 @@ contract CommunityCoin is CommunityCoinBase {
             costManager_,
             producedBy_
         );
+        
     }
 }
