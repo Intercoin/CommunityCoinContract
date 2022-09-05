@@ -14,6 +14,7 @@ import "./interfaces/ICommunity.sol";
 import "./interfaces/IStructs.sol";
 import "releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
 //import "hardhat/console.sol";
 
 abstract contract CommunityCoinBase is 
@@ -56,6 +57,28 @@ abstract contract CommunityCoinBase is
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
+    // Constants for shifts
+    uint8 internal constant OPERATION_SHIFT_BITS = 240;  // 256 - 16
+    
+    // Constants representing operations
+    uint8 internal constant OPERATION_INITIALIZE = 0x0;
+    uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS = 0x1;
+    uint8 internal constant OPERATION_ADD_TO_CIRCULATION = 0x2;
+    uint8 internal constant OPERATION_REMOVE_FROM_CIRCULATION = 0x3;
+    uint8 internal constant OPERATION_PRODUCE = 0x4;
+    uint8 internal constant OPERATION_PRODUCE_ERC20 = 0x5;
+    uint8 internal constant OPERATION_UNSTAKE = 0x6;
+    uint8 internal constant OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY = 0x7;
+    uint8 internal constant OPERATION_REDEEM = 0x8;
+    uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY = 0x9;
+    uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST = 0xA;
+    uint8 internal constant OPERATION_GRANT_ROLE = 0xB;
+    uint8 internal constant OPERATION_REVOKE_ROLE = 0xC;
+    uint8 internal constant OPERATION_CLAIM = 0xD;
+    uint8 internal constant OPERATION_SET_TRUSTEDFORWARDER = 0xE;
+    uint8 internal constant OPERATION_SET_TRANSFER_OWNERSHIP = 0xF;
+    uint8 internal constant OPERATION_TRANSFER_HOOK = 0x10;
+
     //EnumerableSet.AddressSet private rewardTokensList;
     //mapping(address => uint256) public rewardTokenRatios;
     mapping(address => uint256) internal unstakeable;
@@ -80,6 +103,8 @@ abstract contract CommunityCoinBase is
     * @param rolesManagementAddr_ contract that would will manage roles(admin,redeem,circulate)
     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken_ address of traded token. usual it intercoin investor token
+    * @param costManager_ costManager address
+    * @param producedBy_ address that produced instance by factory
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
     */
@@ -94,7 +119,8 @@ abstract contract CommunityCoinBase is
         address rolesManagementAddr_,
         address reserveToken_,
         address tradedToken_,
-        address costManager_
+        address costManager_,
+        address producedBy_
     ) 
         onlyInitializing 
         internal 
@@ -121,6 +147,12 @@ abstract contract CommunityCoinBase is
 
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
+
+        _accountForOperation(
+            OPERATION_INITIALIZE << OPERATION_SHIFT_BITS,
+            uint256(uint160(producedBy_)),
+            0
+        );
     }
 
     /**
@@ -179,6 +211,11 @@ abstract contract CommunityCoinBase is
         tokensLocked[account]._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
         tokensBonus[account]._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
 
+        _accountForOperation(
+            OPERATION_ISSUE_WALLET_TOKENS << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            amount
+        );
     }
     
     /**
@@ -200,6 +237,12 @@ abstract contract CommunityCoinBase is
         
         _mint(account, amount, "", "");
         //_minimumsAdd(account, amount, CIRCULATION_DEFAULT, false);
+
+        _accountForOperation(
+            OPERATION_ADD_TO_CIRCULATION << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            amount
+        );
     }
 
     /**
@@ -221,6 +264,12 @@ abstract contract CommunityCoinBase is
         _burn(account, amount, "", "");
         //or
         //__redeem(account, account, amount, new address[](0), totalSupplyBefore, Strategy.REDEEM);
+
+        _accountForOperation(
+            OPERATION_REMOVE_FROM_CIRCULATION << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            amount
+        );
     }
   
     /**
@@ -332,7 +381,11 @@ abstract contract CommunityCoinBase is
         _validateUnstake(account, amount);
         
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
-        
+        _accountForOperation(
+            OPERATION_UNSTAKE << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            amount
+        );   
     }
 
     function unstakeAndRemoveLiquidity(
@@ -346,7 +399,12 @@ abstract contract CommunityCoinBase is
         _validateUnstake(account, amount);
 
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY);
-        
+
+        _accountForOperation(
+            OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            amount
+        );   
     }
 
     function _validateUnstake(
@@ -379,6 +437,12 @@ abstract contract CommunityCoinBase is
         nonReentrant
     {
         _redeem(_msgSender(), amount, new address[](0), Strategy.REDEEM);
+
+        _accountForOperation(
+            OPERATION_REDEEM << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            amount
+        );   
     }
 
     /**
@@ -396,6 +460,12 @@ abstract contract CommunityCoinBase is
         nonReentrant
     {
         _redeem(_msgSender(), amount, preferredInstances, Strategy.REDEEM);
+
+        _accountForOperation(
+            OPERATION_REDEEM << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            amount
+        );   
     }
 
     /**
@@ -411,6 +481,12 @@ abstract contract CommunityCoinBase is
         nonReentrant
     {
         _redeem(_msgSender(), amount, new address[](0), Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
+
+        _accountForOperation(
+            OPERATION_REDEEM_AND_REMOVE_LIQUIDITY << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            amount
+        ); 
     }
 
     /**
@@ -428,6 +504,12 @@ abstract contract CommunityCoinBase is
         nonReentrant
     {
         _redeem(_msgSender(), amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
+
+        _accountForOperation(
+            OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            amount
+        ); 
     }
 
     /**
@@ -460,10 +542,20 @@ abstract contract CommunityCoinBase is
 
     function grantRole(bytes32 role, address account) onlyOwner() public {
         rolesManagement.grantRole(role, account);
+        _accountForOperation(
+            OPERATION_GRANT_ROLE << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            0
+        ); 
     }
     
     function revokeRole(bytes32 role, address account) onlyOwner() public {
         rolesManagement.revokeRole(role, account);
+        _accountForOperation(
+            OPERATION_REVOKE_ROLE << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            0
+        ); 
     }
 
     /**
@@ -502,6 +594,11 @@ abstract contract CommunityCoinBase is
     }
 
     function claim() public {
+        _accountForOperation(
+            OPERATION_CLAIM << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            0
+        ); 
         if (address(hook) != address(0)) {
             hook.claim(_msgSender());
         }
@@ -524,6 +621,11 @@ abstract contract CommunityCoinBase is
     {
         require(owner() != forwarder, "FORWARDER_CAN_NOT_BE_OWNER");
         _setTrustedForwarder(forwarder);
+        _accountForOperation(
+            OPERATION_SET_TRUSTEDFORWARDER << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            uint256(uint160(forwarder))
+        );
     }
 
      function transferOwnership(
@@ -537,6 +639,11 @@ abstract contract CommunityCoinBase is
         if (_isTrustedForwarder(newOwner)) {
             _setTrustedForwarder(address(0));
         }
+        _accountForOperation(
+            OPERATION_SET_TRANSFER_OWNERSHIP << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            uint256(uint160(newOwner))
+        );
         super.transferOwnership(newOwner);
         
     }
@@ -570,6 +677,12 @@ abstract contract CommunityCoinBase is
             denominator
         );
         emit InstanceCreated(reserveToken, tradedToken, instance);
+
+        _accountForOperation(
+            OPERATION_PRODUCE << OPERATION_SHIFT_BITS,
+            (duration<<(256-64))+(bonusTokenFraction<<(256-128))+(numerator<<(256-192))+(denominator),
+            (uint160(lpFractionBeneficiary)<<(256-160)) + lpFraction
+        );
     }
 
     function _produce(
@@ -596,6 +709,12 @@ abstract contract CommunityCoinBase is
             denominator
         );
         emit InstanceErc20Created(tokenErc20, instance);
+
+        _accountForOperation(
+            OPERATION_PRODUCE_ERC20 << OPERATION_SHIFT_BITS,
+            (duration<<(256-64))+(bonusTokenFraction<<(256-128))+(numerator<<(256-192))+(denominator),
+            (uint160(lpFractionBeneficiary)<<(256-160)) + lpFraction
+        );
     }
 
     function _unstake(
@@ -830,6 +949,11 @@ abstract contract CommunityCoinBase is
                 //  can return true/false
                 // true = revert ;  false -pass tx 
                 if (address(hook) != address(0)) {
+                    _accountForOperation(
+                        OPERATION_TRANSFER_HOOK << OPERATION_SHIFT_BITS,
+                        uint256(uint160(from)),
+                        uint256(uint160(to))
+                    );
                     require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
                 }
 
