@@ -12,7 +12,7 @@ interface ICommunityCoin {
         address rolesManagementClone,
         address reserveToken,
         address tradedToken,
-        address costManager,
+        //address costManager,
         address producedBy
     ) external;
 

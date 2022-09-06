@@ -14,7 +14,7 @@ contract CommunityCoin is CommunityCoinBase {
     * @param rolesManagementAddr_ contract that would will manage roles(admin,redeem,circulate)
     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken_ address of traded token. usual it intercoin investor token
-    * @param costManager_ costManager address
+    * [deprecated]param costManager_ costManager address
     * @param producedBy_ address that produced instance by factory
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
@@ -28,7 +28,7 @@ contract CommunityCoin is CommunityCoinBase {
         address rolesManagementAddr_,
         address reserveToken_,
         address tradedToken_,
-        address costManager_,
+        //address costManager_,
         address producedBy_
     ) 
         initializer 
@@ -49,7 +49,7 @@ contract CommunityCoin is CommunityCoinBase {
             rolesManagementAddr_, 
             reserveToken_, 
             tradedToken_,
-            costManager_,
+            //costManager_,
             producedBy_
         );
         

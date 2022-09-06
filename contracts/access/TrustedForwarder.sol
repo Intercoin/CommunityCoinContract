@@ -32,7 +32,7 @@ abstract contract TrustedForwarder is Ownable, ITrustedForwarder {
 
     {
         require(owner() != forwarder, "FORWARDER_CAN_NOT_BE_OWNER");
-        _trustedForwarder = forwarder;
+        _setTrustedForwarder(forwarder);
     }
         
     /**
@@ -95,6 +95,13 @@ abstract contract TrustedForwarder is Ownable, ITrustedForwarder {
         return forwarder == _trustedForwarder;
     }
 
+    function _setTrustedForwarder(
+        address forwarder
+    ) 
+        internal
+    {
+        _trustedForwarder = forwarder;
+    }
 
   
 

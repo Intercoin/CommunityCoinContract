@@ -9,7 +9,7 @@ import "./interfaces/ICommunityRolesManagement.sol";
 import "releasemanager/contracts/CostManagerFactoryHelper.sol";
 import "releasemanager/contracts/ReleaseManagerHelper.sol";
 
-contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManagerHelper {
+contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseManagerHelper {
     using Clones for address;
 
     /**
@@ -47,17 +47,17 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     * @param stakingPoolImpl address of StakingPool implementation
     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
     * @param rolesManagementImpl address of RolesManagement implementation
-    * @param costManager_ address of costmanager
+    * [deprecated]param costManager_ address of costmanager
     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address stakingPoolImplErc20,
-        address rolesManagementImpl,
-        address costManager_
+        address rolesManagementImpl/*,
+        address costManager_*/
     ) 
-        CostManagerFactoryHelper(costManager_)
+        //CostManagerFactoryHelper(costManager_)
     {
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
@@ -122,7 +122,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
 
         ICommunityRolesManagement(rolesManagementClone).initialize(communitySettings, instance);
 
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone, reserveToken, tradedToken, costManager, _msgSender());
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone, reserveToken, tradedToken, /*costManager, */_msgSender());
         
         Ownable(instance).transferOwnership(_msgSender());
 

@@ -30,11 +30,12 @@ abstract contract TrustedForwarderUpgradeable is OwnableUpgradeable, ITrustedFor
         address forwarder
     ) 
         public 
+        virtual
         onlyOwner 
         //excludeTrustedForwarder 
     {
         require(owner() != forwarder, "FORWARDER_CAN_NOT_BE_OWNER");
-        _trustedForwarder = forwarder;
+        _setTrustedForwarder(forwarder);
     }
         
     /**
@@ -72,21 +73,6 @@ abstract contract TrustedForwarderUpgradeable is OwnableUpgradeable, ITrustedFor
         }    
     }
 
-    function transferOwnership(
-        address newOwner
-    ) public 
-        virtual 
-        override 
-        onlyOwner 
-    {
-        require(msg.sender != _trustedForwarder, "DENIED_FOR_FORWARDER");
-        if (newOwner == _trustedForwarder) {
-            _trustedForwarder = address(0);
-        }
-        super.transferOwnership(newOwner);
-        
-    }
-
     function _isTrustedForwarder(
         address forwarder
     ) 
@@ -97,7 +83,13 @@ abstract contract TrustedForwarderUpgradeable is OwnableUpgradeable, ITrustedFor
         return forwarder == _trustedForwarder;
     }
 
-
+    function _setTrustedForwarder(
+        address forwarder
+    ) 
+        internal
+    {
+        _trustedForwarder = forwarder;
+    }
   
 
 }

@@ -91,6 +91,8 @@ describe("Staking contract tests", function () {
     var fakeMiddle;
     
     beforeEach("deploying", async() => {
+        const ReleaseManagerFactoryF = await ethers.getContractFactory("MockReleaseManagerFactory");
+        const ReleaseManagerF = await ethers.getContractFactory("MockReleaseManager");
         const CommunityCoinFactoryF = await ethers.getContractFactory("CommunityCoinFactory");
 
         const CommunityCoinF = await ethers.getContractFactory("CommunityCoin");
@@ -104,6 +106,17 @@ describe("Staking contract tests", function () {
         const MockCommunityF = await ethers.getContractFactory("MockCommunity");
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
         
+        let implementationReleaseManager    = await ReleaseManagerF.deploy();
+
+        let releaseManagerFactory   = await ReleaseManagerFactoryF.connect(owner).deploy(implementationReleaseManager.address);
+        let tx,rc,event,instance,instancesCount;
+        //
+        tx = await releaseManagerFactory.connect(owner).produce();
+        rc = await tx.wait(); // 0ms, as tx is already confirmed
+        event = rc.events.find(event => event.event === 'InstanceProduced');
+        [instance, instancesCount] = event.args;
+        let releaseManager = await ethers.getContractAt("MockReleaseManager",instance);
+
         erc20 = await ERC20Factory.deploy("ERC20 Token", "ERC20");
         erc777 = await ERC20Factory.deploy("ERC777 Token", "ERC777");
         erc20TradedToken = await ERC20Factory.deploy("ERC20 Traded Token", "ERC20-TRD");
@@ -129,11 +142,22 @@ describe("Staking contract tests", function () {
             implementationCommunityStakingPoolFactory.address, 
             implementationCommunityStakingPool.address, 
             implementationCommunityStakingPoolErc20.address,
-            implementationCommunityRolesManagement.address,
-            NO_COSTMANAGER
+            implementationCommunityRolesManagement.address/*,
+            NO_COSTMANAGER*/
         );
 
-        let tx,rc,event,instance,instancesCount;
+        // 
+        const factoriesList = [CommunityCoinFactory.address];
+        const factoryInfo = [
+            [
+                1,//uint8 factoryIndex; 
+                1,//uint16 releaseTag; 
+                "0x53696c766572000000000000000000000000000000000000"//bytes24 factoryChangeNotes;
+            ]
+        ]
+        await CommunityCoinFactory.connect(owner).registerReleaseManager(releaseManager.address);
+        await releaseManager.connect(owner).newRelease(factoriesList, factoryInfo);
+
         // without hook
         tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, ZERO_ADDRESS, discountSensitivity, NONE_COMMUNITY_SETTINGS);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
@@ -468,7 +492,8 @@ describe("Staking contract tests", function () {
             snapId = await ethers.provider.send('evm_snapshot', []);
             let tokensWithNoBonus = await func(NO_BONUS_FRACTIONS, ZERO, ZERO_ADDRESS);
 
-            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWith(`StakeNotUnlockedYet("${bob.address}", ${tokensWithNoBonus}, 0)`);
+            
 
             // pass some mtime
             await time.increase(lockupIntervalCount*dayInSeconds+9);    
@@ -482,9 +507,8 @@ describe("Staking contract tests", function () {
             snapId = await ethers.provider.send('evm_snapshot', []);
             let tokensWithBonus = await func(BONUS_FRACTIONS, ZERO, ZERO_ADDRESS);
 
-            
-            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
-            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWith(`StakeNotUnlockedYet("${bob.address}", ${tokensWithNoBonus}, ${tokensWithNoBonus.div(TWO)})`);
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith(`StakeNotUnlockedYet("${bob.address}", ${tokensWithNoBonus}, 0)`);
 
             ////// validate `viewLockedWalletTokens` and `viewLockedWalletTokensList`
             let bobSharesAfter = await CommunityCoin.balanceOf(bob.address);
@@ -504,7 +528,8 @@ describe("Staking contract tests", function () {
             await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
             await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithBonus);
-            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith("insufficient amount");
+
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith(`InsufficientAmount("${bob.address}", ${tokensWithBonus})`);
 
             await CommunityCoin.connect(bob).transfer(alice.address, tokensWithBonus.sub(tokensWithNoBonus));
 
@@ -584,7 +609,7 @@ describe("Staking contract tests", function () {
         });  
     });
 
-    describe("XXX TrustedForwarder Rewards", function () {
+    describe("TrustedForwarder Rewards", function () {
 
         var rewards;
         
@@ -727,7 +752,7 @@ describe("Staking contract tests", function () {
 
                 await mockHook.setupVars(ZERO,false);
 
-                await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWith("HOOK: TRANSFER_PREVENT");
+                await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWith(`HookTransferPrevent("${bob.address}", "${alice.address}", ${walletTokens})`);
                 
             });
 
@@ -739,7 +764,7 @@ describe("Staking contract tests", function () {
 
                 await mockHook.setupVars(ZERO,true);
 
-                await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).not.to.be.revertedWith("HOOK: TRANSFER_PREVENT");
+                await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).not.to.be.revertedWith(`HookTransferPrevent("${bob.address}", "${alice.address}", ${walletTokens})`);
                 
             });
         }); 
@@ -879,7 +904,8 @@ describe("Staking contract tests", function () {
             it("shouldnt unstake if not unlocked yet", async () => {
                 // even if approve before
                 await CommunityCoin.connect(charlie).approve(CommunityCoin.address, charlieWalletTokensAfter);
-                await expect(CommunityCoin.connect(charlie).unstake(charlieWalletTokensAfter)).to.be.revertedWith('STAKE_NOT_UNLOCKED_YET');
+                 
+                await expect(CommunityCoin.connect(charlie).unstake(charlieWalletTokensAfter)).to.be.revertedWith(`StakeNotUnlockedYet("${charlie.address}", ${charlieWalletTokensAfter}, 0)`);
             });  
 
             it("shouldnt redeem if sender haven't redeem role", async () => {
@@ -1216,7 +1242,7 @@ describe("Staking contract tests", function () {
             });
 
             it("shouldnt become owner and trusted forwarder", async() => {
-                await expect(CommunityCoin.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith("FORWARDER_CAN_NOT_BE_OWNER");
+                await expect(CommunityCoin.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith(`TrustedForwarderCanNotBeOwner("${owner.address}")`);
             });
             
         });
@@ -1425,9 +1451,9 @@ describe("Staking contract tests", function () {
                             if (trustedForwardMode) {
                                 const dataTx = await CommunityCoin.connect(trustedForwarder).populateTransaction.unstake(walletTokens);
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
-                                await expect(trustedForwarder.sendTransaction(dataTx)).to.be.revertedWith('STAKE_NOT_UNLOCKED_YET');
+                                await expect(trustedForwarder.sendTransaction(dataTx)).to.be.revertedWith(`StakeNotUnlockedYet("${bob.address}", ${walletTokens}, 0)`);
                             } else {
-                                await expect(CommunityCoin.connect(bob).unstake(walletTokens)).to.be.revertedWith('STAKE_NOT_UNLOCKED_YET');
+                                await expect(CommunityCoin.connect(bob).unstake(walletTokens)).to.be.revertedWith(`StakeNotUnlockedYet("${bob.address}", ${walletTokens}, 0)`);
                             }
                         });  
 
@@ -1784,13 +1810,13 @@ describe("Staking contract tests", function () {
             describe("unstake tests", function () {
                 describe("shouldnt unstake", function () {
                     it("if not unlocked yet", async () => {
-                        await expect(CommunityCoin.connect(bob)["unstake(uint256)"](shares)).to.be.revertedWith("STAKE_NOT_UNLOCKED_YET");
+                        await expect(CommunityCoin.connect(bob)["unstake(uint256)"](shares)).to.be.revertedWith(`StakeNotUnlockedYet("${bob.address}", ${shares}, 0)`);
                     });
                     it("if amount more than balance", async () => {
                         // pass some mtime
                         await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
-                        await expect(CommunityCoin.connect(bob)["unstake(uint256)"](shares.add(ONE_ETH))).to.be.revertedWith("INSUFFICIENT_BALANCE");
+                        await expect(CommunityCoin.connect(bob)["unstake(uint256)"](shares.add(ONE_ETH))).to.be.revertedWith(`InsufficientBalance("${bob.address}", ${shares.add(ONE_ETH)})`);
                     });
                     
                     it("if happens smth unexpected with pool", async () => {
@@ -1805,7 +1831,7 @@ describe("Staking contract tests", function () {
                         // broke contract and emulate 'Error when unstake' response
                         await communityStakingPool.setUniswapPair(ZERO_ADDRESS);
 
-                        await expect(CommunityCoin.connect(bob)["unstake(uint256)"](shares)).to.be.revertedWith("Error when unstake");
+                        await expect(CommunityCoin.connect(bob)["unstake(uint256)"](shares)).to.be.revertedWith("UNSTAKE_ERROR()");
         
                     }); 
                 });
@@ -1882,7 +1908,7 @@ describe("Staking contract tests", function () {
                             // broke contract and emulate 'Error when redeem in an instance' response
                             await communityStakingPool.setUniswapPair(ZERO_ADDRESS);
 
-                            await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Error when redeem in an instance");
+                            await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("REDEEM_ERROR()");
 
 
                         }); 
@@ -1969,7 +1995,7 @@ describe("Staking contract tests", function () {
                             });
 
                             it("if anyone didn't transfer tokens to you before", async () => {
-                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Amount exceeds allowance");
+                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(`AmountExceedsAllowance("${bob.address}", ${shares})`);
                             });
         
                             it("but without transfer to some one", async () => {
@@ -1979,7 +2005,7 @@ describe("Staking contract tests", function () {
                                 //!!await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
                                 await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
 
-                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("INSUFFICIENT_BALANCE");
+                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(`InsufficientBalance("${bob.address}", ${shares})`);
                             });
                             
                             describe("after someone transfer", function () {  
@@ -1995,12 +2021,12 @@ describe("Staking contract tests", function () {
                                 });  
                                 
                                 it("without approve before", async () => {
-                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Amount exceeds allowance");
+                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(`AmountExceedsAllowance("${alice.address}", ${shares})`);
                                 });
                                 it("without approve before even if passed time", async () => {
                                     // pass some mtime
                                     await time.increase(lockupIntervalCount*dayInSeconds+9);    
-                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith("Amount exceeds allowance");
+                                    await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(`AmountExceedsAllowance("${alice.address}", ${shares})`);
                                 });
                                 
                             });      
