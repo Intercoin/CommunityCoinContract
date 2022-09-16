@@ -68,21 +68,23 @@ abstract contract CommunityCoinBase is
     // // Constants representing operations
     // uint8 internal constant OPERATION_INITIALIZE = 0x0;
     // uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS = 0x1;
-    // uint8 internal constant OPERATION_ADD_TO_CIRCULATION = 0x2;
-    // uint8 internal constant OPERATION_REMOVE_FROM_CIRCULATION = 0x3;
-    // uint8 internal constant OPERATION_PRODUCE = 0x4;
-    // uint8 internal constant OPERATION_PRODUCE_ERC20 = 0x5;
-    // uint8 internal constant OPERATION_UNSTAKE = 0x6;
-    // uint8 internal constant OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY = 0x7;
-    // uint8 internal constant OPERATION_REDEEM = 0x8;
-    // uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY = 0x9;
-    // uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST = 0xA;
-    // uint8 internal constant OPERATION_GRANT_ROLE = 0xB;
-    // uint8 internal constant OPERATION_REVOKE_ROLE = 0xC;
-    // uint8 internal constant OPERATION_CLAIM = 0xD;
-    // uint8 internal constant OPERATION_SET_TRUSTEDFORWARDER = 0xE;
-    // uint8 internal constant OPERATION_SET_TRANSFER_OWNERSHIP = 0xF;
-    // uint8 internal constant OPERATION_TRANSFER_HOOK = 0x10;
+    // uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS_BONUS = 0x2;
+    // uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE = 0x3;
+    // uint8 internal constant OPERATION_ADD_TO_CIRCULATION = 0x4;
+    // uint8 internal constant OPERATION_REMOVE_FROM_CIRCULATION = 0x5;
+    // uint8 internal constant OPERATION_PRODUCE = 0x6;
+    // uint8 internal constant OPERATION_PRODUCE_ERC20 = 0x7;
+    // uint8 internal constant OPERATION_UNSTAKE = 0x8;
+    // uint8 internal constant OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY = 0x9;
+    // uint8 internal constant OPERATION_REDEEM = 0xA;
+    // uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY = 0xB;
+    // uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST = 0xC;
+    // uint8 internal constant OPERATION_GRANT_ROLE = 0xD;
+    // uint8 internal constant OPERATION_REVOKE_ROLE = 0xE;
+    // uint8 internal constant OPERATION_CLAIM = 0xF;
+    // uint8 internal constant OPERATION_SET_TRUSTEDFORWARDER = 0x10;
+    // uint8 internal constant OPERATION_SET_TRANSFER_OWNERSHIP = 0x11;
+    // uint8 internal constant OPERATION_TRANSFER_HOOK = 0x12;
 
     //EnumerableSet.AddressSet private rewardTokensList;
     //mapping(address => uint256) public rewardTokenRatios;
@@ -196,50 +198,81 @@ abstract contract CommunityCoinBase is
         ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo = instanceManagment.getInstanceInfoByPoolAddress(instance);
   
         require(instanceInfo.exists == true);
-     
+
+        // calculate bonusAmount
         uint256 bonusAmount = amount * instanceInfo.bonusTokenFraction / FRACTION;
-        uint256 totalAmount = amount + bonusAmount;
+
+        // calculate invitedAmount
+        address invitedBy = address(0);
+        uint256 invitedAmount = 0;
+        if (invitedByFraction != 0) {
+            invitedBy = rolesManagement.invitedBy(account);
+            if (invitedBy != address(0)) {
+                //do invite comission calculation here
+                invitedAmount = amount * invitedByFraction / FRACTION;
+                
+            }
+        }
+
+//        uint256 totalAmount = amount + bonusAmount;
 
         //forward conversion( LP -> СС)
-        totalAmount = totalAmount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
-        bonusAmount = bonusAmount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
         amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
-
-        _instanceStaked[instance] += totalAmount;
-
-
-        if (address(hook) != address(0)) {
-            hook.bonus(instance, account, instanceInfo.duration, amount);
-        }
-        //totalExtra += bonusAmount;
+        bonusAmount = bonusAmount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
+        invitedAmount = invitedAmount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
         
-        unstakeable[account] += totalAmount;
-        totalUnstakeable += totalAmount;
-        
+
         // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
         // also keep in mind that user can unstake only unstakeable[account] which saved w/o bonusTokens, but minimums and mint with it.
         // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
         // amount += bonusAmount;
 
-        
-        if (invitedByFraction != 0) {
-            address invitedBy = rolesManagement.invitedBy(account);
-            if (invitedBy != address(0)) {
-            //do invite comission calculation here
-            }
+        _instanceStaked[instance] += amount + bonusAmount + invitedAmount;
+
+        if (address(hook) != address(0)) {
+            hook.bonus(instance, account, instanceInfo.duration, amount);
         }
-      
-        _mint(account, totalAmount, "", "");
-        emit Staked(account, totalAmount, priceBeforeStake);
+        
+        unstakeable[account] += amount + bonusAmount;
+        totalUnstakeable += amount + bonusAmount;
 
+        if (invitedBy != address(0)) {
+            unstakeable[invitedBy] += invitedAmount;
+            totalUnstakeable += invitedAmount;
+        }
+
+        // mint main part + bonus (@dev here bonus can be zero )
+        _mint(account, (amount + bonusAmount), "", "");
+        emit Staked(account, (amount + bonusAmount), priceBeforeStake);
+        // locked main 
         tokensLocked[account]._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
-        tokensBonus[account]._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
-
         // _accountForOperation(
         //     OPERATION_ISSUE_WALLET_TOKENS << OPERATION_SHIFT_BITS,
         //     uint256(uint160(account)),
-        //     amount
+        //     amount + bonusAmount
         // );
+
+        
+        // locked main 
+        if (bonusAmount > 0) {
+            tokensBonus[account]._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+            // _accountForOperation(
+            //     OPERATION_ISSUE_WALLET_TOKENS_BONUS << OPERATION_SHIFT_BITS,
+            //     uint256(uint160(account)),
+            //     bonusAmount
+            // );
+        }
+
+        if (invitedBy != address(0)) {
+            _mint(invitedBy, invitedAmount, "", "");
+            tokensBonus[invitedBy]._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+            // _accountForOperation(
+            //     OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE << OPERATION_SHIFT_BITS,
+            //     uint256(uint160(invitedBy)),
+            //     invitedAmount
+            // );
+        }
+        
     }
     
     /**
