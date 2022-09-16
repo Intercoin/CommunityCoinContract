@@ -46,6 +46,9 @@ abstract contract CommunityCoinBase is
 
     uint256 internal discountSensitivity;
 
+    // itrc' fraction that will send to person who has invited "buy and stake" person
+    uint256 internal invitedByFraction;
+
     uint256 internal totalUnstakeable;
     uint256 internal totalRedeemable;
     //uint256 totalExtra;         // extra tokens minted by factory when staked
@@ -218,7 +221,13 @@ abstract contract CommunityCoinBase is
         // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
         // amount += bonusAmount;
 
-
+        
+        if (invitedByFraction != 0) {
+            address invitedBy = rolesManagement.invitedBy(account);
+            if (invitedBy != address(0)) {
+            //do invite comission calculation here
+            }
+        }
       
         _mint(account, totalAmount, "", "");
         emit Staked(account, totalAmount, priceBeforeStake);
@@ -649,7 +658,7 @@ abstract contract CommunityCoinBase is
         // );
     }
 
-     function transferOwnership(
+    function transferOwnership(
         address newOwner
     ) public 
         virtual 
@@ -669,6 +678,19 @@ abstract contract CommunityCoinBase is
         // );
         super.transferOwnership(newOwner);
         
+    }
+
+    /**
+    * @param fraction fraction that will send to person which has invite person who staked
+    */
+    function setCommission(
+        uint256 fraction
+    )
+        public
+        onlyOwner
+    {
+        invitedByFraction = fraction;
+
     }
     
     ////////////////////////////////////////////////////////////////////////

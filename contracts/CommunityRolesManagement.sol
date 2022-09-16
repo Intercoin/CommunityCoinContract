@@ -13,6 +13,8 @@ contract CommunityRolesManagement is ICommunityRolesManagement, Initializable, A
     bytes32 internal constant REDEEM_ROLE = "redeem";
     bytes32 internal constant CIRCULATION_ROLE = "circulate";
 
+    //left for back compatible with Community contract. here no invitedBy addresses. so no commissions even if was setup in CommunityCoin
+    mapping(address => address) public invitedBy;
     
     struct Roles {
         address communityAddr;
