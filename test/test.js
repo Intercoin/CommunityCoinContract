@@ -63,7 +63,7 @@ describe("Staking contract tests", function () {
     
     const lpFraction = ZERO;
     const numerator = 1;
-    const denominator = 1;
+    const denominator = 10;
     const dayInSeconds = 24*60*60; // * interval: DAY in seconds
     const lockupIntervalCount = 365; // year in days(dayInSeconds)
     const percentLimitLeftTokenB = 0.001;
@@ -378,7 +378,7 @@ describe("Staking contract tests", function () {
             expect(frankWalletTokens).not.to.be.eq(ZERO);
 
             expect(poolLptokens).not.to.be.eq(ZERO);
-            expect(poolLptokens).to.be.eq(davidWalletTokens.add(frankWalletTokens).add(bobWalletTokens));
+            expect(poolLptokens.mul(numerator).div(denominator)).to.be.eq(davidWalletTokens.add(frankWalletTokens).add(bobWalletTokens));
 
             // donates 50% and 25% and left for Bob
             expect(davidWalletTokens).to.be.eq(frankWalletTokens.add(bobWalletTokens));
@@ -732,7 +732,7 @@ describe("Staking contract tests", function () {
             lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
 
             expect(lptokens).not.to.be.eq(ZERO);
-            expect(lptokens).to.be.eq(walletTokens);
+            expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
                
         });
 
@@ -748,7 +748,7 @@ describe("Staking contract tests", function () {
                 
                 // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                 expect(lptokens).not.to.be.eq(ZERO);
-                expect(lptokens).to.be.eq(walletTokens);
+                expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
 
                 await mockHook.setupVars(ZERO,false);
 
@@ -760,7 +760,7 @@ describe("Staking contract tests", function () {
                 
                 // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                 expect(lptokens).not.to.be.eq(ZERO);
-                expect(lptokens).to.be.eq(walletTokens);
+                expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
 
                 await mockHook.setupVars(ZERO,true);
 
@@ -885,7 +885,7 @@ describe("Staking contract tests", function () {
                 
                 // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                 expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
-                expect(lptokens).to.be.eq(walletTokens);
+                expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);
 
                 expect(charlieWalletTokensBefore).not.to.be.eq(walletTokens);
                 expect(ZERO).not.to.be.eq(walletTokens);
@@ -1355,7 +1355,7 @@ describe("Staking contract tests", function () {
                             
                             // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                             expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
-                            expect(lptokens).to.be.eq(walletTokens);
+                            expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
 
                             expect(walletTokensBefore).not.to.be.eq(walletTokens);
                             expect(lptokens).not.to.be.eq(lptokensBefore);
@@ -1383,7 +1383,7 @@ describe("Staking contract tests", function () {
 
                     //     // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                     //     expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
-                    //     expect(lptokens).to.be.eq(walletTokens);
+                    //     expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
 
                     //     expect(walletTokensBefore).not.to.be.eq(walletTokens);
                     //     expect(lptokens).not.to.be.eq(lptokensBefore);
@@ -1426,7 +1426,7 @@ describe("Staking contract tests", function () {
                             
                             // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                             expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
-                            expect(lptokens).to.be.eq(walletTokens);
+                            expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
 
                             expect(bobWalletTokensBefore).not.to.be.eq(walletTokens);
                             expect(bobLptokensBefore).not.to.be.eq(lptokens);
@@ -1637,7 +1637,7 @@ describe("Staking contract tests", function () {
                         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
 
                         expect(lptokens).not.to.be.eq(ZERO);
-                        expect(lptokens).to.be.eq(walletTokens);
+                        expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
                     
                     });    
 
@@ -1661,7 +1661,7 @@ describe("Staking contract tests", function () {
                         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
 
                         expect(lptokens).not.to.be.eq(ZERO);
-                        expect(lptokens).to.be.eq(walletTokens);
+                        expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
 
                         expect(walletTokensBefore).not.to.be.eq(walletTokens);
                         expect(lptokensBefore).not.to.be.eq(lptokens);
@@ -1706,7 +1706,14 @@ describe("Staking contract tests", function () {
                         
                         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                         expect(lptokens).not.to.be.eq(ZERO);
-                        expect(lptokens).to.be.eq(walletTokens);
+
+                        //expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);
+                        // float number
+                        expect(
+                            lptokens.mul(numerator).div(denominator).div(10).mul(10)
+                        ).to.be.eq(
+                            walletTokens.div(10).mul(10)
+                        );
                         
                     });    
 
@@ -1728,7 +1735,7 @@ describe("Staking contract tests", function () {
                         
                         // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                         expect(lptokens).not.to.be.eq(ZERO);
-                        expect(lptokens).to.be.eq(walletTokens);
+                        expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
                         
                         expect(walletTokensBefore).not.to.be.eq(walletTokens);
                         expect(lptokensBefore).not.to.be.eq(lptokens);
@@ -2183,24 +2190,19 @@ describe("Staking contract tests", function () {
 
                         if (forkAction) {
                             it("via directly send to contract", async () => {
-
                                 await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
-
                                 aliceLPTokenAfter = await uniswapV2PairInstance.balanceOf(alice.address);
-
                                 expect(aliceLPTokenAfter).gt(aliceLPTokenBefore);
                             });
 
                             describe("discountSensivityTests", function () {
                                 var amountWithout, amountWith;
                                 it("calculate amount obtain without circulation", async () => {
-
                                     await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
                                     amountWithout = await uniswapV2PairInstance.balanceOf(alice.address);
                                 });
 
                                 it("calculate amount obtain with circulation", async () => {
-                                    
                                     if (communityExternalMode) {
                                         // imitate exists role
                                         //await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',CIRCULATE_ROLE]);
@@ -2209,16 +2211,17 @@ describe("Staking contract tests", function () {
                                     } else {
                                         await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(CIRCULATE_ROLE), charlie.address);
                                     }
-                                    
                                     await CommunityCoin.connect(charlie).addToCirculation(shares);
-
                                     await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
                                     amountWith = await uniswapV2PairInstance.balanceOf(alice.address);
                                 });
+
                                 it("check correct sensivity discount", async () => {
                                     // if total shares = X and admin will add to circulation on X more
                                     // then the user will obtain in a two times less
-                                    expect(amountWithout.div(amountWith)).to.be.eq(TWO);
+
+                                    //expect(amountWithout.div(amountWith)).to.be.eq(TWO); // it will be if sensitivityDiscount is zero
+                                    expect(amountWithout.div(amountWith)).to.be.eq(FOUR);
                                 });
                                 
                             });

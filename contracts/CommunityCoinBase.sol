@@ -17,7 +17,7 @@ import "./access/TrustedForwarderUpgradeable.sol";
 //import "releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 //import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 abstract contract CommunityCoinBase is 
     OwnableUpgradeable, 
@@ -51,6 +51,9 @@ abstract contract CommunityCoinBase is
 
     uint256 internal totalUnstakeable;
     uint256 internal totalRedeemable;
+    // it's how tokens will store in pools. without bonuses. 
+    // means totalReserves = SUM(pools.totalSupply)
+    uint256 internal totalReserves;
     //uint256 totalExtra;         // extra tokens minted by factory when staked
 
     address internal reserveToken;
@@ -217,9 +220,9 @@ abstract contract CommunityCoinBase is
 //        uint256 totalAmount = amount + bonusAmount;
 
         //forward conversion( LP -> СС)
-        amount = amount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
-        bonusAmount = bonusAmount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
-        invitedAmount = invitedAmount * (10**instanceInfo.numerator) / (10**instanceInfo.denominator);
+        amount = amount * (instanceInfo.numerator) / (instanceInfo.denominator);
+        bonusAmount = bonusAmount * (instanceInfo.numerator) / (instanceInfo.denominator);
+        invitedAmount = invitedAmount * (instanceInfo.numerator) / (instanceInfo.denominator);
         
 
         // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
@@ -235,6 +238,8 @@ abstract contract CommunityCoinBase is
         
         unstakeable[account] += amount + bonusAmount;
         totalUnstakeable += amount + bonusAmount;
+
+        totalReserves += amount;
 
         if (invitedBy != address(0)) {
             unstakeable[invitedBy] += invitedAmount;
@@ -360,6 +365,7 @@ abstract contract CommunityCoinBase is
         //_checkRole(roles.redeemRole, from);
 
         __redeem(address(this), from, amount, new address[](0), Strategy.REDEEM);
+
         
     }
 
@@ -643,7 +649,7 @@ abstract contract CommunityCoinBase is
         returns(address, uint256)
     {
         
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem,/* uint256 len*/) = _poolStakesAvailable(
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, /*uint256[] memory amounts*/, /* uint256 len*/) = _poolStakesAvailable(
             account, 
             amount, 
             preferredInstances, 
@@ -805,9 +811,9 @@ abstract contract CommunityCoinBase is
     {
         uint256 totalSupplyBefore = _burn(account, amount);
 
-        (address[] memory instancesList, uint256[] memory values, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
+        (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
         for (uint256 i = 0; i < len; i++) {
-            _instanceStaked[instancesList[i]] -= values[i];
+            _instanceStaked[instancesList[i]] -= amounts[i];
 
             proceedPool(
                 account,
@@ -831,8 +837,9 @@ abstract contract CommunityCoinBase is
         internal 
         view
         returns(
-            address[] memory instancesAddress, 
-            uint256[] memory values,
+            address[] memory instancesAddress,  // instance's addresses
+            uint256[] memory values,            // amounts to redeem in instance
+            uint256[] memory amounts,           // itrc amount equivalent(applied num/den)
             uint256 len
         ) 
     {
@@ -844,12 +851,13 @@ abstract contract CommunityCoinBase is
 
         instancesAddress = new address[](preferredInstances.length);
         values = new uint256[](preferredInstances.length);
+        amounts = new uint256[](preferredInstances.length);
         len = 0;
         uint256 amountToRedeem;
 
         uint256 amountLeft = amount;
         if (strategy == Strategy.REDEEM || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-    
+
             // LPTokens =  WalletTokens * ratio;
             // ratio = A / (A + B * discountSensitivity);
             // где 
@@ -866,6 +874,31 @@ abstract contract CommunityCoinBase is
             amountLeft = amountLeft * A * FRACTION;
             amountLeft = amountLeft / (A + B * discountSensitivity / FRACTION);
             amountLeft = amountLeft / FRACTION;
+
+            /////////////////////////////////////////////////////////////////////
+            // Formula: #1
+            // discount = mainTokens / (mainTokens + bonusTokens);
+            // 
+            // but what we have: 
+            // - mainTokens     - tokens that user obtain after staked 
+            // - bonusTokens    - any bonus tokens. 
+            //   increase when:
+            //   -- stakers was invited via community. so inviter will obtain amount * invitedByFraction
+            //   -- calling addToCirculation
+            //   decrease when:
+            //   -- calling removeFromCirculation
+            // so discount can be more then zero
+            // We didn't create int256 bonusTokens variable. instead this we just use totalSupply() == (mainTokens + bonusTokens)
+            // and provide uint256 totalReserves as tokens amount  without bonuses.
+            // increasing than user stakes and decreasing when redeem
+            // smth like this
+            // discount = totalReserves / (totalSupply();
+            // !!! keep in mind that we have burn tokens before it's operation and totalSupply() can be zero. use totalSupplyBefore instead 
+
+            amountLeft = amountLeft * totalReserves / totalSupplyBefore;
+
+            /////////////////////////////////////////////////////////////////////
+
 
         }
         if (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
@@ -909,8 +942,9 @@ abstract contract CommunityCoinBase is
 
                     instancesAddress[len] = preferredInstances[i]; 
                     instanceInfo =  instanceManagment.getInstanceInfoByPoolAddress(preferredInstances[i]); // todo is exist there?
+                    amounts[len] = amountToRedeem;
                     //backward conversion( СС -> LP)
-                    values[len]  = amountToRedeem * (10**instanceInfo.denominator) / (10**instanceInfo.numerator);
+                    values[len] = amountToRedeem * (instanceInfo.denominator) / (instanceInfo.numerator);
                     
                     len += 1;
 
@@ -970,13 +1004,16 @@ abstract contract CommunityCoinBase is
         //require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
         if (amount > totalRedeemable) {revert InsufficientBalance(account2Redeem, amount);}
 
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256 len) = _poolStakesAvailable(account2Redeem, amount, preferredInstances, strategy/*Strategy.REDEEM*/, totalSupplyBefore);
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account2Redeem, amount, preferredInstances, strategy/*Strategy.REDEEM*/, totalSupplyBefore);
 
         for (uint256 i = 0; i < len; i++) {
             if (_instanceStaked[instancesToRedeem[i]] > 0) {
-                _instanceStaked[instancesToRedeem[i]] -= valuesToRedeem[i];
-                totalRedeemable -= valuesToRedeem[i];
+                _instanceStaked[instancesToRedeem[i]] -= amounts[i];
+                totalRedeemable -= amounts[i];
 
+                if (strategy == Strategy.REDEEM || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+                    totalReserves -= amounts[i];
+                }
                 proceedPool(
                     account2Redeem,
                     instancesToRedeem[i],
@@ -987,6 +1024,9 @@ abstract contract CommunityCoinBase is
         }
     }
 
+    /**
+    * @param amount already converted amount
+    */
     function proceedPool(address account,address pool, uint256 amount, Strategy strategy/*, string memory errmsg*/) internal {
         if (strategy == Strategy.REDEEM || strategy == Strategy.UNSTAKE) {
 
