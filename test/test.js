@@ -378,7 +378,11 @@ describe("Staking contract tests", function () {
             expect(frankWalletTokens).not.to.be.eq(ZERO);
 
             expect(poolLptokens).not.to.be.eq(ZERO);
-            expect(poolLptokens.mul(numerator).div(denominator)).to.be.eq(davidWalletTokens.add(frankWalletTokens).add(bobWalletTokens));
+            expect(
+                poolLptokens.mul(numerator).div(denominator).div(10).mul(10)
+            ).to.be.eq(
+                davidWalletTokens.add(frankWalletTokens).add(bobWalletTokens).div(10).mul(10)
+            );
 
             // donates 50% and 25% and left for Bob
             expect(davidWalletTokens).to.be.eq(frankWalletTokens.add(bobWalletTokens));
@@ -1119,82 +1123,6 @@ describe("Staking contract tests", function () {
             //console.log("before each №2");
 
             
-        });
-
-        it("should add/remove tokens to circulation", async() => {
-            let amount = ONE_ETH;
-            let balanceBefore = await CommunityCoin.balanceOf(charlie.address);
-            let revertMessage = [
-                    "AccessControl: account ",
-                    (charlie.address).toLowerCase(),
-                    " is missing role ",
-                    "0x"+padZeros(convertToHex(CIRCULATE_ROLE),64)
-                ].join("");
-
-            await expect(
-                CommunityCoin.connect(charlie).addToCirculation(amount)
-            ).to.be.revertedWith(revertMessage);
-
-            await expect(
-                CommunityCoin.connect(charlie).removeFromCirculation(amount)
-            ).to.be.revertedWith(revertMessage);
-
-            if (communityExternalMode) {
-                // imitate exists role
-                //await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',CIRCULATE_ROLE]);
-                await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC',CIRCULATE_ROLE,'DDD']);
-
-            } else {
-                await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(CIRCULATE_ROLE), charlie.address);
-            }
-            
-
-            await CommunityCoin.connect(charlie).addToCirculation(amount);
-
-            let balanceAfter = await CommunityCoin.balanceOf(charlie.address);
-
-            expect(balanceAfter).not.to.be.eq(ZERO_ADDRESS);
-            expect(balanceAfter).to.be.eq(amount);
-            
-            await CommunityCoin.connect(charlie).removeFromCirculation(amount);
-
-            // let balanceAfter2 = await CommunityCoin.balanceOf(charlie.address);
-
-            // expect(balanceBefore).to.be.eq(balanceAfter2);
-
-        });
-
-        it("should add tokens to circulation, transfer to some1 and remove from circulation", async() => {
-            let amount = ONE_ETH;
-            let balanceBefore = await CommunityCoin.balanceOf(charlie.address);
-
-            if (communityExternalMode) {
-                // imitate exists role
-                //await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',CIRCULATE_ROLE]);
-                await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC',CIRCULATE_ROLE,'DDD']);
-
-            } else {
-                await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(CIRCULATE_ROLE), charlie.address);
-            }
-            // adding
-            await CommunityCoin.connect(charlie).addToCirculation(amount);
-            let balanceAfter = await CommunityCoin.balanceOf(charlie.address);
-            expect(balanceAfter).not.to.be.eq(ZERO_ADDRESS);
-            expect(balanceAfter).to.be.eq(amount);
-
-            //transfers
-                //to david
-            await CommunityCoin.connect(charlie).transfer(david.address, amount);
-                //back to charlie david
-            await CommunityCoin.connect(david).transfer(charlie.address, amount);
-
-            //removing
-            await CommunityCoin.connect(charlie).removeFromCirculation(amount);
-
-            // let balanceAfter2 = await CommunityCoin.balanceOf(charlie.address);
-
-            // expect(balanceBefore).to.be.eq(balanceAfter2);
-
         });
 
         it("shouldnt create another pair with equal tokens", async() => {
@@ -2211,7 +2139,7 @@ describe("Staking contract tests", function () {
                                     } else {
                                         await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(CIRCULATE_ROLE), charlie.address);
                                     }
-                                    await CommunityCoin.connect(charlie).addToCirculation(shares);
+                                    await CommunityCoin.connect(charlie).addToCirculation(charlie.address, shares);
                                     await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
                                     amountWith = await uniswapV2PairInstance.balanceOf(alice.address);
                                 });

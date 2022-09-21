@@ -4,17 +4,16 @@ pragma solidity ^0.8.11;
 interface ICommunityRolesManagement {
     struct CommunitySettings {
         address addr;
-        string adminRole;
-        string redeemRole;
-        string circulationRole;
+        uint8 adminRole;
+        uint8 redeemRole;
+        uint8 circulationRole;
     }
 
     function initialize(
-        CommunitySettings calldata communitySettings,
-        address admin
+        CommunitySettings calldata communitySettings
     ) external;   
 
-    function getRedeemRole() external view returns(bytes32);
+    function getRedeemRole() external view returns(uint8);
     
     function checkRedeemRole(address account) external view;
     function checkCirculationRole(address account) external view;

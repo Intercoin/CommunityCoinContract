@@ -10,11 +10,11 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgrade
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./interfaces/ICommunityStakingPoolFactory.sol";
-import "./interfaces/ICommunity.sol";
+import "@artman325/community/contracts/interfaces/ICommunity.sol";
 import "./interfaces/IStructs.sol";
 
 import "./access/TrustedForwarderUpgradeable.sol";
-//import "releasemanager/contracts/CostManagerHelperERC2771Support.sol";
+//import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 //import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import "hardhat/console.sol";
@@ -287,48 +287,21 @@ abstract contract CommunityCoinBase is
     * @custom:shortd distribute tokens
     */
     function addToCirculation(
+        address account,
         uint256 amount
     ) 
         external 
         nonReentrant
         //onlyRole(roles.circulationRole)
     {
-        address account = _msgSender();
-
-        rolesManagement.checkCirculationRole(account);
+        rolesManagement.checkCirculationRole(_msgSender());
         
         _mint(account, amount, "", "");
-        //_minimumsAdd(account, amount, CIRCULATION_DEFAULT, false);
 
+        //tokensBonus[account]._minimumsAdd(amount, 1, LOCKUP_BONUS_INTERVAL, false);
+        
         // _accountForOperation(
         //     OPERATION_ADD_TO_CIRCULATION << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(account)),
-        //     amount
-        // );
-    }
-
-    /**
-    * @notice method to removing tokens from circulation. called externally only by `CIRCULATION_ROLE`
-    * @param amount token's amount
-    * @custom:calledby `CIRCULATION_ROLE`
-    * @custom:shortd remove tokens
-    */
-    function removeFromCirculation(
-        uint256 amount
-    ) 
-        external 
-        nonReentrant
-        //onlyRole(roles.circulationRole)
-    {
-        address account = _msgSender();
-        rolesManagement.checkCirculationRole(account);
-
-        _burn(account, amount, "", "");
-        //or
-        //__redeem(account, account, amount, new address[](0), totalSupplyBefore, Strategy.REDEEM);
-
-        // _accountForOperation(
-        //     OPERATION_REMOVE_FROM_CIRCULATION << OPERATION_SHIFT_BITS,
         //     uint256(uint160(account)),
         //     amount
         // );
@@ -607,7 +580,7 @@ abstract contract CommunityCoinBase is
         );
     }   
 
-    function grantRole(bytes32 role, address account) onlyOwner() public {
+    function grantRole(uint8 role, address account) onlyOwner() public {
         rolesManagement.grantRole(role, account);
         // _accountForOperation(
         //     OPERATION_GRANT_ROLE << OPERATION_SHIFT_BITS,
@@ -616,7 +589,7 @@ abstract contract CommunityCoinBase is
         // ); 
     }
     
-    function revokeRole(bytes32 role, address account) onlyOwner() public {
+    function revokeRole(uint8 role, address account) onlyOwner() public {
         rolesManagement.revokeRole(role, account);
         // _accountForOperation(
         //     OPERATION_REVOKE_ROLE << OPERATION_SHIFT_BITS,
@@ -886,7 +859,7 @@ abstract contract CommunityCoinBase is
             //   -- stakers was invited via community. so inviter will obtain amount * invitedByFraction
             //   -- calling addToCirculation
             //   decrease when:
-            //   -- calling removeFromCirculation
+            //   -- by applied tariff when redeem or unstake
             // so discount can be more then zero
             // We didn't create int256 bonusTokens variable. instead this we just use totalSupply() == (mainTokens + bonusTokens)
             // and provide uint256 totalReserves as tokens amount  without bonuses.
@@ -1002,6 +975,10 @@ abstract contract CommunityCoinBase is
 
         uint256 totalSupplyBefore = _burn(account2Burn, amount);
         //require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
+
+console.log("amount = ",amount);
+console.log("totalRedeemable = ",totalRedeemable);
+
         if (amount > totalRedeemable) {revert InsufficientBalance(account2Redeem, amount);}
 
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account2Redeem, amount, preferredInstances, strategy/*Strategy.REDEEM*/, totalSupplyBefore);
@@ -1100,10 +1077,14 @@ abstract contract CommunityCoinBase is
                
                     uint256 remainingAmount = balance - amount;
                     
-                    if (
-                        to == address(0) || // if burnt
-                        to == address(this) // if send directly to contract
-                    ) {
+                    
+//                     if (to == address(0)) {  // if burnt
+// console.log(from);
+// console.log(to);
+// console.log(amount);
+//                     } else 
+
+                    if (to == address(this)) { // if send directly to contract
                         //require(amount <= totalRedeemable, "STAKE_NOT_UNLOCKED_YET");
                     } else {
                         // else it's just transfer

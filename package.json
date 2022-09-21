@@ -23,8 +23,9 @@
     "@uniswap/lib": "^4.0.1-alpha",
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
-    "trustedforwarder": "^1.0.0",
-    "releasemanager": "^1.0.5"
+    "@artman325/trustedforwarder": "^1.0.1",
+    "@artman325/releasemanager": "^1.1.0",
+    "@artman325/community": "^1.0.1"
   },
   "devDependencies": {
     "solidity-docgen": "^0.5.16",

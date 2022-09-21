@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityRolesManagement.sol";
 
-import "releasemanager/contracts/CostManagerFactoryHelper.sol";
-import "releasemanager/contracts/ReleaseManagerHelper.sol";
+import "@artman325/releasemanager/contracts/CostManagerFactoryHelper.sol";
+import "@artman325/releasemanager/contracts/ReleaseManagerHelper.sol";
 
 /**
 ****************
@@ -187,7 +187,7 @@ contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseM
 
         address rolesManagementClone = rolesManagementImplementation.clone();
 
-        ICommunityRolesManagement(rolesManagementClone).initialize(communitySettings, instance);
+        ICommunityRolesManagement(rolesManagementClone).initialize(communitySettings);
 
         ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone, reserveToken, tradedToken, /*costManager, */_msgSender());
         
