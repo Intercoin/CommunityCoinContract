@@ -4,7 +4,8 @@ pragma solidity 0.8.11;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
-import "./interfaces/ICommunityRolesManagement.sol";
+import "./interfaces/IStructs.sol";
+
 
 import "@artman325/releasemanager/contracts/CostManagerFactoryHelper.sol";
 import "@artman325/releasemanager/contracts/ReleaseManagerHelper.sol";
@@ -98,12 +99,6 @@ contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseM
     address public immutable stakingPoolImplementation;
     address public immutable stakingPoolErc20Implementation;
 
-    /**
-    * @custom:shortd RolesManagement implementation address
-    * @notice RolesManagement implementation address
-    */
-    address public immutable rolesManagementImplementation;
-
     address[] public instances;
     
     event InstanceCreated(address instance, uint instancesCount);
@@ -113,15 +108,13 @@ contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseM
     * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
     * @param stakingPoolImpl address of StakingPool implementation
     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
-    * @param rolesManagementImpl address of RolesManagement implementation
     * [deprecated]param costManager_ address of costmanager
     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
-        address stakingPoolImplErc20,
-        address rolesManagementImpl/*,
+        address stakingPoolImplErc20/*,
         address costManager_*/
     ) 
         //CostManagerFactoryHelper(costManager_)
@@ -130,7 +123,6 @@ contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseM
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
         stakingPoolErc20Implementation = stakingPoolImplErc20;
-        rolesManagementImplementation = rolesManagementImpl;
 
     }
 
@@ -169,7 +161,7 @@ contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseM
         address tradedToken,
         address hook,
         uint256 discountSensitivity,
-        ICommunityRolesManagement.CommunitySettings memory communitySettings
+        IStructs.CommunitySettings memory communitySettings
     ) 
         public 
         onlyOwner()
@@ -185,11 +177,7 @@ contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseM
         
         emit InstanceCreated(instance, instances.length);
 
-        address rolesManagementClone = rolesManagementImplementation.clone();
-
-        ICommunityRolesManagement(rolesManagementClone).initialize(communitySettings);
-
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, rolesManagementClone, reserveToken, tradedToken, /*costManager, */_msgSender());
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, reserveToken, tradedToken, communitySettings,/*costManager, */_msgSender());
         
         Ownable(instance).transferOwnership(_msgSender());
 

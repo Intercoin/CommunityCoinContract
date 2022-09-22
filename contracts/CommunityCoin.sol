@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.11;
+pragma solidity ^0.8.11;
 
 import "./CommunityCoinBase.sol";
 
@@ -78,7 +78,6 @@ contract CommunityCoin is CommunityCoinBase {
     * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-    * @param rolesManagementAddr_ contract that would will manage roles(admin,redeem,circulate)
     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken_ address of traded token. usual it intercoin investor token
     * [deprecated]param costManager_ costManager address
@@ -92,9 +91,9 @@ contract CommunityCoin is CommunityCoinBase {
         address hook_,
         address communityCoinInstanceAddr,
         uint256 discountSensitivity_,
-        address rolesManagementAddr_,
         address reserveToken_,
         address tradedToken_,
+        IStructs.CommunitySettings calldata communitySettings,
         //address costManager_,
         address producedBy_
     ) 
@@ -113,9 +112,9 @@ contract CommunityCoin is CommunityCoinBase {
             hook_, 
             communityCoinInstanceAddr, 
             discountSensitivity_, 
-            rolesManagementAddr_, 
             reserveToken_, 
             tradedToken_,
+            communitySettings,
             //costManager_,
             producedBy_
         );

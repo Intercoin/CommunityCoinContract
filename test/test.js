@@ -25,9 +25,11 @@ const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 const UNISWAP_ROUTER_FACTORY_ADDRESS = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
 const UNISWAP_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
 
-const ADMIN_ROLE = 'admin';
-const REDEEM_ROLE = 'redeem';
-const CIRCULATE_ROLE = 'circulate';
+const INVITEDBY_FRACTION = 0;
+const ADMIN_ROLE        = 0x1;//'admin';
+const REDEEM_ROLE       = 0x2;//'redeem';
+const CIRCULATE_ROLE    = 0x3;//'circulate';
+const TARIFF_ROLE       = 0x4;//'tariff';
 
 const FRACTION = 100000;
 
@@ -74,13 +76,12 @@ describe("Staking contract tests", function () {
     var implementationCommunityStakingPoolFactory;
     var implementationCommunityStakingPool;
     var implementationCommunityStakingPoolErc20;
-    var implementationCommunityRolesManagement;
+
     var mockHook;
     var mockCommunity;
     var ERC20Factory;
     var CommunityCoinFactory;
     var CommunityCoin;
-    var CommunityCoinAndExternalCommunity;
     var CommunityCoinWithHook;
     var erc20;
     var erc777;
@@ -99,8 +100,6 @@ describe("Staking contract tests", function () {
         const CommunityStakingPoolF = await ethers.getContractFactory("MockCommunityStakingPool");
         const CommunityStakingPoolErc20F = await ethers.getContractFactory("CommunityStakingPoolErc20");
         const CommunityStakingPoolFactoryF = await ethers.getContractFactory("CommunityStakingPoolFactory");
-
-        const CommunityRolesManagementF = await ethers.getContractFactory("CommunityRolesManagement");
 
         const MockHookF = await ethers.getContractFactory("MockHook");
         const MockCommunityF = await ethers.getContractFactory("MockCommunity");
@@ -127,13 +126,18 @@ describe("Staking contract tests", function () {
         implementationCommunityStakingPoolFactory = await CommunityStakingPoolFactoryF.deploy();
         implementationCommunityStakingPool = await CommunityStakingPoolF.deploy();
         implementationCommunityStakingPoolErc20 = await CommunityStakingPoolErc20F.deploy();
-        implementationCommunityRolesManagement = await CommunityRolesManagementF.deploy();
 
         mockHook = await MockHookF.deploy();
         mockCommunity = await MockCommunityF.deploy();
 
-        const NONE_COMMUNITY_SETTINGS = [ZERO_ADDRESS, ADMIN_ROLE, REDEEM_ROLE, CIRCULATE_ROLE];
-        const COMMUNITY_SETTINGS = [mockCommunity.address, ADMIN_ROLE, REDEEM_ROLE, CIRCULATE_ROLE];
+        const COMMUNITY_SETTINGS = [
+            INVITEDBY_FRACTION,
+            mockCommunity.address, 
+            ADMIN_ROLE, 
+            REDEEM_ROLE, 
+            CIRCULATE_ROLE,
+            TARIFF_ROLE
+        ];
 
         const NO_COSTMANAGER = ZERO_ADDRESS;
         
@@ -141,8 +145,7 @@ describe("Staking contract tests", function () {
             implementationCommunityCoin.address, 
             implementationCommunityStakingPoolFactory.address, 
             implementationCommunityStakingPool.address, 
-            implementationCommunityStakingPoolErc20.address,
-            implementationCommunityRolesManagement.address/*,
+            implementationCommunityStakingPoolErc20.address/*,
             NO_COSTMANAGER*/
         );
 
@@ -159,34 +162,24 @@ describe("Staking contract tests", function () {
         await releaseManager.connect(owner).newRelease(factoriesList, factoryInfo);
 
         // without hook
-        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, ZERO_ADDRESS, discountSensitivity, NONE_COMMUNITY_SETTINGS);
+        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, ZERO_ADDRESS, discountSensitivity, COMMUNITY_SETTINGS);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoin = await ethers.getContractAt("CommunityCoin",instance);
 
         // with hook
-        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, mockHook.address, discountSensitivity, NONE_COMMUNITY_SETTINGS);
+        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, mockHook.address, discountSensitivity, COMMUNITY_SETTINGS);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoinWithHook = await ethers.getContractAt("CommunityCoin",instance);
-
-        // without hook and external community
-        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, ZERO_ADDRESS, discountSensitivity, COMMUNITY_SETTINGS);
-        rc = await tx.wait(); // 0ms, as tx is already confirmed
-        event = rc.events.find(event => event.event === 'InstanceCreated');
-        [instance, instancesCount] = event.args;
-        CommunityCoinAndExternalCommunity = await ethers.getContractAt("CommunityCoin",instance);
-
         
-        
-        //console.log("before each №1");
     });
     
     it("staking factory", async() => {
         let count = await CommunityCoinFactory.instancesCount();
-        await expect(count).to.be.equal(THREE);
+        await expect(count).to.be.equal(TWO);
     })
 
     it("sqrt coverage", async() => {
@@ -290,7 +283,7 @@ describe("Staking contract tests", function () {
 
         expect(instance).not.to.be.eq(ZERO_ADDRESS); 
     });
-
+/*
     describe("donate tests", function () {   
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;
@@ -980,18 +973,13 @@ describe("Staking contract tests", function () {
 
     });
 
-    for (const communityExternalMode of [false,true]) {
-    describe(`Instance tests with-${communityExternalMode ? 'in': 'out'} external community`, function () {
+    describe(`Instance tests with external community`, function () {
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;
         var communityStakingPool;
         var pairInstance;
 
         beforeEach("deploying", async() => {
-            if (communityExternalMode) {
-                CommunityCoin = CommunityCoinAndExternalCommunity;
-            }
-            
 
             uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
             uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
@@ -1828,13 +1816,10 @@ describe("Staking contract tests", function () {
 
                             // pass some mtime
                             await time.increase(lockupIntervalCount*dayInSeconds+9);   
-                            if (communityExternalMode) {
-                                // imitate exists role
-                                await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
-                            } else {
-                                // grant role
-                                await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
-                            }
+                            
+                            // imitate exists role
+                            await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
+                            
                             // transfer from bob to alice
                             await CommunityCoin.connect(bob).transfer(alice.address, shares);
                             
@@ -1920,13 +1905,10 @@ describe("Staking contract tests", function () {
 
                         describe("with redeem role", function () {
                             beforeEach("before each callback", async() => {
-                                if (communityExternalMode) {
-                                    // imitate exists role
-                                    await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
-                                } else {
-                                    // grant role to bob
-                                    await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
-                                }
+                                
+                                // imitate exists role
+                                await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
+                                
                             });
 
                             it("if anyone didn't transfer tokens to you before", async () => {
@@ -1946,13 +1928,10 @@ describe("Staking contract tests", function () {
                             describe("after someone transfer", function () {  
                                 beforeEach("before each callback", async() => {
                                     await CommunityCoin.connect(bob).transfer(alice.address, shares);
-                                    if (communityExternalMode) {
-                                        // imitate exists role
-                                        await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
-                                    } else {
-                                        // grant role to alice
-                                        await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
-                                    }
+                                    
+                                    // imitate exists role
+                                    await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
+                                    
                                 });  
                                 
                                 it("without approve before", async () => {
@@ -1980,15 +1959,10 @@ describe("Staking contract tests", function () {
                         beforeEach("before each callback", async() => {
                             // pass some mtime
                             await time.increase(lockupIntervalCount*dayInSeconds+9);    
-                            if (communityExternalMode) {
-                                // imitate exists role
-
-                                await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
-                            } else {
-                                // grant role
-                                await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
-                            }
-
+                            
+                            // imitate exists role
+                            await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
+                            
                             // transfer from bob to alice
                             await CommunityCoin.connect(bob).transfer(alice.address, shares);
                             //await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
@@ -2131,14 +2105,11 @@ describe("Staking contract tests", function () {
                                 });
 
                                 it("calculate amount obtain with circulation", async () => {
-                                    if (communityExternalMode) {
-                                        // imitate exists role
-                                        //await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',CIRCULATE_ROLE]);
-                                        await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC',CIRCULATE_ROLE,REDEEM_ROLE]);
+                                    
+                                    // imitate exists role
+                                    //await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',CIRCULATE_ROLE]);
+                                    await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC',CIRCULATE_ROLE,REDEEM_ROLE]);
 
-                                    } else {
-                                        await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(CIRCULATE_ROLE), charlie.address);
-                                    }
                                     await CommunityCoin.connect(charlie).addToCirculation(charlie.address, shares);
                                     await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
                                     amountWith = await uniswapV2PairInstance.balanceOf(alice.address);
@@ -2164,5 +2135,6 @@ describe("Staking contract tests", function () {
         });      
         
     });
-    }
+    
+*/
 });

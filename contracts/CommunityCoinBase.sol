@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.11;
+pragma solidity ^0.8.11;
 import "./interfaces/IHook.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
-import "./CommunityRolesManagement.sol";
+import "./RolesManagement.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
@@ -23,6 +23,7 @@ abstract contract CommunityCoinBase is
     OwnableUpgradeable, 
     ReentrancyGuardUpgradeable, TrustedForwarderUpgradeable, // CostManagerHelperERC2771Support,
     ICommunityCoin,
+    RolesManagement,
     ERC777Upgradeable, 
     IERC777RecipientUpgradeable 
 {
@@ -42,13 +43,9 @@ abstract contract CommunityCoinBase is
     IHook public hook; // hook used to bonus calculation
 
     ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
-    CommunityRolesManagement public rolesManagement; // ICommunityRolesManagement
-
+    
     uint256 internal discountSensitivity;
-
-    // itrc' fraction that will send to person who has invited "buy and stake" person
-    uint256 internal invitedByFraction;
-
+    
     uint256 internal totalUnstakeable;
     uint256 internal totalRedeemable;
     // it's how tokens will store in pools. without bonuses. 
@@ -117,7 +114,6 @@ abstract contract CommunityCoinBase is
     * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-    * @param rolesManagementAddr_ contract that would will manage roles(admin,redeem,circulate)
     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken_ address of traded token. usual it intercoin investor token
     * [deprecated]param costManager_ costManager address
@@ -133,9 +129,9 @@ abstract contract CommunityCoinBase is
         address hook_,
         address communityCoinInstanceAddr,
         uint256 discountSensitivity_,
-        address rolesManagementAddr_,
         address reserveToken_,
         address tradedToken_,
+        IStructs.CommunitySettings calldata communitySettings,
         // address costManager_,
         address producedBy_
     ) 
@@ -158,7 +154,7 @@ abstract contract CommunityCoinBase is
 
         discountSensitivity = discountSensitivity_;
         
-        rolesManagement = CommunityRolesManagement(rolesManagementAddr_);
+        __RolesManagement_init(communitySettings);
 
         reserveToken = reserveToken_;
         tradedToken = tradedToken_;
@@ -208,8 +204,9 @@ abstract contract CommunityCoinBase is
         // calculate invitedAmount
         address invitedBy = address(0);
         uint256 invitedAmount = 0;
+
         if (invitedByFraction != 0) {
-            invitedBy = rolesManagement.invitedBy(account);
+            invitedBy = _invitedBy(account);
             if (invitedBy != address(0)) {
                 //do invite comission calculation here
                 invitedAmount = amount * invitedByFraction / FRACTION;
@@ -294,7 +291,8 @@ abstract contract CommunityCoinBase is
         nonReentrant
         //onlyRole(roles.circulationRole)
     {
-        rolesManagement.checkCirculationRole(_msgSender());
+
+        _checkRole(circulationRoleId, _msgSender());
         
         _mint(account, amount, "", "");
 
@@ -333,9 +331,7 @@ abstract contract CommunityCoinBase is
         //require((_msgSender() == address(this) && to == address(this)), "own tokens permitted only");
         if (!(_msgSender() == address(this) && to == address(this))) {revert OwnTokensPermittedOnly();}
         
-        
-        rolesManagement.checkRedeemRole(from);
-        //_checkRole(roles.redeemRole, from);
+        _checkRole(redeemRoleId, from);
 
         __redeem(address(this), from, amount, new address[](0), Strategy.REDEEM);
 
@@ -579,24 +575,6 @@ abstract contract CommunityCoinBase is
             tokensBonus[account]._getMinimumList()
         );
     }   
-
-    function grantRole(uint8 role, address account) onlyOwner() public {
-        rolesManagement.grantRole(role, account);
-        // _accountForOperation(
-        //     OPERATION_GRANT_ROLE << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(account)),
-        //     0
-        // ); 
-    }
-    
-    function revokeRole(uint8 role, address account) onlyOwner() public {
-        rolesManagement.revokeRole(role, account);
-        // _accountForOperation(
-        //     OPERATION_REVOKE_ROLE << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(account)),
-        //     0
-        // ); 
-    }
 
     /**
     * @dev calculate how much token user will obtain if redeem and remove liquidity token. 
@@ -942,7 +920,8 @@ abstract contract CommunityCoinBase is
     ) 
         internal 
     {
-        rolesManagement.checkRedeemRole(account);
+
+        _checkRole(redeemRoleId, account);
 
         __redeem(account, account, amount, preferredInstances, strategy);
     }

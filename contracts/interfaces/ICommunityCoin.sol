@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-
+import "./IStructs.sol";
 interface ICommunityCoin {
     
     function initialize(
@@ -9,9 +9,9 @@ interface ICommunityCoin {
         address hook,
         address instancesImpl,
         uint256 discountSensitivity,
-        address rolesManagementClone,
         address reserveToken,
         address tradedToken,
+        IStructs.CommunitySettings calldata communitySettings,
         //address costManager,
         address producedBy
     ) external;

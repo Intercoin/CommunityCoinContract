@@ -1,25 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.11;
-
-// import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-// import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
-// //import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
-// import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
-// import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
-// import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-// import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+pragma solidity ^0.8.11;
 
 import "./CommunityStakingPoolBase.sol";
 import "./interfaces/ICommunityStakingPoolErc20.sol";
-
 
 //import "hardhat/console.sol";
 
 contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakingPoolErc20 {
  
-//    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
-
-    
     /**
     * @custom:shortd address of ERC20 token.
     * @notice address of ERC20 token. ie investor token - ITR
