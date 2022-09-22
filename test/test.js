@@ -176,7 +176,7 @@ describe("Staking contract tests", function () {
         CommunityCoinWithHook = await ethers.getContractAt("CommunityCoin",instance);
         
     });
-    
+ 
     it("staking factory", async() => {
         let count = await CommunityCoinFactory.instancesCount();
         await expect(count).to.be.equal(TWO);
@@ -283,7 +283,7 @@ describe("Staking contract tests", function () {
 
         expect(instance).not.to.be.eq(ZERO_ADDRESS); 
     });
-/*
+
     describe("donate tests", function () {   
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;
@@ -557,7 +557,9 @@ describe("Staking contract tests", function () {
             // await time.increase(lockupIntervalCount*dayInSeconds+9);  
 
             // grant role
-            await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), charlie.address);
+            // imitate exists role
+            await mockCommunity.connect(owner).setRoles(charlie.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
+
             // transfer to charlie who has redeem role
             await CommunityCoin.connect(bob).transfer(charlie.address, tokensWithNoLPConsuming);
 
@@ -579,7 +581,9 @@ describe("Staking contract tests", function () {
             // // pass some mtime
             // await time.increase(lockupIntervalCount*dayInSeconds+9);  
             // grant role
-            await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), charlie.address);
+            // imitate exists role
+            await mockCommunity.connect(owner).setRoles(charlie.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
+
             // transfer to charlie who has redeem role
             await CommunityCoin.connect(bob).transfer(charlie.address, tokensWithLPConsuming);
 
@@ -647,7 +651,6 @@ describe("Staking contract tests", function () {
         });
         
     });
-        
 
     describe("Hook tests", function () {   
         var uniswapRouterFactoryInstance;
@@ -767,7 +770,7 @@ describe("Staking contract tests", function () {
         }); 
 
     });
-    
+
     describe("ERC20 pool tests", function () { 
         var communityStakingPoolErc20; 
         beforeEach("deploying", async() => { 
@@ -910,13 +913,12 @@ describe("Staking contract tests", function () {
                 // even if approve before
                 
                 await CommunityCoin.connect(charlie).approve(CommunityCoin.address, charlieWalletTokensAfter);
-                let revertMsg = [
-                                            "AccessControl: account ",
-                                            (charlie.address).toLowerCase(),
-                                            " is missing role ",
-                                            "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                        ].join("");
-                await expect(CommunityCoin.connect(charlie)['redeem(uint256)'](charlieWalletTokensAfter)).to.be.revertedWith(revertMsg);
+                
+                await expect(
+                    CommunityCoin.connect(charlie)['redeem(uint256)'](charlieWalletTokensAfter)
+                ).to.be.revertedWith(
+                    `MissingRole("${charlie.address}", ${REDEEM_ROLE})`
+                );
                 
             }); 
 
@@ -952,7 +954,8 @@ describe("Staking contract tests", function () {
                 await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
                 // grant role
-                await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), alice.address);
+                // imitate exists role
+                await mockCommunity.connect(owner).setRoles(alice.address, [REDEEM_ROLE]);
 
                 // transfer from charlie to alice
                 await CommunityCoin.connect(charlie).transfer(alice.address, charlieWalletTokensAfter);
@@ -1251,8 +1254,8 @@ describe("Staking contract tests", function () {
 
                 }); 
 
-                describe("through erc20ReservedToken", function () {
-                });
+                // describe("through erc20ReservedToken", function () {
+                // });
                 
                 describe("through erc20ReservedToken", function () {
                     if (!trustedForwardMode) {
@@ -1388,13 +1391,7 @@ describe("Staking contract tests", function () {
                                 await CommunityCoin.connect(bob).approve(CommunityCoin.address, walletTokens);
                             }
                             
-                            let revertMsg = [
-                                        "AccessControl: account ",
-                                        (bob.address).toLowerCase(),
-                                        " is missing role ",
-                                        "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                    ].join("");
-
+                            let revertMsg = `MissingRole("${bob.address}", ${REDEEM_ROLE})`;
                             if (trustedForwardMode) {
                                 dataTx = await CommunityCoin.connect(trustedForwarder).populateTransaction['redeem(uint256)'](walletTokens);
                                 dataTx.data = dataTx.data.concat((bob.address).substring(2));
@@ -1699,8 +1696,7 @@ describe("Staking contract tests", function () {
                 expect(instance).to.be.eq(communityStakingPool.address);
             }); 
         }); 
- 
- 
+
         describe("unstake/redeem/redeem-and-remove-liquidity tests", function () {
             var shares;
             beforeEach("before each callback", async() => {
@@ -1818,7 +1814,7 @@ describe("Staking contract tests", function () {
                             await time.increase(lockupIntervalCount*dayInSeconds+9);   
                             
                             // imitate exists role
-                            await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
+                            await mockCommunity.connect(owner).setRoles(alice.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
                             
                             // transfer from bob to alice
                             await CommunityCoin.connect(bob).transfer(alice.address, shares);
@@ -1836,12 +1832,7 @@ describe("Staking contract tests", function () {
                         describe("without redeem role", function () {
                             it("if anyone didn't transfer tokens to you before", async () => {
                                 await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
-                                    [
-                                        "AccessControl: account ",
-                                        (bob.address).toLowerCase(),
-                                        " is missing role ",
-                                        "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                    ].join("")
+                                    `MissingRole("${bob.address}", ${REDEEM_ROLE})`
                                 );
                             });
                             describe("after someone transfer", function () {  
@@ -1851,36 +1842,21 @@ describe("Staking contract tests", function () {
                                 
                                 it("without approve before", async () => {
                                     await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
-                                        [
-                                            "AccessControl: account ",
-                                            (alice.address).toLowerCase(),
-                                            " is missing role ",
-                                            "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                        ].join("")
+                                        `MissingRole("${alice.address}", ${REDEEM_ROLE})`
                                     );
                                 });
                                 it("without approve before even if passed time", async () => {
                                     // pass some mtime
                                     await time.increase(lockupIntervalCount*dayInSeconds+9);    
                                     await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
-                                        [
-                                            "AccessControl: account ",
-                                            (alice.address).toLowerCase(),
-                                            " is missing role ",
-                                            "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                        ].join("")
+                                        `MissingRole("${alice.address}", ${REDEEM_ROLE})`
                                     );
                                 });
                                 
                                 it("with approve before", async () => {
                                     await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
                                     await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
-                                        [
-                                            "AccessControl: account ",
-                                            (alice.address).toLowerCase(),
-                                            " is missing role ",
-                                            "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                        ].join("")
+                                        `MissingRole("${alice.address}", ${REDEEM_ROLE})`
                                     );
                                 });
                                 it("with approve before even if passed time", async () => {
@@ -1889,12 +1865,7 @@ describe("Staking contract tests", function () {
                                     await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
                                     await expect(CommunityCoin.connect(alice)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
-                                        [
-                                            "AccessControl: account ",
-                                            (alice.address).toLowerCase(),
-                                            " is missing role ",
-                                            "0x"+padZeros(convertToHex(REDEEM_ROLE),64)
-                                        ].join("")
+                                        `MissingRole("${alice.address}", ${REDEEM_ROLE})`
                                     );
 
                                 });
@@ -1907,7 +1878,7 @@ describe("Staking contract tests", function () {
                             beforeEach("before each callback", async() => {
                                 
                                 // imitate exists role
-                                await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
+                                await mockCommunity.connect(owner).setRoles(bob.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
                                 
                             });
 
@@ -1915,14 +1886,16 @@ describe("Staking contract tests", function () {
                                 await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(`AmountExceedsAllowance("${bob.address}", ${shares})`);
                             });
         
-                            it("but without transfer to some one", async () => {
+                            it.only("but without transfer to some one", async () => {
                                 // means that bob have tokens(after stake), he have redeem role, but totalRedeemable are zero
                                 // here it raise a erc777 
                                 
                                 //!!await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
                                 await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
 
-                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(`InsufficientBalance("${bob.address}", ${shares})`);
+                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
+                                    `InsufficientBalance("${bob.address}", ${shares})`
+                                );
                             });
                             
                             describe("after someone transfer", function () {  
@@ -1930,7 +1903,7 @@ describe("Staking contract tests", function () {
                                     await CommunityCoin.connect(bob).transfer(alice.address, shares);
                                     
                                     // imitate exists role
-                                    await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
+                                    await mockCommunity.connect(owner).setRoles(alice.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
                                     
                                 });  
                                 
@@ -1961,7 +1934,7 @@ describe("Staking contract tests", function () {
                             await time.increase(lockupIntervalCount*dayInSeconds+9);    
                             
                             // imitate exists role
-                            await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',REDEEM_ROLE]);
+                            await mockCommunity.connect(owner).setRoles(alice.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
                             
                             // transfer from bob to alice
                             await CommunityCoin.connect(bob).transfer(alice.address, shares);
@@ -2107,8 +2080,8 @@ describe("Staking contract tests", function () {
                                 it("calculate amount obtain with circulation", async () => {
                                     
                                     // imitate exists role
-                                    //await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC','DDD',CIRCULATE_ROLE]);
-                                    await mockCommunity.connect(owner).setRoles(['AAA','BBB','CCC',CIRCULATE_ROLE,REDEEM_ROLE]);
+                                    //await mockCommunity.connect(owner).setRoles([0x99,0x98,0x97,0x96,CIRCULATE_ROLE]);
+                                    await mockCommunity.connect(owner).setRoles(charlie.address, [0x99,0x98,0x97,CIRCULATE_ROLE,REDEEM_ROLE]);
 
                                     await CommunityCoin.connect(charlie).addToCirculation(charlie.address, shares);
                                     await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
@@ -2133,8 +2106,8 @@ describe("Staking contract tests", function () {
             } // end for 
         
         });      
-        
+  
     });
     
-*/
+
 });
