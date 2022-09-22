@@ -955,8 +955,8 @@ abstract contract CommunityCoinBase is
         uint256 totalSupplyBefore = _burn(account2Burn, amount);
         //require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
 
-console.log("amount = ",amount);
-console.log("totalRedeemable = ",totalRedeemable);
+// console.log("amount = ",amount);
+// console.log("totalRedeemable = ",totalRedeemable);
 
         if (amount > totalRedeemable) {revert InsufficientBalance(account2Redeem, amount);}
 
@@ -1061,6 +1061,7 @@ console.log("totalRedeemable = ",totalRedeemable);
 // console.log(from);
 // console.log(to);
 // console.log(amount);
+// console.log("totalRedeemable = ", totalRedeemable);
 //                     } else 
 
                     if (to == address(this)) { // if send directly to contract
@@ -1103,7 +1104,11 @@ console.log("totalRedeemable = ",totalRedeemable);
                             // if (totalUnstakeable >= r) {
                             unstakeable[from] -= r;
                             totalUnstakeable -= r;
-                            totalRedeemable += r;
+                            if (to == address(0)) {
+                                // it's simple burn and tokens can not be redeemable
+                            } else {
+                                totalRedeemable += r;
+                            }
                             // }
                         }
                     }
@@ -1113,6 +1118,7 @@ console.log("totalRedeemable = ",totalRedeemable);
                 }
             }
         }
+
         super._beforeTokenTransfer(operator, from, to, amount);
 
     }

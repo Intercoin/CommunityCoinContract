@@ -1886,7 +1886,7 @@ describe("Staking contract tests", function () {
                                 await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(`AmountExceedsAllowance("${bob.address}", ${shares})`);
                             });
         
-                            it.only("but without transfer to some one", async () => {
+                            it("but without transfer to some one", async () => {
                                 // means that bob have tokens(after stake), he have redeem role, but totalRedeemable are zero
                                 // here it raise a erc777 
                                 
