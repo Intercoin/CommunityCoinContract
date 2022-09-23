@@ -8,6 +8,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 import "./minimums/libs/MinimumsLib.sol";
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "@artman325/community/contracts/interfaces/ICommunity.sol";
@@ -17,7 +18,7 @@ import "./access/TrustedForwarderUpgradeable.sol";
 //import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 //import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 abstract contract CommunityCoinBase is 
     OwnableUpgradeable, 
@@ -28,6 +29,7 @@ abstract contract CommunityCoinBase is
     IERC777RecipientUpgradeable 
 {
     using MinimumsLib for MinimumsLib.UserStruct;
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
     /**
     * strategy ENUM VARS used in calculation algos
@@ -56,8 +58,23 @@ abstract contract CommunityCoinBase is
     address internal reserveToken;
     address internal tradedToken;
 
-    // staked balance in instances. increase when stakes, descrease when unstake/redeem
-    mapping(address => uint256) private _instanceStaked;
+struct InstanceStruct {
+    uint256 _instanceStaked;
+    
+    uint256 redeemable;
+    // //      user
+    // mapping(address => uint256) usersStaked;
+    //      user
+    mapping(address => uint256) unstakeable;
+    //      user
+    mapping(address => uint256) unstakeableBonuses;
+    
+}
+//      instance
+mapping(address => InstanceStruct) private _instances;
+
+    // // staked balance in instances. increase when stakes, descrease when unstake/redeem
+    // mapping(address => uint256) private _instanceStaked;
 
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
@@ -88,11 +105,31 @@ abstract contract CommunityCoinBase is
 
     //EnumerableSet.AddressSet private rewardTokensList;
     //mapping(address => uint256) public rewardTokenRatios;
-    mapping(address => uint256) internal unstakeable;
 
+    // struct UnstakeableStruct {
+    //     uint256 total;
+    //     EnumerableSetUpgradeable.AddressSet instancesList;
+    //     //      instanceAddr
+    //     mapping(address => uint256) instances;
+    // }
+    // //      users
+    // mapping(address => UnstakeableStruct) internal unstakeable;
 
-    mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
-    mapping(address => MinimumsLib.UserStruct) internal tokensBonus;
+    // //      users
+    // mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
+    // //      users
+    // mapping(address => MinimumsLib.UserStruct) internal tokensBonus;
+
+    struct UserData {
+        uint256 unstakeable; // total unstakeable across pools
+        uint256 unstakeableBonuses;
+        MinimumsLib.UserStruct tokensLocked;
+        MinimumsLib.UserStruct tokensBonus;
+        // lists where user staked or obtained bonuses
+        EnumerableSetUpgradeable.AddressSet instancesList;
+    }
+    //      users
+    mapping(address => UserData) internal users;
 
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
@@ -222,32 +259,39 @@ abstract contract CommunityCoinBase is
         invitedAmount = invitedAmount * (instanceInfo.numerator) / (instanceInfo.denominator);
         
 
-        // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
-        // also keep in mind that user can unstake only unstakeable[account] which saved w/o bonusTokens, but minimums and mint with it.
-        // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
-        // amount += bonusAmount;
-
-        _instanceStaked[instance] += amount + bonusAmount + invitedAmount;
 
         if (address(hook) != address(0)) {
             hook.bonus(instance, account, instanceInfo.duration, amount);
         }
-        
-        unstakeable[account] += amount + bonusAmount;
-        totalUnstakeable += amount + bonusAmount;
 
+        // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
+        // also keep in mind that user can unstake only unstakeable[account].total which saved w/o bonusTokens, but minimums and mint with it.
+        // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
+        // amount += bonusAmount;
+
+        _instances[instance]._instanceStaked += amount;// + bonusAmount + invitedAmount;
+
+        _instances[instance].unstakeable[account] += amount;
+        users[account].unstakeable += amount;
+
+        // _instances[instance].unstakeableBonuses[account] += bonusAmount;
+        // users[account].unstakeableBonuses += bonusAmount;
+        _insertBonus(instance, account, bonusAmount);
+
+        totalUnstakeable += amount;
         totalReserves += amount;
 
         if (invitedBy != address(0)) {
-            unstakeable[invitedBy] += invitedAmount;
-            totalUnstakeable += invitedAmount;
+            // _instances[instance].unstakeableBonuses[invitedBy] += invitedAmount;
+            // users[invitedBy].unstakeableBonuses += invitedAmount;
+            _insertBonus(instance, invitedBy, invitedAmount);
         }
 
         // mint main part + bonus (@dev here bonus can be zero )
         _mint(account, (amount + bonusAmount), "", "");
         emit Staked(account, (amount + bonusAmount), priceBeforeStake);
         // locked main 
-        tokensLocked[account]._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+        users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
         // _accountForOperation(
         //     OPERATION_ISSUE_WALLET_TOKENS << OPERATION_SHIFT_BITS,
         //     uint256(uint160(account)),
@@ -257,7 +301,7 @@ abstract contract CommunityCoinBase is
         
         // locked main 
         if (bonusAmount > 0) {
-            tokensBonus[account]._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+            users[account].tokensBonus._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             // _accountForOperation(
             //     OPERATION_ISSUE_WALLET_TOKENS_BONUS << OPERATION_SHIFT_BITS,
             //     uint256(uint160(account)),
@@ -267,7 +311,7 @@ abstract contract CommunityCoinBase is
 
         if (invitedBy != address(0)) {
             _mint(invitedBy, invitedAmount, "", "");
-            tokensBonus[invitedBy]._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+            users[invitedBy].tokensBonus._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             // _accountForOperation(
             //     OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE << OPERATION_SHIFT_BITS,
             //     uint256(uint160(invitedBy)),
@@ -296,7 +340,7 @@ abstract contract CommunityCoinBase is
         
         _mint(account, amount, "", "");
 
-        //tokensBonus[account]._minimumsAdd(amount, 1, LOCKUP_BONUS_INTERVAL, false);
+        //users[account].tokensBonus._minimumsAdd(amount, 1, LOCKUP_BONUS_INTERVAL, false);
         
         // _accountForOperation(
         //     OPERATION_ADD_TO_CIRCULATION << OPERATION_SHIFT_BITS,
@@ -453,7 +497,7 @@ abstract contract CommunityCoinBase is
         //require (amount <= balance, "INSUFFICIENT_BALANCE");
         if (amount > balance) {revert InsufficientBalance(account, amount);}
         
-        uint256 locked = tokensLocked[account]._getMinimum();
+        uint256 locked = users[account].tokensLocked._getMinimum();
         uint256 remainingAmount = balance - amount;
         //require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
         if (locked > remainingAmount) {revert StakeNotUnlockedYet(account, locked, remainingAmount);}
@@ -560,7 +604,7 @@ abstract contract CommunityCoinBase is
         view 
         returns (uint256 amount) 
     {
-        amount = tokensLocked[account]._getMinimum()+tokensBonus[account]._getMinimum();
+        amount = users[account].tokensLocked._getMinimum()+users[account].tokensBonus._getMinimum();
     }   
 
     function viewLockedWalletTokensList(
@@ -571,8 +615,8 @@ abstract contract CommunityCoinBase is
         returns (uint256[][] memory, uint256[][] memory) 
     {
         return(
-            tokensLocked[account]._getMinimumList(),
-            tokensBonus[account]._getMinimumList()
+            users[account].tokensLocked._getMinimumList(),
+            users[account].tokensBonus._getMinimumList()
         );
     }   
 
@@ -764,8 +808,10 @@ abstract contract CommunityCoinBase is
 
         (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
         for (uint256 i = 0; i < len; i++) {
-            _instanceStaked[instancesList[i]] -= amounts[i];
-
+            _instances[instancesList[i]]._instanceStaked -= amounts[i];
+            _instances[instancesList[i]].unstakeable[account] -= amounts[i];
+            users[account].unstakeable -= amounts[i];
+            
             proceedPool(
                 account,
                 instancesList[i],
@@ -853,55 +899,67 @@ abstract contract CommunityCoinBase is
 
         }
         if (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
-            //require(totalSupplyBefore-tokensBonus[account]._getMinimum() >= amountLeft, "insufficient amount");
-            if (totalSupplyBefore - tokensBonus[account]._getMinimum() < amountLeft) { revert InsufficientAmount(account, amount);}
+            //require(totalSupplyBefore-users[account].tokensBonus._getMinimum() >= amountLeft, "insufficient amount");
+            if (totalSupplyBefore - users[account].tokensBonus._getMinimum() < amountLeft) { revert InsufficientAmount(account, amount);}
 
-            // tokensLocked[account]._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+            // users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
             // tokensBonus[account]._minimumsAdd(bonusAmount, instanceInfo.duration, LOCKUP_INTERVAL, false);
         }
 
+        // check if user can unstake such amount across all instances
+        if (
+            (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY ) &&
+            (users[account].unstakeable < amount)
+        ) {
+            revert InsufficientAmount(account, amount);
+        }
+
+        // now calculate from which instances we should reduce tokens
         for (uint256 i = 0; i < preferredInstances.length; i++) {
             
-            if (_instanceStaked[preferredInstances[i]] > 0) {
-                if (strategy == Strategy.UNSTAKE || 
-                    strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY ) {
-                    amountToRedeem = 
-                        amountLeft > _instanceStaked[preferredInstances[i]]
-                        ? 
-                            _instanceStaked[preferredInstances[i]] > unstakeable[account]
-                            ? 
-                            unstakeable[account]
-                            :
-                            _instanceStaked[preferredInstances[i]]
-                        : 
-                        amountLeft;
-                
-                } else if (
-                    strategy == Strategy.REDEEM || 
-                    strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
-                ) {
-                    amountToRedeem = 
-                        amountLeft > _instanceStaked[preferredInstances[i]] 
-                        ? 
-                        _instanceStaked[preferredInstances[i]] 
-                        : 
-                        amountLeft
-                        ;
-                }
-                
-                if (amountToRedeem > 0) {
 
-                    instancesAddress[len] = preferredInstances[i]; 
-                    instanceInfo =  instanceManagment.getInstanceInfoByPoolAddress(preferredInstances[i]); // todo is exist there?
-                    amounts[len] = amountToRedeem;
-                    //backward conversion( СС -> LP)
-                    values[len] = amountToRedeem * (instanceInfo.denominator) / (instanceInfo.numerator);
-                    
-                    len += 1;
-
-                    amountLeft -= amountToRedeem;
-                }
+            if (
+                (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY ) &&
+                (_instances[preferredInstances[i]].unstakeable[account] > 0)
+            ) {
+                amountToRedeem = 
+                    amountLeft > _instances[preferredInstances[i]].unstakeable[account]
+                    ?
+                    _instances[preferredInstances[i]].unstakeable[account]
+                        // _instances[preferredInstances[i]]._instanceStaked > users[account].unstakeable
+                        // ? 
+                        // users[account].unstakeable
+                        // :
+                        // _instances[preferredInstances[i]]._instanceStaked    
+                    :
+                    amountLeft;
+            }  
+            if (
+                strategy == Strategy.REDEEM || 
+                strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
+            ) {
+                amountToRedeem = 
+                    amountLeft > _instances[preferredInstances[i]]._instanceStaked
+                    ? 
+                    _instances[preferredInstances[i]]._instanceStaked
+                    : 
+                    amountLeft
+                    ;
             }
+                
+            if (amountToRedeem > 0) {
+
+                instancesAddress[len] = preferredInstances[i]; 
+                instanceInfo =  instanceManagment.getInstanceInfoByPoolAddress(preferredInstances[i]); // todo is exist there?
+                amounts[len] = amountToRedeem;
+                //backward conversion( СС -> LP)
+                values[len] = amountToRedeem * (instanceInfo.denominator) / (instanceInfo.numerator);
+                
+                len += 1;
+
+                amountLeft -= amountToRedeem;
+            }
+            
 
         }
         
@@ -963,13 +1021,15 @@ abstract contract CommunityCoinBase is
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account2Redeem, amount, preferredInstances, strategy/*Strategy.REDEEM*/, totalSupplyBefore);
 
         for (uint256 i = 0; i < len; i++) {
-            if (_instanceStaked[instancesToRedeem[i]] > 0) {
-                _instanceStaked[instancesToRedeem[i]] -= amounts[i];
+            
+            if (_instances[instancesToRedeem[i]].redeemable > 0) {
+                //_instances[instancesToRedeem[i]]._instanceStaked -= amounts[i];
+                _instances[instancesToRedeem[i]].redeemable -= amounts[i];
                 totalRedeemable -= amounts[i];
 
-                if (strategy == Strategy.REDEEM || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+                //if (strategy == Strategy.REDEEM || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
                     totalReserves -= amounts[i];
-                }
+                //}
                 proceedPool(
                     account2Redeem,
                     instancesToRedeem[i],
@@ -1068,29 +1128,29 @@ abstract contract CommunityCoinBase is
                         //require(amount <= totalRedeemable, "STAKE_NOT_UNLOCKED_YET");
                     } else {
                         // else it's just transfer
-                        // unstakeable[from] means as locked var. but not equal: locked can be less than unstakeable[from]
+                        // users[from].unstakeable means as locked var. but not equal: locked can be less than users[from].unstakeable
                         
                         
-                        uint256 locked = tokensLocked[from]._getMinimum();
-                        uint256 lockedBonus = tokensBonus[from]._getMinimum();
+                        uint256 locked = users[from].tokensLocked._getMinimum();
+                        uint256 lockedBonus = users[from].tokensBonus._getMinimum();
                         //else drop locked minimum, but remove minimums even if remaining was enough
                         //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
                         if (locked+lockedBonus > 0 && locked+lockedBonus >= amount ) {
                             if (lockedBonus >= amount) {
-                                tokensBonus[from].minimumsTransfer(tokensLocked[address(0)], true, amount);
+                               users[from].tokensBonus.minimumsTransfer(users[address(0)].tokensLocked, true, amount);
                             } else {
                                 uint256 left = amount;
                                 if (lockedBonus > 0) {
-                                    tokensBonus[from].minimumsTransfer(tokensLocked[address(0)], true, lockedBonus);
+                                    users[from].tokensBonus.minimumsTransfer(users[address(0)].tokensLocked, true, lockedBonus);
                                     left-= lockedBonus;
                                 }
-                                tokensLocked[from].minimumsTransfer(tokensLocked[address(0)], true, left);
+                                users[from].tokensLocked.minimumsTransfer(users[address(0)].tokensLocked, true, left);
                             }
                             
                         }
                         //-----------------------------------
-                        // uint256 r = unstakeable[from] - remainingAmount;
-                        // unstakeable[from] -= r;
+                        // uint256 r = users[from].unstakeable - remainingAmount;
+                        // users[from].unstakeable -= r;
                         // totalUnstakeable -= r;
                         // totalRedeemable += r;
                         // -------
@@ -1098,19 +1158,83 @@ abstract contract CommunityCoinBase is
                         // it's works before owner will add some to circulate.
                         // circulation tokens is not part of unstakeable or redeemable. it's tokens emission mechanism.
                         // so any time when user transfer somth and have not enough unstakeable tokens, we will not calculate unstakeable and redeemable
+// users[from].unstakeable
+// !=
+// user balance
+///// 
+// balance - users[from].unstakeable ---  it;s bonuses
+/*
+"x" need to send
 
-                        if (unstakeable[from] >= remainingAmount) {
-                            uint256 r = unstakeable[from] - remainingAmount;
-                            // if (totalUnstakeable >= r) {
-                            unstakeable[from] -= r;
-                            totalUnstakeable -= r;
+
+*/
+
+//users[from].unstakeableBonuses;
+//try to get from bonuses
+//  here just increase redeemable
+//thentry to get from main unstakeable
+//  here decrease any unstakeable vars
+//              increase redeemable
+                        uint256 r;
+                        if (users[from].unstakeableBonuses > 0) {
+                            
+                            if (users[from].unstakeableBonuses >= remainingAmount) {
+                                r = remainingAmount;
+                            } else {
+                                r = users[from].unstakeableBonuses;
+                            }
+
                             if (to == address(0)) {
                                 // it's simple burn and tokens can not be redeemable
                             } else {
                                 totalRedeemable += r;
                             }
+
+                            _removeBonusThroughInstances(from, r);
+
+                            remainingAmount -= r;
+                        
+                        }
+
+
+
+                        if ((remainingAmount > 0) && (users[from].unstakeable >= remainingAmount)) {
+                            if (users[from].unstakeable >= remainingAmount) {
+                                r = remainingAmount;
+                            } else {
+                                r = users[from].unstakeableBonuses;
+                            }
+
+                            r = users[from].unstakeable - remainingAmount;
+                            // if (totalUnstakeable >= r) {
+                            users[from].unstakeable -= r;
+                            totalUnstakeable -= r;
+                            
+                            _removeBonusThroughInstances(from, r);
+
+                            if (to == address(0)) {
+                                // it's simple burn and tokens can not be redeemable
+                            } else {
+                                totalRedeemable += r;
+                            }
+
+                            remainingAmount -= r;
+                            
                             // }
                         }
+
+                        // if (users[from].unstakeable >= remainingAmount) {
+                        //     uint256 r = users[from].unstakeable - remainingAmount;
+                        //     // if (totalUnstakeable >= r) {
+                        //     users[from].unstakeable -= r;
+                        //     totalUnstakeable -= r;
+                        //     if (to == address(0)) {
+                        //         // it's simple burn and tokens can not be redeemable
+                        //     } else {
+                        //         totalRedeemable += r;
+                        //     }
+                        //     // }
+                        // }
                     }
                     
                 } else {
@@ -1136,6 +1260,137 @@ abstract contract CommunityCoinBase is
         returns (address signer) 
     {
         return TrustedForwarderUpgradeable._msgSender();
+    }
+
+    function _insertBonus(
+        address instance,
+        address account,
+        uint256 amount
+    ) internal {
+
+        if (!users[account].instancesList.contains(instance)) {
+            users[account].instancesList.add(instance);
+        }
+        _instances[instance].unstakeableBonuses[account] += amount;
+        users[account].unstakeableBonuses += amount;
+    }
+
+    function _removeBonus(
+        address instance,
+        address account,
+        uint256 amount
+    ) internal {
+        // todo 0: 
+        //  check `instance` exists in list.
+        //  check `amount` should be less or equal `_instances[instance].unstakeableBonuses[account]`
+
+        _instances[instance].unstakeableBonuses[account] -= amount;
+        users[account].unstakeableBonuses -= amount;
+
+        if (_instances[instance].unstakeable[account] >= amount) {
+            _instances[instance].unstakeable[account] -= amount;
+        } else if (_instances[instance].unstakeable[account] > 0) {
+            _instances[instance].unstakeable[account] = 0;
+            amount -= _instances[instance].unstakeable[account];
+            
+        }
+        _cleanInstance(
+                account, 
+                instance
+            );
+
+
+        
+    }
+
+    function _removeBonusThroughInstances(
+        address account,
+        uint256 amount
+    ) internal {
+        
+        uint256 len = users[account].instancesList.length();
+        address[] memory instances2Delete = new address[](len) ;
+        uint256 i = 0;
+
+        address instance;
+        for (i = 0; i < len; i++) {
+            instance = users[account].instancesList.at(i);
+            if (_instances[instance].unstakeableBonuses[account] >= amount) {
+                _instances[instance].unstakeableBonuses[account] -= amount;
+            } else if (_instances[instance].unstakeableBonuses[account] > 0) {
+                _instances[instance].unstakeableBonuses[account] = 0;
+                instances2Delete[i] = instance;
+                amount -= _instances[instance].unstakeableBonuses[account];
+            }
+        }
+
+        // do deletion out of loop above. because catch out of array 
+        cleanInstancesList(account, instances2Delete, i+1);
+        
+    }
+
+    function _removeMainThroughInstances(
+        address account,
+        uint256 amount
+    ) internal {
+        
+        uint256 len = users[account].instancesList.length();
+        address[] memory instances2Delete = new address[](len) ;
+        uint256 i;
+        address instance;
+        for (i = 0; i < len; i++) {
+            instance = users[account].instancesList.at(i);
+            if (_instances[instance].unstakeable[account] >= amount) {
+                _instances[instance].unstakeable[account] -= amount;
+            } else if (_instances[instance].unstakeable[account] > 0) {
+                _instances[instance].unstakeable[account] = 0;
+                instances2Delete[i] = instance;
+                amount -= _instances[instance].unstakeable[account];
+            }
+        }
+
+        // do deletion out of loop above. because catch out of array 
+        cleanInstancesList(account, instances2Delete, i+1);
+        
+
+    }
+
+    function cleanInstancesList(
+        address account,
+        address[] memory instances2Delete,
+        uint256 indexUntil
+    ) 
+        internal
+    {
+        //uint256 len = instances2Delete.length;
+        if (indexUntil > 0) {
+            for (uint256 i = 0; i < indexUntil; i++) {
+                _cleanInstance(
+                    account, 
+                    users[account].instancesList.at(i)
+                );
+            }
+        }
+
+
+    }
+
+    function _cleanInstance(
+        address account,
+        address instance
+    ) 
+        internal
+    {
+        
+        if (
+            _instances[instance].unstakeableBonuses[account] == 0 &&
+            _instances[instance].unstakeable[account] == 0
+        ) {
+            users[account].instancesList.remove(instance);
+        }
+        
+
+
     }
 
 }
