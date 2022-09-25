@@ -471,7 +471,7 @@ describe("Staking contract tests", function () {
             
         });
 
-        it("Bonus tests::buyAddLiquidityAndStake (Bonus:50%)", async () => {
+        it.only("Bonus tests::buyAddLiquidityAndStake (Bonus:50%)", async () => {
 
             // here we: 
             // - calculate how much tokens user will obtain without bonuses 
@@ -525,9 +525,9 @@ describe("Staking contract tests", function () {
             await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
             await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithBonus);
-
+console.log("JS:1");
             await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith(`InsufficientAmount("${bob.address}", ${tokensWithBonus})`);
-
+console.log("JS:2");
             await CommunityCoin.connect(bob).transfer(alice.address, tokensWithBonus.sub(tokensWithNoBonus));
 
             await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithNoBonus);

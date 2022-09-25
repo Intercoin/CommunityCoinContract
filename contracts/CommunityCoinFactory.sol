@@ -177,7 +177,7 @@ contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseM
         
         emit InstanceCreated(instance, instances.length);
 
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, reserveToken, tradedToken, communitySettings,/*costManager, */_msgSender());
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, reserveToken, tradedToken, communitySettings/*,costManager, _msgSender()*/);
         
         Ownable(instance).transferOwnership(_msgSender());
 

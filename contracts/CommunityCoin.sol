@@ -81,7 +81,7 @@ contract CommunityCoin is CommunityCoinBase {
     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken_ address of traded token. usual it intercoin investor token
     * [deprecated]param costManager_ costManager address
-    * @param producedBy_ address that produced instance by factory
+    * [deprecated]param producedBy_ address that produced instance by factory
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
     */
@@ -93,9 +93,9 @@ contract CommunityCoin is CommunityCoinBase {
         uint256 discountSensitivity_,
         address reserveToken_,
         address tradedToken_,
-        IStructs.CommunitySettings calldata communitySettings,
+        IStructs.CommunitySettings calldata communitySettings//,
         //address costManager_,
-        address producedBy_
+        //address producedBy_
     ) 
         initializer 
         external 
@@ -114,9 +114,9 @@ contract CommunityCoin is CommunityCoinBase {
             discountSensitivity_, 
             reserveToken_, 
             tradedToken_,
-            communitySettings,
+            communitySettings//,
             //costManager_,
-            producedBy_
+            //producedBy_
         );
         
     }

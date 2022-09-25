@@ -18,7 +18,7 @@ import "./access/TrustedForwarderUpgradeable.sol";
 //import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 //import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 abstract contract CommunityCoinBase is 
     OwnableUpgradeable, 
@@ -154,7 +154,7 @@ mapping(address => InstanceStruct) private _instances;
     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken_ address of traded token. usual it intercoin investor token
     * [deprecated]param costManager_ costManager address
-    * @param producedBy_ address that produced instance by factory
+    * [deprecated]param producedBy_ address that produced instance by factory
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
     */
@@ -168,9 +168,9 @@ mapping(address => InstanceStruct) private _instances;
         uint256 discountSensitivity_,
         address reserveToken_,
         address tradedToken_,
-        IStructs.CommunitySettings calldata communitySettings,
+        IStructs.CommunitySettings calldata communitySettings//,
         // address costManager_,
-        address producedBy_
+        //address producedBy_
     ) 
         onlyInitializing 
         internal 
@@ -455,10 +455,11 @@ mapping(address => InstanceStruct) private _instances;
         nonReentrant
     {
         address account = _msgSender();
-
+console.log("unstake#1");
         _validateUnstake(account, amount);
-        
+console.log("unstake#2");
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
+console.log("unstake#3");
         // _accountForOperation(
         //     OPERATION_UNSTAKE << OPERATION_SHIFT_BITS,
         //     uint256(uint160(account)),
@@ -490,6 +491,7 @@ mapping(address => InstanceStruct) private _instances;
         uint256 amount
     ) 
         internal 
+        view
     {
 
         uint256 balance = balanceOf(account);
@@ -805,22 +807,27 @@ mapping(address => InstanceStruct) private _instances;
         internal 
     {
         uint256 totalSupplyBefore = _burn(account, amount);
-
+console.log("_unstake#1");
         (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
+console.log("_unstake#2");
         for (uint256 i = 0; i < len; i++) {
+console.log("len =",len);
+console.log(1);
             _instances[instancesList[i]]._instanceStaked -= amounts[i];
+console.log(2);
             _instances[instancesList[i]].unstakeable[account] -= amounts[i];
+console.log(3);
             users[account].unstakeable -= amounts[i];
-            
+console.log(4);
             proceedPool(
                 account,
                 instancesList[i],
                 values[i],
                 strategy
             );
-                        
+console.log(5);                                    
         }
-
+console.log(6);  
     }
 
     // create map of instance->amount or LP tokens that need to redeem
@@ -933,6 +940,7 @@ mapping(address => InstanceStruct) private _instances;
                         // _instances[preferredInstances[i]]._instanceStaked    
                     :
                     amountLeft;
+
             }  
             if (
                 strategy == Strategy.REDEEM || 
@@ -1367,7 +1375,7 @@ mapping(address => InstanceStruct) private _instances;
             for (uint256 i = 0; i < indexUntil; i++) {
                 _cleanInstance(
                     account, 
-                    users[account].instancesList.at(i)
+                    instances2Delete[i]
                 );
             }
         }

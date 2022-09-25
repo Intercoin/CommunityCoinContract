@@ -11,9 +11,9 @@ interface ICommunityCoin {
         uint256 discountSensitivity,
         address reserveToken,
         address tradedToken,
-        IStructs.CommunitySettings calldata communitySettings,
+        IStructs.CommunitySettings calldata communitySettings//,
         //address costManager,
-        address producedBy
+        //address producedBy
     ) external;
 
     event InstanceCreated(address indexed tokenA, address indexed tokenB, address instance);
