@@ -12,6 +12,7 @@ require("@hardhat-docgen/core")
 //require("@hardhat-docgen/markdown")
 require("./docgen-custom-markdown")
 require("solidity-coverage")
+require('hardhat-contract-sizer'); //npx hardhat size-contracts
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
 const goerliURL = `https://eth-goerli.alchemyapi.io/v2/${process.env.ALCHEMY_GOERLI}`
