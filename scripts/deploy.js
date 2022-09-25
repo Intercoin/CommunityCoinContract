@@ -37,12 +37,12 @@ async function main() {
 		typeof data_object.communityStakingPoolFactory === 'undefined' ||
 		typeof data_object.communityStakingPool === 'undefined' ||
 		typeof data_object.communityStakingPoolErc20 === 'undefined' ||
-		typeof data_object.communityRolesManagement === 'undefined' ||
+		//typeof data_object.communityRolesManagement === 'undefined' ||
 		!data_object.communityCoin ||
 		!data_object.communityStakingPoolFactory ||
 		!data_object.communityStakingPool ||
-		!data_object.communityStakingPoolErc20 ||
-		!data_object.communityRolesManagement
+		!data_object.communityStakingPoolErc20/* ||
+		!data_object.communityRolesManagement*/
 	) {
 		throw("Arguments file: wrong addresses");
 	}
@@ -60,8 +60,8 @@ async function main() {
 		data_object.communityCoin,
 		data_object.communityStakingPoolFactory,
 		data_object.communityStakingPool,
-		data_object.communityStakingPoolErc20,
-		data_object.communityRolesManagement
+		data_object.communityStakingPoolErc20/*,
+		data_object.communityRolesManagement*/
 	]
 	let params = [
 		..._params,

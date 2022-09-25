@@ -16,4 +16,5 @@ interface IStructs {
         uint8 circulationRoleId;
         uint8 tariffRoleId;
     }
+
 }

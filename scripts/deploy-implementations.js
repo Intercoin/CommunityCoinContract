@@ -59,30 +59,40 @@ async function main() {
 
 	console.log("Account balance:", (await deployer.getBalance()).toString());
 
-	const CommunityCoinF = await ethers.getContractFactory("CommunityCoin");
+	const PoolStakesLibF = await ethers.getContractFactory("PoolStakesLib");
+	let poolStakesLib = await PoolStakesLibF.connect(deployer).deploy();
+
+	const CommunityCoinF = await ethers.getContractFactory("CommunityCoin", {
+		libraries: {
+			"contracts/libs/PoolStakesLib.sol:PoolStakesLib": poolStakesLib.address
+		}
+	});
+
   	const CommunityStakingPoolFactoryF = await ethers.getContractFactory("CommunityStakingPoolFactory");
   	const CommunityStakingPoolF = await ethers.getContractFactory("CommunityStakingPool");
 	const CommunityStakingPoolErc20F = await ethers.getContractFactory("CommunityStakingPoolErc20");
-	const CommunityRolesManagementF = await ethers.getContractFactory("CommunityRolesManagement");
-        
+	
 	let communityCoin         		= await CommunityCoinF.connect(deployer).deploy();
 	let communityStakingPoolFactory = await CommunityStakingPoolFactoryF.connect(deployer).deploy();
 	let communityStakingPool    	= await CommunityStakingPoolF.connect(deployer).deploy();
 	let communityStakingPoolErc20  	= await CommunityStakingPoolErc20F.connect(deployer).deploy();
-	let communityRolesManagement    = await CommunityRolesManagementF.connect(deployer).deploy();
+	//let communityRolesManagement    = await CommunityRolesManagementF.connect(deployer).deploy();
 
 	console.log("Implementations:");
 	console.log("  communityCoin deployed at:               ", communityCoin.address);
 	console.log("  communityStakingPoolFactory deployed at: ", communityStakingPoolFactory.address);
 	console.log("  communityStakingPool deployed at:        ", communityStakingPool.address);
 	console.log("  communityStakingPoolErc20 deployed at:   ", communityStakingPoolErc20.address);
-	console.log("  communityRolesManagement deployed at:    ", communityRolesManagement.address);
+	//console.log("  communityRolesManagement deployed at:    ", communityRolesManagement.address);
+	console.log("Libraries:");
+	console.log("  poolStakesLib deployed at:    ", poolStakesLib.address);
 
 	data_object.communityCoin 				= communityCoin.address;
 	data_object.communityStakingPoolFactory	= communityStakingPoolFactory.address;
 	data_object.communityStakingPool		= communityStakingPool.address;
 	data_object.communityStakingPoolErc20	= communityStakingPoolErc20.address;
-	data_object.communityRolesManagement	= communityRolesManagement.address;
+	//data_object.communityRolesManagement	= communityRolesManagement.address;
+	data_object.poolStakesLib				= poolStakesLib.address;
 
 	//---
 	const ts_updated = Date.now();

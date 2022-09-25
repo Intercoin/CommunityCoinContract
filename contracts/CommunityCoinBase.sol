@@ -8,8 +8,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
-import "./minimums/libs/MinimumsLib.sol";
+//import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
+//import "./minimums/libs/MinimumsLib.sol";
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "@artman325/community/contracts/interfaces/ICommunity.sol";
 import "./interfaces/IStructs.sol";
@@ -18,7 +18,8 @@ import "./access/TrustedForwarderUpgradeable.sol";
 //import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 //import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
+import "./libs/PoolStakesLib.sol";
 
 abstract contract CommunityCoinBase is 
     OwnableUpgradeable, 
@@ -33,8 +34,9 @@ abstract contract CommunityCoinBase is
 
     /**
     * strategy ENUM VARS used in calculation algos
-    */
-    enum Strategy{ UNSTAKE, UNSTAKE_AND_REMOVE_LIQUIDITY, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
+    */ 
+    // moved to ICommunityCoin
+    //enum Strategy{ UNSTAKE, UNSTAKE_AND_REMOVE_LIQUIDITY, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
     
     uint64 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint64 internal constant LOCKUP_BONUS_INTERVAL = 1000*365*24*60*60; // 300 years in seconds
@@ -58,18 +60,6 @@ abstract contract CommunityCoinBase is
     address internal reserveToken;
     address internal tradedToken;
 
-struct InstanceStruct {
-    uint256 _instanceStaked;
-    
-    uint256 redeemable;
-    // //      user
-    // mapping(address => uint256) usersStaked;
-    //      user
-    mapping(address => uint256) unstakeable;
-    //      user
-    mapping(address => uint256) unstakeableBonuses;
-    
-}
 //      instance
 mapping(address => InstanceStruct) private _instances;
 
@@ -120,30 +110,12 @@ mapping(address => InstanceStruct) private _instances;
     // //      users
     // mapping(address => MinimumsLib.UserStruct) internal tokensBonus;
 
-    struct UserData {
-        uint256 unstakeable; // total unstakeable across pools
-        uint256 unstakeableBonuses;
-        MinimumsLib.UserStruct tokensLocked;
-        MinimumsLib.UserStruct tokensBonus;
-        // lists where user staked or obtained bonuses
-        EnumerableSetUpgradeable.AddressSet instancesList;
-    }
     //      users
     mapping(address => UserData) internal users;
 
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     
-    error InsufficientBalance(address account, uint256 amount);
-    error InsufficientAmount(address account, uint256 amount);
-    error StakeNotUnlockedYet(address account, uint256 locked, uint256 remainingAmount);
-    error TrustedForwarderCanNotBeOwner(address account);
-    error DeniedForTrustedForwarder(address account);
-    error OwnTokensPermittedOnly();
-    error UNSTAKE_ERROR();
-    error REDEEM_ERROR();
-    error HookTransferPrevent(address from, address to, uint256 amount);
-    error AmountExceedsAllowance(address account,uint256 amount);
 
     /**
     * @param impl address of StakingPool implementation
@@ -455,11 +427,11 @@ mapping(address => InstanceStruct) private _instances;
         nonReentrant
     {
         address account = _msgSender();
-console.log("unstake#1");
+//console.log("unstake#1");
         _validateUnstake(account, amount);
-console.log("unstake#2");
+//console.log("unstake#2");
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
-console.log("unstake#3");
+//console.log("unstake#3");
         // _accountForOperation(
         //     OPERATION_UNSTAKE << OPERATION_SHIFT_BITS,
         //     uint256(uint160(account)),
@@ -807,29 +779,36 @@ console.log("unstake#3");
         internal 
     {
         uint256 totalSupplyBefore = _burn(account, amount);
-console.log("_unstake#1");
+//console.log("_unstake#1");
         (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
-console.log("_unstake#2");
+//console.log("_unstake#2");
         for (uint256 i = 0; i < len; i++) {
-console.log("len =",len);
-console.log(1);
+//console.log("len =",len);
+//console.log(1);
             _instances[instancesList[i]]._instanceStaked -= amounts[i];
-console.log(2);
+//console.log(2);
             _instances[instancesList[i]].unstakeable[account] -= amounts[i];
-console.log(3);
+//console.log(3);
             users[account].unstakeable -= amounts[i];
-console.log(4);
+//console.log(4);
             proceedPool(
                 account,
                 instancesList[i],
                 values[i],
                 strategy
             );
-console.log(5);                                    
+//console.log(5);                                    
         }
-console.log(6);  
+//console.log(6);  
     }
 
+
+/*
+ICommunityStakingPoolFactory.InstanceInfo
+instanceManagment
+Strategy.
+astrcut _instances storage
+*/
     // create map of instance->amount or LP tokens that need to redeem
     function _poolStakesAvailable(
         address account,
@@ -847,132 +826,9 @@ console.log(6);
             uint256 len
         ) 
     {
-        ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo;
-
-        if (preferredInstances.length == 0) {
-            preferredInstances = instanceManagment.instances();
-        }
-
-        instancesAddress = new address[](preferredInstances.length);
-        values = new uint256[](preferredInstances.length);
-        amounts = new uint256[](preferredInstances.length);
-        len = 0;
-        uint256 amountToRedeem;
-
-        uint256 amountLeft = amount;
-        if (strategy == Strategy.REDEEM || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-
-            // LPTokens =  WalletTokens * ratio;
-            // ratio = A / (A + B * discountSensitivity);
-            // где 
-            // discountSensitivity - constant set in constructor
-            // A = totalRedeemable across all pools
-            // B = totalSupply - A - totalUnstakeable
-            uint256 A = totalRedeemable;
-            uint256 B = totalSupplyBefore - A - totalUnstakeable;
-            // uint256 ratio = A / (A + B * discountSensitivity);
-            // amountLeft =  amount * ratio; // LPTokens =  WalletTokens * ratio;
-
-            // --- proposal from audit to keep precision after division
-            // amountLeft = amount * A / (A + B * discountSensitivity / FRACTION);
-            amountLeft = amountLeft * A * FRACTION;
-            amountLeft = amountLeft / (A + B * discountSensitivity / FRACTION);
-            amountLeft = amountLeft / FRACTION;
-
-            /////////////////////////////////////////////////////////////////////
-            // Formula: #1
-            // discount = mainTokens / (mainTokens + bonusTokens);
-            // 
-            // but what we have: 
-            // - mainTokens     - tokens that user obtain after staked 
-            // - bonusTokens    - any bonus tokens. 
-            //   increase when:
-            //   -- stakers was invited via community. so inviter will obtain amount * invitedByFraction
-            //   -- calling addToCirculation
-            //   decrease when:
-            //   -- by applied tariff when redeem or unstake
-            // so discount can be more then zero
-            // We didn't create int256 bonusTokens variable. instead this we just use totalSupply() == (mainTokens + bonusTokens)
-            // and provide uint256 totalReserves as tokens amount  without bonuses.
-            // increasing than user stakes and decreasing when redeem
-            // smth like this
-            // discount = totalReserves / (totalSupply();
-            // !!! keep in mind that we have burn tokens before it's operation and totalSupply() can be zero. use totalSupplyBefore instead 
-
-            amountLeft = amountLeft * totalReserves / totalSupplyBefore;
-
-            /////////////////////////////////////////////////////////////////////
-
-
-        }
-        if (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
-            //require(totalSupplyBefore-users[account].tokensBonus._getMinimum() >= amountLeft, "insufficient amount");
-            if (totalSupplyBefore - users[account].tokensBonus._getMinimum() < amountLeft) { revert InsufficientAmount(account, amount);}
-
-            // users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
-            // tokensBonus[account]._minimumsAdd(bonusAmount, instanceInfo.duration, LOCKUP_INTERVAL, false);
-        }
-
-        // check if user can unstake such amount across all instances
-        if (
-            (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY ) &&
-            (users[account].unstakeable < amount)
-        ) {
-            revert InsufficientAmount(account, amount);
-        }
-
-        // now calculate from which instances we should reduce tokens
-        for (uint256 i = 0; i < preferredInstances.length; i++) {
-            
-
-            if (
-                (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY ) &&
-                (_instances[preferredInstances[i]].unstakeable[account] > 0)
-            ) {
-                amountToRedeem = 
-                    amountLeft > _instances[preferredInstances[i]].unstakeable[account]
-                    ?
-                    _instances[preferredInstances[i]].unstakeable[account]
-                        // _instances[preferredInstances[i]]._instanceStaked > users[account].unstakeable
-                        // ? 
-                        // users[account].unstakeable
-                        // :
-                        // _instances[preferredInstances[i]]._instanceStaked    
-                    :
-                    amountLeft;
-
-            }  
-            if (
-                strategy == Strategy.REDEEM || 
-                strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
-            ) {
-                amountToRedeem = 
-                    amountLeft > _instances[preferredInstances[i]]._instanceStaked
-                    ? 
-                    _instances[preferredInstances[i]]._instanceStaked
-                    : 
-                    amountLeft
-                    ;
-            }
-                
-            if (amountToRedeem > 0) {
-
-                instancesAddress[len] = preferredInstances[i]; 
-                instanceInfo =  instanceManagment.getInstanceInfoByPoolAddress(preferredInstances[i]); // todo is exist there?
-                amounts[len] = amountToRedeem;
-                //backward conversion( СС -> LP)
-                values[len] = amountToRedeem * (instanceInfo.denominator) / (instanceInfo.numerator);
-                
-                len += 1;
-
-                amountLeft -= amountToRedeem;
-            }
-            
-
-        }
+        uint256 amountLeft = PoolStakesLib.getAmountLeft(account, amount, totalSupplyBefore, strategy, totalRedeemable, totalUnstakeable, totalReserves, discountSensitivity, users);
+        (instancesAddress, values, amounts, len) = PoolStakesLib.available(account, amount, preferredInstances, strategy, instanceManagment, _instances);
         
-        //require(amountLeft == 0, "insufficient amount");
-        if(amountLeft > 0) {revert InsufficientAmount(account, amount);}
 
     }
 
