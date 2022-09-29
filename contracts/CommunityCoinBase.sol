@@ -1015,26 +1015,47 @@ astrcut _instances storage
                     balance = 100
                     amount = 60
                     locked = 50
-                    minimumsTransfer - ? = [50 > (100-60)] 50-40=10  0
+                    minimumsTransfer - ? = [50 > (100-60)] locked-(balance-amount) = 50-(40)=10  
+                    */
+                    /*
+                    balance = 100
+                    amount = 100
+                    locked = 100
+                    minimumsTransfer - ? = [100 > (100-100)] 100-(100-100)=100  
                     */
                     uint256 locked = users[from].tokensLocked._getMinimum();
                     uint256 lockedBonus = users[from].tokensBonus._getMinimum();
                     //else drop locked minimum, but remove minimums even if remaining was enough
                     //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
+// console.log("locked---start");
+// console.log("balance        = ",balance);
+// console.log("amount         = ",amount);
+// console.log("remainingAmount= ",remainingAmount);
+// console.log("locked         = ",locked);
+// console.log("lockedBonus    = ",lockedBonus);
                     if (locked+lockedBonus > 0 && locked+lockedBonus >= remainingAmount ) {
-                        
-                        if (lockedBonus >= remainingAmount) {
-                            users[from].tokensBonus.minimumsTransfer(users[address(0)].tokensBonus, true, (lockedBonus - remainingAmount));
+// console.log("#1");
+                        uint256 locked2Transfer = locked+lockedBonus-remainingAmount;
+                        if (lockedBonus >= locked2Transfer) {
+// console.log("#2.1");
+                            users[from].tokensBonus.minimumsTransfer(users[address(0)].tokensBonus, true, (lockedBonus - locked2Transfer));
                         } else {
-                            uint256 left = (remainingAmount - lockedBonus);
+// console.log("#2.2");
+                            
+// console.log("locked2Transfer = ", locked2Transfer);                            
+                            //uint256 left = (remainingAmount - lockedBonus);
                             if (lockedBonus > 0) {
                                 users[from].tokensBonus.minimumsTransfer(users[address(0)].tokensBonus, true, lockedBonus);
-                                left-= lockedBonus;
+                                locked2Transfer-= lockedBonus;
                             }
-                            users[from].tokensLocked.minimumsTransfer(users[address(0)].tokensLocked, true, left);
+                            users[from].tokensLocked.minimumsTransfer(users[address(0)].tokensLocked, true, locked2Transfer);
+
                         }
                         
                     }
+// console.log("locked         = ",locked);
+// console.log("lockedBonus    = ",lockedBonus);                    
+// console.log("locked---end");
                     //-------------------
 
                     if (

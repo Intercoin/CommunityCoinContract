@@ -77,11 +77,11 @@ library PoolStakesLib {
 
         if (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
             //require(totalSupplyBefore-users[account].tokensBonus._getMinimum() >= amount, "insufficient amount");
-console.log("totalSupplyBefore                          =",totalSupplyBefore);
-console.log("users[account].tokensBonus._getMinimum()   =",users[account].tokensBonus._getMinimum());
-console.log("amount                                     =",amount);
-console.log("users[account].unstakeable                 =",users[account].unstakeable);
-console.log("users[account].unstakeableBonuses          =",users[account].unstakeableBonuses);
+// console.log("totalSupplyBefore                          =",totalSupplyBefore);
+// console.log("users[account].tokensBonus._getMinimum()   =",users[account].tokensBonus._getMinimum());
+// console.log("amount                                     =",amount);
+// console.log("users[account].unstakeable                 =",users[account].unstakeable);
+// console.log("users[account].unstakeableBonuses          =",users[account].unstakeableBonuses);
             if (
                (totalSupplyBefore - users[account].tokensBonus._getMinimum() < amount) || // insufficient amount
                (users[account].unstakeable < amount)  // check if user can unstake such amount across all instances

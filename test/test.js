@@ -183,7 +183,7 @@ describe("Staking contract tests", function () {
         CommunityCoinWithHook = await ethers.getContractAt("CommunityCoin",instance);
         
     });
- 
+
     it("staking factory", async() => {
         let count = await CommunityCoinFactory.instancesCount();
         await expect(count).to.be.equal(TWO);
@@ -529,19 +529,13 @@ describe("Staking contract tests", function () {
             await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
             await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithBonus);
-// console.log("JS:1");
-// console.log("JS:bob balance=",(await CommunityCoin.balanceOf(bob.address)).toString());
-// console.log("JS:tokensWithBonus=",tokensWithBonus.toString());
+
             await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith(`InsufficientAmount("${bob.address}", ${tokensWithBonus})`);
-// console.log("JS:2");
+
             await CommunityCoin.connect(bob).transfer(alice.address, tokensWithBonus.sub(tokensWithNoBonus));
-// console.log("JS:3");
-// console.log("JS:bob balance=",(await CommunityCoin.balanceOf(bob.address)).toString());
-// console.log("JS:alice balance=",(await CommunityCoin.balanceOf(alice.address)).toString());
-// console.log("JS:tokensWithNoBonus=",tokensWithNoBonus.toString());
+
             await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithNoBonus);
             await CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus);
-// console.log("JS:4");
 
             // restore snapshot
             await ethers.provider.send('evm_revert', [snapId]);
@@ -620,7 +614,7 @@ describe("Staking contract tests", function () {
             await ethers.provider.send('evm_revert', [snapId]);
         });  
     });
-/*
+
     describe("TrustedForwarder Rewards", function () {
 
         var rewards;
@@ -1441,7 +1435,7 @@ describe("Staking contract tests", function () {
                             expect(bobSharesAfter).to.be.eq(aliceSharesAfterBobTransfer);
                             expect(bobLockedBalanceAfterBobTransfer).to.be.eq(ZERO);
                             expect(aliceLockedBalanceAfterBobTransfer).to.be.eq(ZERO);
-                            
+                           
                             
                         });
 
@@ -2119,6 +2113,6 @@ describe("Staking contract tests", function () {
         });      
   
     });
-   */ 
+
 
 });
