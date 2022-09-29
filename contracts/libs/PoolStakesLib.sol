@@ -8,6 +8,15 @@ import "hardhat/console.sol";
 library PoolStakesLib {
     using MinimumsLib for MinimumsLib.UserStruct;
 
+    // function unstakeableReduce(
+
+    // ) 
+    //     external 
+    // {
+
+    // }
+
+
     // adjusting amount and applying some discounts, fee, etc
     function getAmountLeft(
         address account,
@@ -75,7 +84,7 @@ console.log("users[account].unstakeable                 =",users[account].unstak
 console.log("users[account].unstakeableBonuses          =",users[account].unstakeableBonuses);
             if (
                (totalSupplyBefore - users[account].tokensBonus._getMinimum() < amount) || // insufficient amount
-               (users[account].unstakeable + users[account].unstakeableBonuses < amount)  // check if user can unstake such amount across all instances
+               (users[account].unstakeable < amount)  // check if user can unstake such amount across all instances
             ) {
                 revert ICommunityCoin.InsufficientAmount(account, amount);
             }

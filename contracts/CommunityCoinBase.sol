@@ -434,11 +434,11 @@ mapping(address => InstanceStruct) private _instances;
         nonReentrant
     {
         address account = _msgSender();
-console.log("unstake#1");
+// console.log("unstake#1");
         _validateUnstake(account, amount);
-console.log("unstake#2");
+// console.log("unstake#2");
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
-console.log("unstake#3");
+// console.log("unstake#3");
         // _accountForOperation(
         //     OPERATION_UNSTAKE << OPERATION_SHIFT_BITS,
         //     uint256(uint160(account)),
@@ -786,21 +786,21 @@ console.log("unstake#3");
         proceedBurnUnstakeRedeem
         internal 
     {
-console.log("_unstake#0");
+// console.log("_unstake#0");
         //uint256 totalSupplyBefore = _burn(account, amount);
         uint256 totalSupplyBefore = totalSupply();
-console.log("_unstake#1");
+// console.log("_unstake#1");
         (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
 
         _burn(account, amount, "", "");
 
-console.log("_unstake#2");
-console.log("len =",len);
+// console.log("_unstake#2");
+// console.log("len =",len);
         for (uint256 i = 0; i < len; i++) {
-console.log("i =",i);
-console.log("amounts[i] =",amounts[i]);
-console.log("users[account].unstakeable =",users[account].unstakeable);
-console.log("users[account].unstakeableBonuses =",users[account].unstakeableBonuses);
+// console.log("i =",i);
+// console.log("amounts[i] =",amounts[i]);
+// console.log("users[account].unstakeable =",users[account].unstakeable);
+// console.log("users[account].unstakeableBonuses =",users[account].unstakeableBonuses);
 //console.log(1);
             _instances[instancesList[i]]._instanceStaked -= amounts[i];
 //console.log(2);
@@ -845,7 +845,7 @@ astrcut _instances storage
         ) 
     {
         amount = PoolStakesLib.getAmountLeft(account, amount, totalSupplyBefore, strategy, totalRedeemable, totalUnstakeable, totalReserves, discountSensitivity, users);
-console.log("_poolStakesAvailable::amountLeft=", amount);
+// console.log("_poolStakesAvailable::amountLeft=", amount);
         (instancesAddress, values, amounts, len) = PoolStakesLib.available(account, amount, preferredInstances, strategy, instanceManagment, _instances);
         
 
@@ -859,7 +859,6 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
         address[] memory preferredInstances,
         Strategy strategy
     ) 
-        proceedBurnUnstakeRedeem
         internal 
     {
 
@@ -892,6 +891,7 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
         address[] memory preferredInstances,
         Strategy strategy
     ) 
+        proceedBurnUnstakeRedeem
         internal 
     {
 
@@ -1044,6 +1044,12 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
                     ) { 
                     
                     } else {
+// console.log("amount                         =",amount);
+// console.log("remainingAmount                =",remainingAmount);
+// console.log("users[from].unstakeable        =",users[from].unstakeable);
+// console.log("users[from].unstakeableBonuses =",users[from].unstakeableBonuses);
+// console.log("users[to].unstakeable          =",users[to].unstakeable);
+// console.log("users[to].unstakeableBonuses   =",users[to].unstakeableBonuses);
                         // else it's just transfer
 
                         // so while transfer user will user free tokens at first
@@ -1056,10 +1062,11 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
                         //  here decrease any unstakeable vars
                         //              increase redeemable
                         uint256 r;
+                        uint256 left = amount;
                         if (users[from].unstakeableBonuses > 0) {
-                            
-                            if (users[from].unstakeableBonuses >= remainingAmount) {
-                                r = remainingAmount;
+// console.log("#1");
+                            if (users[from].unstakeableBonuses >= left) {
+                                r = left;
                             } else {
                                 r = users[from].unstakeableBonuses;
                             }
@@ -1072,20 +1079,21 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
 
                             _removeBonusThroughInstances(from, r);
                             users[from].unstakeableBonuses -= r;
-                            remainingAmount -= r;
+                            left -= r;
                         
                         }
 
 
 
-                        if ((remainingAmount > 0) && (users[from].unstakeable >= remainingAmount)) {
-                            if (users[from].unstakeable >= remainingAmount) {
-                                r = remainingAmount;
+                        if ((left > 0) && (users[from].unstakeable >= left)) {
+// console.log("#2");                            
+                            if (users[from].unstakeable >= left) {
+                                r = left;
                             } else {
                                 r = users[from].unstakeable;
                             }
 
-                            r = users[from].unstakeable - remainingAmount;
+                         //   r = users[from].unstakeable - left;
                             // if (totalUnstakeable >= r) {
                             users[from].unstakeable -= r;
                             totalUnstakeable -= r;
@@ -1096,14 +1104,14 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
                             } else {
                                 totalRedeemable += r;
                             }
-
                             
-                            _removeBonusThroughInstances(from, r);
+                            _removeMainThroughInstances(from, r);
 
-                            remainingAmount -= r;
+                            //left -= r;
                             
                             // }
                         }
+
 
                         // if (users[from].unstakeable >= remainingAmount) {
                         //     uint256 r = users[from].unstakeable - remainingAmount;
@@ -1117,6 +1125,11 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
                         //     }
                         //     // }
                         // }
+// console.log("----------------------------");
+// console.log("users[from].unstakeable        =",users[from].unstakeable);
+// console.log("users[from].unstakeableBonuses =",users[from].unstakeableBonuses);
+// console.log("users[to].unstakeable          =",users[to].unstakeable);
+// console.log("users[to].unstakeableBonuses   =",users[to].unstakeableBonuses);
                     }
                     
                 } else {
@@ -1226,6 +1239,7 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
             instance = users[account].instancesList.at(i);
             if (_instances[instance].unstakeable[account] >= amount) {
                 _instances[instance].unstakeable[account] -= amount;
+                _instances[instance].redeemable += amount;
             } else if (_instances[instance].unstakeable[account] > 0) {
                 _instances[instance].unstakeable[account] = 0;
                 instances2Delete[j] = instance;
@@ -1246,8 +1260,8 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
     ) 
         internal
     {
-        console.log("start::cleanInstancesList");
-        console.log("cleanInstancesList::indexUntil=",indexUntil);
+        // console.log("start::cleanInstancesList");
+        // console.log("cleanInstancesList::indexUntil=",indexUntil);
         //uint256 len = instances2Delete.length;
         if (indexUntil > 0) {
             for (uint256 i = 0; i < indexUntil; i++) {
@@ -1258,7 +1272,7 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
                 );
             }
         }
-        console.log("end::cleanInstancesList");
+        // console.log("end::cleanInstancesList");
 
     }
 
@@ -1276,7 +1290,7 @@ console.log("_poolStakesAvailable::amountLeft=", amount);
             users[account].instancesList.remove(instance);
         }
         
-console.log("end::_cleanInstance");
+// console.log("end::_cleanInstance");
 
     }
 

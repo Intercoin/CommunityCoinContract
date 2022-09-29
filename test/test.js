@@ -475,7 +475,7 @@ describe("Staking contract tests", function () {
             
         });
 
-        it.only("Bonus tests::buyAddLiquidityAndStake (Bonus:50%)", async () => {
+        it("Bonus tests::buyAddLiquidityAndStake (Bonus:50%)", async () => {
 
             // here we: 
             // - calculate how much tokens user will obtain without bonuses 
@@ -529,14 +529,19 @@ describe("Staking contract tests", function () {
             await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
             await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithBonus);
-console.log("JS:1");
+// console.log("JS:1");
+// console.log("JS:bob balance=",(await CommunityCoin.balanceOf(bob.address)).toString());
+// console.log("JS:tokensWithBonus=",tokensWithBonus.toString());
             await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith(`InsufficientAmount("${bob.address}", ${tokensWithBonus})`);
-console.log("JS:2");
+// console.log("JS:2");
             await CommunityCoin.connect(bob).transfer(alice.address, tokensWithBonus.sub(tokensWithNoBonus));
-console.log("JS:3");
+// console.log("JS:3");
+// console.log("JS:bob balance=",(await CommunityCoin.balanceOf(bob.address)).toString());
+// console.log("JS:alice balance=",(await CommunityCoin.balanceOf(alice.address)).toString());
+// console.log("JS:tokensWithNoBonus=",tokensWithNoBonus.toString());
             await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithNoBonus);
             await CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus);
-console.log("JS:4");
+// console.log("JS:4");
 
             // restore snapshot
             await ethers.provider.send('evm_revert', [snapId]);
@@ -565,7 +570,9 @@ console.log("JS:4");
             await mockCommunity.connect(owner).setRoles(charlie.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
 
             // transfer to charlie who has redeem role
+            //console.log(":JS1");
             await CommunityCoin.connect(bob).transfer(charlie.address, tokensWithNoLPConsuming);
+            //console.log(":JS2");
 
             await CommunityCoin.connect(charlie).approve(CommunityCoin.address, tokensWithNoLPConsuming);
             await CommunityCoin.connect(charlie)["redeem(uint256)"](tokensWithNoLPConsuming);  
@@ -613,7 +620,7 @@ console.log("JS:4");
             await ethers.provider.send('evm_revert', [snapId]);
         });  
     });
-
+/*
     describe("TrustedForwarder Rewards", function () {
 
         var rewards;
@@ -2112,6 +2119,6 @@ console.log("JS:4");
         });      
   
     });
-    
+   */ 
 
 });
