@@ -18,7 +18,7 @@ import "./access/TrustedForwarderUpgradeable.sol";
 //import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 //import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 import "./libs/PoolStakesLib.sol";
 
 abstract contract CommunityCoinBase is 
@@ -113,6 +113,12 @@ mapping(address => InstanceStruct) private _instances;
     //      users
     mapping(address => UserData) internal users;
 
+    bool flagBurnUnstakeRedeem;
+    modifier proceedBurnUnstakeRedeem() {
+        flagBurnUnstakeRedeem = true;
+        _;
+        flagBurnUnstakeRedeem = false;
+    }
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
     
@@ -231,7 +237,8 @@ mapping(address => InstanceStruct) private _instances;
         invitedAmount = invitedAmount * (instanceInfo.numerator) / (instanceInfo.denominator);
         
 
-
+        // todo 0: remove it from here.
+        // mb. create three methods onSTake/onUnstake/onREdeem
         if (address(hook) != address(0)) {
             hook.bonus(instance, account, instanceInfo.duration, amount);
         }
@@ -361,7 +368,7 @@ mapping(address => InstanceStruct) private _instances;
     /**
     * @dev it's extended version for create instance pool available for owners only.
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
-    * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distirbuted when user stakes
+    * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @param lpFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
     * @param lpFractionBeneficiary beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
@@ -391,7 +398,7 @@ mapping(address => InstanceStruct) private _instances;
     * @dev function for creation erc20 instance pool.
     * @param tokenErc20 address of erc20 token.
     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
-    * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distirbuted when user stakes
+    * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
     * @param lpFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
     * @param lpFractionBeneficiary beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
@@ -427,11 +434,11 @@ mapping(address => InstanceStruct) private _instances;
         nonReentrant
     {
         address account = _msgSender();
-//console.log("unstake#1");
+console.log("unstake#1");
         _validateUnstake(account, amount);
-//console.log("unstake#2");
+console.log("unstake#2");
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
-//console.log("unstake#3");
+console.log("unstake#3");
         // _accountForOperation(
         //     OPERATION_UNSTAKE << OPERATION_SHIFT_BITS,
         //     uint256(uint160(account)),
@@ -776,20 +783,31 @@ mapping(address => InstanceStruct) private _instances;
         address[] memory preferredInstances,
         Strategy strategy
     ) 
+        proceedBurnUnstakeRedeem
         internal 
     {
-        uint256 totalSupplyBefore = _burn(account, amount);
-//console.log("_unstake#1");
+console.log("_unstake#0");
+        //uint256 totalSupplyBefore = _burn(account, amount);
+        uint256 totalSupplyBefore = totalSupply();
+console.log("_unstake#1");
         (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
-//console.log("_unstake#2");
+
+        _burn(account, amount, "", "");
+
+console.log("_unstake#2");
+console.log("len =",len);
         for (uint256 i = 0; i < len; i++) {
-//console.log("len =",len);
+console.log("i =",i);
+console.log("amounts[i] =",amounts[i]);
+console.log("users[account].unstakeable =",users[account].unstakeable);
+console.log("users[account].unstakeableBonuses =",users[account].unstakeableBonuses);
 //console.log(1);
             _instances[instancesList[i]]._instanceStaked -= amounts[i];
 //console.log(2);
             _instances[instancesList[i]].unstakeable[account] -= amounts[i];
 //console.log(3);
             users[account].unstakeable -= amounts[i];
+            
 //console.log(4);
             proceedPool(
                 account,
@@ -826,7 +844,8 @@ astrcut _instances storage
             uint256 len
         ) 
     {
-        uint256 amountLeft = PoolStakesLib.getAmountLeft(account, amount, totalSupplyBefore, strategy, totalRedeemable, totalUnstakeable, totalReserves, discountSensitivity, users);
+        amount = PoolStakesLib.getAmountLeft(account, amount, totalSupplyBefore, strategy, totalRedeemable, totalUnstakeable, totalReserves, discountSensitivity, users);
+console.log("_poolStakesAvailable::amountLeft=", amount);
         (instancesAddress, values, amounts, len) = PoolStakesLib.available(account, amount, preferredInstances, strategy, instanceManagment, _instances);
         
 
@@ -840,6 +859,7 @@ astrcut _instances storage
         address[] memory preferredInstances,
         Strategy strategy
     ) 
+        proceedBurnUnstakeRedeem
         internal 
     {
 
@@ -852,6 +872,7 @@ astrcut _instances storage
         address account,
         uint256 amount
     ) 
+        proceedBurnUnstakeRedeem()
         internal 
         returns(uint256 totalSupplyBefore)
     {
@@ -980,65 +1001,60 @@ astrcut _instances storage
                
                     uint256 remainingAmount = balance - amount;
                     
+                    //-------------------
+                    // locked sections
+                    //-------------------   
                     
-//                     if (to == address(0)) {  // if burnt
-// console.log(from);
-// console.log(to);
-// console.log(amount);
-// console.log("totalRedeemable = ", totalRedeemable);
-//                     } else 
+                    /*
+                    balance = 100
+                    amount = 40
+                    locked = 50
+                    minimumsTransfer - ? =  0
+                    */
+                    /*
+                    balance = 100
+                    amount = 60
+                    locked = 50
+                    minimumsTransfer - ? = [50 > (100-60)] 50-40=10  0
+                    */
+                    uint256 locked = users[from].tokensLocked._getMinimum();
+                    uint256 lockedBonus = users[from].tokensBonus._getMinimum();
+                    //else drop locked minimum, but remove minimums even if remaining was enough
+                    //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
+                    if (locked+lockedBonus > 0 && locked+lockedBonus >= remainingAmount ) {
+                        
+                        if (lockedBonus >= remainingAmount) {
+                            users[from].tokensBonus.minimumsTransfer(users[address(0)].tokensBonus, true, (lockedBonus - remainingAmount));
+                        } else {
+                            uint256 left = (remainingAmount - lockedBonus);
+                            if (lockedBonus > 0) {
+                                users[from].tokensBonus.minimumsTransfer(users[address(0)].tokensBonus, true, lockedBonus);
+                                left-= lockedBonus;
+                            }
+                            users[from].tokensLocked.minimumsTransfer(users[address(0)].tokensLocked, true, left);
+                        }
+                        
+                    }
+                    //-------------------
 
-                    if (to == address(this)) { // if send directly to contract
-                        //require(amount <= totalRedeemable, "STAKE_NOT_UNLOCKED_YET");
+                    if (
+                        // not calculate if
+                        flagBurnUnstakeRedeem || // - burn or unstake or redeem
+                        to == address(this)      // - send directly to contract
+                    ) { 
+                    
                     } else {
                         // else it's just transfer
-                        // users[from].unstakeable means as locked var. but not equal: locked can be less than users[from].unstakeable
-                        
-                        
-                        uint256 locked = users[from].tokensLocked._getMinimum();
-                        uint256 lockedBonus = users[from].tokensBonus._getMinimum();
-                        //else drop locked minimum, but remove minimums even if remaining was enough
-                        //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
-                        if (locked+lockedBonus > 0 && locked+lockedBonus >= amount ) {
-                            if (lockedBonus >= amount) {
-                               users[from].tokensBonus.minimumsTransfer(users[address(0)].tokensLocked, true, amount);
-                            } else {
-                                uint256 left = amount;
-                                if (lockedBonus > 0) {
-                                    users[from].tokensBonus.minimumsTransfer(users[address(0)].tokensLocked, true, lockedBonus);
-                                    left-= lockedBonus;
-                                }
-                                users[from].tokensLocked.minimumsTransfer(users[address(0)].tokensLocked, true, left);
-                            }
-                            
-                        }
-                        //-----------------------------------
-                        // uint256 r = users[from].unstakeable - remainingAmount;
-                        // users[from].unstakeable -= r;
-                        // totalUnstakeable -= r;
-                        // totalRedeemable += r;
-                        // -------
-                        // total supply should be equal sum of totalUnstakeable and totalRedeemable.
-                        // it's works before owner will add some to circulate.
-                        // circulation tokens is not part of unstakeable or redeemable. it's tokens emission mechanism.
-                        // so any time when user transfer somth and have not enough unstakeable tokens, we will not calculate unstakeable and redeemable
-// users[from].unstakeable
-// !=
-// user balance
-///// 
-// balance - users[from].unstakeable ---  it;s bonuses
-/*
-"x" need to send
 
+                        // so while transfer user will user free tokens at first
+                        // then try to use locked. when using locked we should descrease
 
-*/
-
-//users[from].unstakeableBonuses;
-//try to get from bonuses
-//  here just increase redeemable
-//thentry to get from main unstakeable
-//  here decrease any unstakeable vars
-//              increase redeemable
+                        //users[from].unstakeableBonuses;
+                        //try to get from bonuses
+                        //  here just increase redeemable
+                        //then try to get from main unstakeable
+                        //  here decrease any unstakeable vars
+                        //              increase redeemable
                         uint256 r;
                         if (users[from].unstakeableBonuses > 0) {
                             
@@ -1055,7 +1071,7 @@ astrcut _instances storage
                             }
 
                             _removeBonusThroughInstances(from, r);
-
+                            users[from].unstakeableBonuses -= r;
                             remainingAmount -= r;
                         
                         }
@@ -1066,7 +1082,7 @@ astrcut _instances storage
                             if (users[from].unstakeable >= remainingAmount) {
                                 r = remainingAmount;
                             } else {
-                                r = users[from].unstakeableBonuses;
+                                r = users[from].unstakeable;
                             }
 
                             r = users[from].unstakeable - remainingAmount;
@@ -1074,13 +1090,15 @@ astrcut _instances storage
                             users[from].unstakeable -= r;
                             totalUnstakeable -= r;
                             
-                            _removeBonusThroughInstances(from, r);
 
                             if (to == address(0)) {
                                 // it's simple burn and tokens can not be redeemable
                             } else {
                                 totalRedeemable += r;
                             }
+
+                            
+                            _removeBonusThroughInstances(from, r);
 
                             remainingAmount -= r;
                             
@@ -1171,51 +1189,53 @@ astrcut _instances storage
         address account,
         uint256 amount
     ) internal {
-        
+//console.log("START::_removeBonusThroughInstances");        
         uint256 len = users[account].instancesList.length();
         address[] memory instances2Delete = new address[](len) ;
-        uint256 i = 0;
-
+        uint256 j = 0;
+//console.log("_removeBonusThroughInstances::len", len);        
         address instance;
-        for (i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; i++) {
             instance = users[account].instancesList.at(i);
             if (_instances[instance].unstakeableBonuses[account] >= amount) {
+//console.log("_removeBonusThroughInstances::#1");
                 _instances[instance].unstakeableBonuses[account] -= amount;
             } else if (_instances[instance].unstakeableBonuses[account] > 0) {
+//console.log("_removeBonusThroughInstances::#2");
                 _instances[instance].unstakeableBonuses[account] = 0;
                 instances2Delete[i] = instance;
+                j+=1;
                 amount -= _instances[instance].unstakeableBonuses[account];
             }
         }
 
         // do deletion out of loop above. because catch out of array 
-        cleanInstancesList(account, instances2Delete, i+1);
-        
+        cleanInstancesList(account, instances2Delete, j);
+//console.log("END::_removeBonusThroughInstances");                
     }
 
     function _removeMainThroughInstances(
         address account,
         uint256 amount
     ) internal {
-        
         uint256 len = users[account].instancesList.length();
         address[] memory instances2Delete = new address[](len) ;
-        uint256 i;
+        uint256 j=0;
         address instance;
-        for (i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; i++) {
             instance = users[account].instancesList.at(i);
             if (_instances[instance].unstakeable[account] >= amount) {
                 _instances[instance].unstakeable[account] -= amount;
             } else if (_instances[instance].unstakeable[account] > 0) {
                 _instances[instance].unstakeable[account] = 0;
-                instances2Delete[i] = instance;
+                instances2Delete[j] = instance;
+                j+=1;
                 amount -= _instances[instance].unstakeable[account];
             }
         }
 
         // do deletion out of loop above. because catch out of array 
-        cleanInstancesList(account, instances2Delete, i+1);
-        
+        cleanInstancesList(account, instances2Delete, j);
 
     }
 
@@ -1226,16 +1246,19 @@ astrcut _instances storage
     ) 
         internal
     {
+        console.log("start::cleanInstancesList");
+        console.log("cleanInstancesList::indexUntil=",indexUntil);
         //uint256 len = instances2Delete.length;
         if (indexUntil > 0) {
             for (uint256 i = 0; i < indexUntil; i++) {
+                console.log("cleanInstancesList::i=",i);
                 _cleanInstance(
                     account, 
                     instances2Delete[i]
                 );
             }
         }
-
+        console.log("end::cleanInstancesList");
 
     }
 
@@ -1245,7 +1268,7 @@ astrcut _instances storage
     ) 
         internal
     {
-        
+//console.log("start::_cleanInstance");
         if (
             _instances[instance].unstakeableBonuses[account] == 0 &&
             _instances[instance].unstakeable[account] == 0
@@ -1253,7 +1276,7 @@ astrcut _instances storage
             users[account].instancesList.remove(instance);
         }
         
-
+console.log("end::_cleanInstance");
 
     }
 

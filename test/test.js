@@ -65,7 +65,7 @@ describe("Staking contract tests", function () {
     
     const lpFraction = ZERO;
     const numerator = 1;
-    const denominator = 10;
+    const denominator = 1;
     const dayInSeconds = 24*60*60; // * interval: DAY in seconds
     const lockupIntervalCount = 365; // year in days(dayInSeconds)
     const percentLimitLeftTokenB = 0.001;
@@ -96,7 +96,14 @@ describe("Staking contract tests", function () {
         const ReleaseManagerF = await ethers.getContractFactory("MockReleaseManager");
         const CommunityCoinFactoryF = await ethers.getContractFactory("CommunityCoinFactory");
 
-        const CommunityCoinF = await ethers.getContractFactory("CommunityCoin");
+        const PoolStakesLibF = await ethers.getContractFactory("PoolStakesLib");
+	    let poolStakesLib = await PoolStakesLibF.deploy();
+        
+        const CommunityCoinF = await ethers.getContractFactory("CommunityCoin", {
+            libraries: {
+                "contracts/libs/PoolStakesLib.sol:PoolStakesLib": poolStakesLib.address
+            }
+        });
         const CommunityStakingPoolF = await ethers.getContractFactory("MockCommunityStakingPool");
         const CommunityStakingPoolErc20F = await ethers.getContractFactory("CommunityStakingPoolErc20");
         const CommunityStakingPoolFactoryF = await ethers.getContractFactory("CommunityStakingPoolFactory");
@@ -461,10 +468,7 @@ describe("Staking contract tests", function () {
                 );
                 //--------------------------------------------------------
                 await communityStakingPool.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
-            
                 let bobWalletTokens = await CommunityCoin.balanceOf(bob.address);
-
-                
 
                 return bobWalletTokens;
             }
@@ -529,10 +533,10 @@ console.log("JS:1");
             await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith(`InsufficientAmount("${bob.address}", ${tokensWithBonus})`);
 console.log("JS:2");
             await CommunityCoin.connect(bob).transfer(alice.address, tokensWithBonus.sub(tokensWithNoBonus));
-
+console.log("JS:3");
             await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithNoBonus);
             await CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus);
-
+console.log("JS:4");
 
             // restore snapshot
             await ethers.provider.send('evm_revert', [snapId]);

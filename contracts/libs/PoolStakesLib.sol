@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.11;
+pragma solidity ^0.8.11;
+
 import "../interfaces/ICommunityCoin.sol";
 import "../interfaces/ICommunityStakingPoolFactory.sol";
+
+import "hardhat/console.sol";
 library PoolStakesLib {
     using MinimumsLib for MinimumsLib.UserStruct;
 
+    // adjusting amount and applying some discounts, fee, etc
     function getAmountLeft(
         address account,
         uint256 amount,
@@ -16,7 +20,8 @@ library PoolStakesLib {
         uint256 discountSensitivity,
         mapping(address => ICommunityCoin.UserData) storage users
 
-    ) external view returns(uint256 amountLeft) {
+    ) external view returns(uint256) {
+        
         if (strategy == ICommunityCoin.Strategy.REDEEM || strategy == ICommunityCoin.Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
 
             // LPTokens =  WalletTokens * ratio;
@@ -32,9 +37,9 @@ library PoolStakesLib {
 
             // --- proposal from audit to keep precision after division
             // amountLeft = amount * A / (A + B * discountSensitivity / 100000);
-            amountLeft = amountLeft * A * 100000;
-            amountLeft = amountLeft / (A + B * discountSensitivity / 100000);
-            amountLeft = amountLeft / 100000;
+            amount = amount * A * 100000;
+            amount = amount / (A + B * discountSensitivity / 100000);
+            amount = amount / 100000;
 
             /////////////////////////////////////////////////////////////////////
             // Formula: #1
@@ -56,16 +61,21 @@ library PoolStakesLib {
             // discount = totalReserves / (totalSupply();
             // !!! keep in mind that we have burn tokens before it's operation and totalSupply() can be zero. use totalSupplyBefore instead 
 
-            amountLeft = amountLeft * totalReserves / totalSupplyBefore;
+            amount = amount * totalReserves / totalSupplyBefore;
 
             /////////////////////////////////////////////////////////////////////
         }
 
         if (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
-            //require(totalSupplyBefore-users[account].tokensBonus._getMinimum() >= amountLeft, "insufficient amount");
+            //require(totalSupplyBefore-users[account].tokensBonus._getMinimum() >= amount, "insufficient amount");
+console.log("totalSupplyBefore                          =",totalSupplyBefore);
+console.log("users[account].tokensBonus._getMinimum()   =",users[account].tokensBonus._getMinimum());
+console.log("amount                                     =",amount);
+console.log("users[account].unstakeable                 =",users[account].unstakeable);
+console.log("users[account].unstakeableBonuses          =",users[account].unstakeableBonuses);
             if (
-               (totalSupplyBefore - users[account].tokensBonus._getMinimum() < amountLeft) || // insufficient amount
-               (users[account].unstakeable < amount)  // check if user can unstake such amount across all instances
+               (totalSupplyBefore - users[account].tokensBonus._getMinimum() < amount) || // insufficient amount
+               (users[account].unstakeable + users[account].unstakeableBonuses < amount)  // check if user can unstake such amount across all instances
             ) {
                 revert ICommunityCoin.InsufficientAmount(account, amount);
             }
@@ -73,6 +83,8 @@ library PoolStakesLib {
             // users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
             // tokensBonus[account]._minimumsAdd(bonusAmount, instanceInfo.duration, LOCKUP_INTERVAL, false);
         }
+
+        return amount;
         
     }
     
@@ -102,7 +114,6 @@ library PoolStakesLib {
     {
     
       //  uint256 FRACTION = 100000;
-
 
         if (preferredInstances.length == 0) {
             preferredInstances = instanceManagment.instances();
