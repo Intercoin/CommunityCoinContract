@@ -42,6 +42,12 @@ abstract contract CommunityCoinBase is
     uint64 internal constant LOCKUP_BONUS_INTERVAL = 1000*365*24*60*60; // 300 years in seconds
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
+    uint64 internal constant MAX_REDEEM_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 internal constant MAX_UNSTAKE_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+
+    uint64 public redeemTariff;
+    uint64 public unstakeTariff;
+
     //uint64 public constant CIRCULATION_DURATION = 365*24*60*60; //year by default. will be used if circulation added to minimums
 
     IHook public hook; // hook used to bonus calculation
@@ -327,7 +333,7 @@ mapping(address => InstanceStruct) private _instances;
         //     amount
         // );
     }
-  
+
     /**
     * @notice used to catch when used try to redeem by sending wallet tokens directly to contract
     * see more in {IERC777RecipientUpgradeable::tokensReceived}
@@ -707,6 +713,26 @@ mapping(address => InstanceStruct) private _instances;
         invitedByFraction = fraction;
 
     }
+
+    
+    function setTariff(
+        uint64 redeemTariff_,
+        uint64 unstakeTariff_
+    )
+        public
+    {
+
+        _checkRole(tariffRoleId, _msgSender());
+        if (
+            redeemTariff_ > MAX_REDEEM_TARIFF ||
+            unstakeTariff_ > MAX_UNSTAKE_TARIFF
+        ) {
+            revert AmountExceedsMaxTariff();
+        }
+        redeemTariff = redeemTariff_;
+        unstakeTariff = unstakeTariff_;
+    }
+  
     
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
@@ -787,12 +813,12 @@ mapping(address => InstanceStruct) private _instances;
         internal 
     {
 // console.log("_unstake#0");
-        //uint256 totalSupplyBefore = _burn(account, amount);
-        uint256 totalSupplyBefore = totalSupply();
-// console.log("_unstake#1");
-        (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
+        uint256 totalSupplyBefore = _burn(account, amount);
 
-        _burn(account, amount, "", "");
+// console.log("_unstake#1");
+        amount -= amount * unstakeTariff;
+        
+        (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
 
 // console.log("_unstake#2");
 // console.log("len =",len);
@@ -802,6 +828,9 @@ mapping(address => InstanceStruct) private _instances;
 // console.log("users[account].unstakeable =",users[account].unstakeable);
 // console.log("users[account].unstakeableBonuses =",users[account].unstakeableBonuses);
 //console.log(1);
+
+            
+
             _instances[instancesList[i]]._instanceStaked -= amounts[i];
 //console.log(2);
             _instances[instancesList[i]].unstakeable[account] -= amounts[i];
@@ -809,6 +838,7 @@ mapping(address => InstanceStruct) private _instances;
             users[account].unstakeable -= amounts[i];
             
 //console.log(4);
+
             proceedPool(
                 account,
                 instancesList[i],
@@ -896,12 +926,18 @@ astrcut _instances storage
     {
 
         uint256 totalSupplyBefore = _burn(account2Burn, amount);
+
+        
+
         //require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
 
 // console.log("amount = ",amount);
 // console.log("totalRedeemable = ",totalRedeemable);
 
         if (amount > totalRedeemable) {revert InsufficientBalance(account2Redeem, amount);}
+
+        
+        amount -= amount * redeemTariff;
 
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account2Redeem, amount, preferredInstances, strategy/*Strategy.REDEEM*/, totalSupplyBefore);
 
@@ -929,6 +965,7 @@ astrcut _instances storage
     * @param amount already converted amount
     */
     function proceedPool(address account,address pool, uint256 amount, Strategy strategy/*, string memory errmsg*/) internal {
+        
         if (strategy == Strategy.REDEEM || strategy == Strategy.UNSTAKE) {
 
             try ICommunityStakingPool(pool).redeem(

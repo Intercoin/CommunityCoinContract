@@ -56,6 +56,7 @@ interface ICommunityCoin {
     error REDEEM_ERROR();
     error HookTransferPrevent(address from, address to, uint256 amount);
     error AmountExceedsAllowance(address account,uint256 amount);
+    error AmountExceedsMaxTariff();
     
     function issueWalletTokens(address account, uint256 amount, uint256 priceBeforeStake) external;
 
