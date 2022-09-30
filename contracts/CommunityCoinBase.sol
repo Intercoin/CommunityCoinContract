@@ -14,16 +14,17 @@ import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "@artman325/community/contracts/interfaces/ICommunity.sol";
 import "./interfaces/IStructs.sol";
 
-import "./access/TrustedForwarderUpgradeable.sol";
-//import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
-//import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+//import "./access/TrustedForwarderUpgradeable.sol";
+import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import "hardhat/console.sol";
 import "./libs/PoolStakesLib.sol";
 
 abstract contract CommunityCoinBase is 
     OwnableUpgradeable, 
-    ReentrancyGuardUpgradeable, TrustedForwarderUpgradeable, // CostManagerHelperERC2771Support,
+    ReentrancyGuardUpgradeable, //TrustedForwarderUpgradeable, 
+    CostManagerHelperERC2771Support,
     ICommunityCoin,
     RolesManagement,
     ERC777Upgradeable, 
@@ -66,8 +67,8 @@ abstract contract CommunityCoinBase is
     address internal reserveToken;
     address internal tradedToken;
 
-//      instance
-mapping(address => InstanceStruct) private _instances;
+    //      instance
+    mapping(address => InstanceStruct) private _instances;
 
     // // staked balance in instances. increase when stakes, descrease when unstake/redeem
     // mapping(address => uint256) private _instanceStaked;
@@ -79,25 +80,25 @@ mapping(address => InstanceStruct) private _instances;
     uint8 internal constant OPERATION_SHIFT_BITS = 240;  // 256 - 16
     
     // // Constants representing operations
-    // uint8 internal constant OPERATION_INITIALIZE = 0x0;
-    // uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS = 0x1;
-    // uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS_BONUS = 0x2;
-    // uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE = 0x3;
-    // uint8 internal constant OPERATION_ADD_TO_CIRCULATION = 0x4;
-    // uint8 internal constant OPERATION_REMOVE_FROM_CIRCULATION = 0x5;
-    // uint8 internal constant OPERATION_PRODUCE = 0x6;
-    // uint8 internal constant OPERATION_PRODUCE_ERC20 = 0x7;
-    // uint8 internal constant OPERATION_UNSTAKE = 0x8;
-    // uint8 internal constant OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY = 0x9;
-    // uint8 internal constant OPERATION_REDEEM = 0xA;
-    // uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY = 0xB;
-    // uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST = 0xC;
-    // uint8 internal constant OPERATION_GRANT_ROLE = 0xD;
-    // uint8 internal constant OPERATION_REVOKE_ROLE = 0xE;
-    // uint8 internal constant OPERATION_CLAIM = 0xF;
-    // uint8 internal constant OPERATION_SET_TRUSTEDFORWARDER = 0x10;
-    // uint8 internal constant OPERATION_SET_TRANSFER_OWNERSHIP = 0x11;
-    // uint8 internal constant OPERATION_TRANSFER_HOOK = 0x12;
+    uint8 internal constant OPERATION_INITIALIZE = 0x0;
+    uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS = 0x1;
+    uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS_BONUS = 0x2;
+    uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE = 0x3;
+    uint8 internal constant OPERATION_ADD_TO_CIRCULATION = 0x4;
+    uint8 internal constant OPERATION_REMOVE_FROM_CIRCULATION = 0x5;
+    uint8 internal constant OPERATION_PRODUCE = 0x6;
+    uint8 internal constant OPERATION_PRODUCE_ERC20 = 0x7;
+    uint8 internal constant OPERATION_UNSTAKE = 0x8;
+    uint8 internal constant OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY = 0x9;
+    uint8 internal constant OPERATION_REDEEM = 0xA;
+    uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY = 0xB;
+    uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST = 0xC;
+    uint8 internal constant OPERATION_GRANT_ROLE = 0xD;
+    uint8 internal constant OPERATION_REVOKE_ROLE = 0xE;
+    uint8 internal constant OPERATION_CLAIM = 0xF;
+    uint8 internal constant OPERATION_SET_TRUSTEDFORWARDER = 0x10;
+    uint8 internal constant OPERATION_SET_TRANSFER_OWNERSHIP = 0x11;
+    uint8 internal constant OPERATION_TRANSFER_HOOK = 0x12;
 
     //EnumerableSet.AddressSet private rewardTokensList;
     //mapping(address => uint256) public rewardTokenRatios;
@@ -152,15 +153,15 @@ mapping(address => InstanceStruct) private _instances;
         uint256 discountSensitivity_,
         address reserveToken_,
         address tradedToken_,
-        IStructs.CommunitySettings calldata communitySettings//,
-        // address costManager_,
-        //address producedBy_
+        IStructs.CommunitySettings calldata communitySettings,
+        address costManager_,
+        address producedBy_
     ) 
         onlyInitializing 
         internal 
     {
-        //__CostManagerHelper_init(_msgSender());
-        //_setCostManager(costManager_);
+        __CostManagerHelper_init(_msgSender());
+        _setCostManager(costManager_);
 
         __Ownable_init();
 
@@ -183,11 +184,11 @@ mapping(address => InstanceStruct) private _instances;
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
 
-        // _accountForOperation(
-        //     OPERATION_INITIALIZE << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(producedBy_)),
-        //     0
-        // );
+        _accountForOperation(
+            OPERATION_INITIALIZE << OPERATION_SHIFT_BITS,
+            uint256(uint160(producedBy_)),
+            0
+        );
     }
 
     
@@ -277,31 +278,31 @@ mapping(address => InstanceStruct) private _instances;
         emit Staked(account, (amount + bonusAmount), priceBeforeStake);
         // locked main 
         users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
-        // _accountForOperation(
-        //     OPERATION_ISSUE_WALLET_TOKENS << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(account)),
-        //     amount + bonusAmount
-        // );
+        _accountForOperation(
+            OPERATION_ISSUE_WALLET_TOKENS << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            amount + bonusAmount
+        );
 
         
         // locked main 
         if (bonusAmount > 0) {
             users[account].tokensBonus._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
-            // _accountForOperation(
-            //     OPERATION_ISSUE_WALLET_TOKENS_BONUS << OPERATION_SHIFT_BITS,
-            //     uint256(uint160(account)),
-            //     bonusAmount
-            // );
+            _accountForOperation(
+                OPERATION_ISSUE_WALLET_TOKENS_BONUS << OPERATION_SHIFT_BITS,
+                uint256(uint160(account)),
+                bonusAmount
+            );
         }
 
         if (invitedBy != address(0)) {
             _mint(invitedBy, invitedAmount, "", "");
             users[invitedBy].tokensBonus._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
-            // _accountForOperation(
-            //     OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE << OPERATION_SHIFT_BITS,
-            //     uint256(uint160(invitedBy)),
-            //     invitedAmount
-            // );
+            _accountForOperation(
+                OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE << OPERATION_SHIFT_BITS,
+                uint256(uint160(invitedBy)),
+                invitedAmount
+            );
         }
         
     }
@@ -327,11 +328,11 @@ mapping(address => InstanceStruct) private _instances;
 
         //users[account].tokensBonus._minimumsAdd(amount, 1, LOCKUP_BONUS_INTERVAL, false);
         
-        // _accountForOperation(
-        //     OPERATION_ADD_TO_CIRCULATION << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(account)),
-        //     amount
-        // );
+        _accountForOperation(
+            OPERATION_ADD_TO_CIRCULATION << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            amount
+        );
     }
 
     /**
@@ -445,11 +446,11 @@ mapping(address => InstanceStruct) private _instances;
 // console.log("unstake#2");
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
 // console.log("unstake#3");
-        // _accountForOperation(
-        //     OPERATION_UNSTAKE << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(account)),
-        //     amount
-        // );   
+        _accountForOperation(
+            OPERATION_UNSTAKE << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            amount
+        );   
     }
 
     function unstakeAndRemoveLiquidity(
@@ -464,11 +465,11 @@ mapping(address => InstanceStruct) private _instances;
 
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY);
 
-        // _accountForOperation(
-        //     OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(account)),
-        //     amount
-        // );   
+        _accountForOperation(
+            OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY << OPERATION_SHIFT_BITS,
+            uint256(uint160(account)),
+            amount
+        );   
     }
 
     function _validateUnstake(
@@ -505,11 +506,11 @@ mapping(address => InstanceStruct) private _instances;
     {
         _redeem(_msgSender(), amount, new address[](0), Strategy.REDEEM);
 
-        // _accountForOperation(
-        //     OPERATION_REDEEM << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(_msgSender())),
-        //     amount
-        // );   
+        _accountForOperation(
+            OPERATION_REDEEM << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            amount
+        );   
     }
 
     /**
@@ -528,11 +529,11 @@ mapping(address => InstanceStruct) private _instances;
     {
         _redeem(_msgSender(), amount, preferredInstances, Strategy.REDEEM);
 
-        // _accountForOperation(
-        //     OPERATION_REDEEM << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(_msgSender())),
-        //     amount
-        // );   
+        _accountForOperation(
+            OPERATION_REDEEM << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            amount
+        );   
     }
 
     /**
@@ -549,11 +550,11 @@ mapping(address => InstanceStruct) private _instances;
     {
         _redeem(_msgSender(), amount, new address[](0), Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
 
-        // _accountForOperation(
-        //     OPERATION_REDEEM_AND_REMOVE_LIQUIDITY << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(_msgSender())),
-        //     amount
-        // ); 
+        _accountForOperation(
+            OPERATION_REDEEM_AND_REMOVE_LIQUIDITY << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            amount
+        ); 
     }
 
     /**
@@ -572,11 +573,11 @@ mapping(address => InstanceStruct) private _instances;
     {
         _redeem(_msgSender(), amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
 
-        // _accountForOperation(
-        //     OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(_msgSender())),
-        //     amount
-        // ); 
+        _accountForOperation(
+            OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            amount
+        ); 
     }
 
     /**
@@ -643,11 +644,11 @@ mapping(address => InstanceStruct) private _instances;
     }
 
     function claim() public {
-        // _accountForOperation(
-        //     OPERATION_CLAIM << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(_msgSender())),
-        //     0
-        // ); 
+        _accountForOperation(
+            OPERATION_CLAIM << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            0
+        ); 
         if (address(hook) != address(0)) {
             hook.claim(_msgSender());
         }
@@ -672,11 +673,11 @@ mapping(address => InstanceStruct) private _instances;
         if (owner() == forwarder) {revert TrustedForwarderCanNotBeOwner(forwarder);}
 
         _setTrustedForwarder(forwarder);
-        // _accountForOperation(
-        //     OPERATION_SET_TRUSTEDFORWARDER << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(_msgSender())),
-        //     uint256(uint160(forwarder))
-        // );
+        _accountForOperation(
+            OPERATION_SET_TRUSTEDFORWARDER << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            uint256(uint160(forwarder))
+        );
     }
 
     function transferOwnership(
@@ -764,11 +765,11 @@ mapping(address => InstanceStruct) private _instances;
         );
         emit InstanceCreated(reserveToken, tradedToken, instance);
 
-        // _accountForOperation(
-        //     OPERATION_PRODUCE << OPERATION_SHIFT_BITS,
-        //     (duration<<(256-64))+(bonusTokenFraction<<(256-128))+(numerator<<(256-192))+(denominator),
-        //     (uint160(lpFractionBeneficiary)<<(256-160)) + lpFraction
-        // );
+        _accountForOperation(
+            OPERATION_PRODUCE << OPERATION_SHIFT_BITS,
+            (duration<<(256-64))+(bonusTokenFraction<<(256-128))+(numerator<<(256-192))+(denominator),
+            (uint160(lpFractionBeneficiary)<<(256-160)) + lpFraction
+        );
     }
 
     function _produce(
@@ -796,11 +797,11 @@ mapping(address => InstanceStruct) private _instances;
         );
         emit InstanceErc20Created(tokenErc20, instance);
 
-        // _accountForOperation(
-        //     OPERATION_PRODUCE_ERC20 << OPERATION_SHIFT_BITS,
-        //     (duration<<(256-64))+(bonusTokenFraction<<(256-128))+(numerator<<(256-192))+(denominator),
-        //     (uint160(lpFractionBeneficiary)<<(256-160)) + lpFraction
-        // );
+        _accountForOperation(
+            OPERATION_PRODUCE_ERC20 << OPERATION_SHIFT_BITS,
+            (duration<<(256-64))+(bonusTokenFraction<<(256-128))+(numerator<<(256-192))+(denominator),
+            (uint160(lpFractionBeneficiary)<<(256-160)) + lpFraction
+        );
     }
 
     function _unstake(
@@ -817,7 +818,7 @@ mapping(address => InstanceStruct) private _instances;
 
 // console.log("_unstake#1");
         amount -= amount * unstakeTariff;
-        
+
         (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
 
 // console.log("_unstake#2");
@@ -1022,11 +1023,11 @@ astrcut _instances storage
                 //  can return true/false
                 // true = revert ;  false -pass tx 
                 if (address(hook) != address(0)) {
-                    // _accountForOperation(
-                    //     OPERATION_TRANSFER_HOOK << OPERATION_SHIFT_BITS,
-                    //     uint256(uint160(from)),
-                    //     uint256(uint160(to))
-                    // );
+                    _accountForOperation(
+                        OPERATION_TRANSFER_HOOK << OPERATION_SHIFT_BITS,
+                        uint256(uint160(from)),
+                        uint256(uint160(to))
+                    );
                     //require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
                     if (hook.transferHook(operator, from, to, amount) == false) { revert HookTransferPrevent(from, to, amount);}
 
@@ -1209,10 +1210,10 @@ astrcut _instances storage
         internal 
         view 
         virtual
-        override(ContextUpgradeable, TrustedForwarderUpgradeable)
+        override(ContextUpgradeable, TrustedForwarder)
         returns (address signer) 
     {
-        return TrustedForwarderUpgradeable._msgSender();
+        return TrustedForwarder._msgSender();
     }
 
     function _insertBonus(

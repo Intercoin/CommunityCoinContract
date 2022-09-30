@@ -77,7 +77,7 @@ ARBITRATION
 
 All disputes related to this agreement shall be governed by and interpreted in accordance with the laws of New York, without regard to principles of conflict of laws. The parties to this agreement will submit all disputes arising under this agreement to arbitration in New York City, New York before a single arbitrator of the American Arbitration Association (“AAA”). The arbitrator shall be selected by application of the rules of the AAA, or by mutual agreement of the parties, except that such arbitrator shall be an attorney admitted to practice law New York. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section.
 **/
-contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseManagerHelper {
+contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManagerHelper {
     using Clones for address;
 
     /**
@@ -114,10 +114,10 @@ contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseM
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
-        address stakingPoolImplErc20/*,
-        address costManager_*/
+        address stakingPoolImplErc20,
+        address costManager_
     ) 
-        //CostManagerFactoryHelper(costManager_)
+        CostManagerFactoryHelper(costManager_)
     {
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
@@ -177,7 +177,7 @@ contract CommunityCoinFactory is Ownable, /*CostManagerFactoryHelper, */ReleaseM
         
         emit InstanceCreated(instance, instances.length);
 
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, reserveToken, tradedToken, communitySettings/*,costManager, _msgSender()*/);
+        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, reserveToken, tradedToken, communitySettings, costManager, _msgSender());
         
         Ownable(instance).transferOwnership(_msgSender());
 

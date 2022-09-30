@@ -20,9 +20,9 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">100% </span>
+        <span class="strong">60% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>6/6</span>
+        <span class='fraction'>6/10</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -30,18 +30,18 @@
         <span class='fraction'>0/0</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">100% </span>
+        <span class="strong">33.33% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>2/2</span>
+        <span class='fraction'>2/6</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">100% </span>
+        <span class="strong">60% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>6/6</span>
+        <span class='fraction'>6/10</span>
       </div>
     </div>
   </div>
-  <div class='status-line high'></div>
+  <div class='status-line medium'></div>
 <pre><table class="coverage">
 <tr><td class="line-count quiet">1
 2
@@ -72,7 +72,35 @@
 27
 28
 29
-30</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -86,49 +114,105 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">29×</span>
-<span class="cline-any cline-yes">145×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">207×</span>
-<span class="cline-any cline-yes">207×</span>
-<span class="cline-any cline-yes">1035×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">207×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">30×</span>
+<span class="cline-any cline-yes">30×</span>
+<span class="cline-any cline-yes">146×</span>
+<span class="cline-any cline-yes">146×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">38×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">38×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
-&nbsp;
-&nbsp;
-&nbsp;
-import "../interfaces/ICommunity.sol";
+import "@artman325/community/contracts/interfaces/ICommunity.sol";
 &nbsp;
 contract MockCommunity is ICommunity {
-    uint256 private count = 5;
+       mapping(address =&gt; uint8[]) roles;
+    uint256 count = 5;
+    
+<span class="fstat-no" title="function not covered" >    function initialize(</span>
+        address implState,
+        address implView,
+        address hook, 
+        address costManager, 
+        string memory name, 
+        string memory symbol
+    ) external {
 &nbsp;
-    string[5] list;
-&nbsp;
-    function setRoles(string[5] memory list_) public {
-        for (uint256 i=0; i&lt;count; i++) {
-            list[i] = list_[i];
-        }
     }
 &nbsp;
-    function getRoles(address/* member*/)public override view returns(string[] memory){
-        string[] memory listOut = new string[](5);
-        for (uint256 i=0; i&lt;count; i++) {
-            listOut[i] = list[i];
+<span class="fstat-no" title="function not covered" >    function addressesCount(uint8/* roleIndex*/) public override view returns(uint256) {</span>
+<span class="cstat-no" title="statement not covered" >        return count;</span>
+    }
+<span class="fstat-no" title="function not covered" >    function setMemberCount(uint256 _count) public {</span>
+<span class="cstat-no" title="statement not covered" >        count = _count</span>;
+    }
+    
+    function setRoles(address member, uint8[] memory _roles) public {
+        uint256 len;
+        for(uint256 i = 0; i &lt; _roles.length; i++) {
+            len = roles[member].length;
+            roles[member].push(_roles[i]);
         }
-        return listOut;
+        
         
     }
     
+    function getRoles(address member)public override view returns(uint8[] memory list){
+        // string[] memory list = new string[](5);
+        // list[0] = 'owners';
+        // list[1] = 'admins';
+        // list[2] = 'members';
+        // list[3] = 'sub-admins';
+        // list[4] = 'unkwnowns';
+        
+        list = roles[member];
+        
+        return list;
+        
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function getAddresses(uint8/* rolesIndex*/) public override pure returns(address[] memory){</span>
+<span class="cstat-no" title="statement not covered" >        address[] memory list = new address[](0);</span>
+<span class="cstat-no" title="statement not covered" >        return list;</span>
+    }
+&nbsp;
     
 }</pre></td></tr>
 </table></pre>
@@ -136,7 +220,7 @@ contract MockCommunity is ICommunity {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Jun 15 2022 17:15:33 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Sep 30 2022 14:38:33 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../../prettify.js"></script>

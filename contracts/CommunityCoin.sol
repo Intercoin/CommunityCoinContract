@@ -93,9 +93,9 @@ contract CommunityCoin is CommunityCoinBase {
         uint256 discountSensitivity_,
         address reserveToken_,
         address tradedToken_,
-        IStructs.CommunitySettings calldata communitySettings//,
-        //address costManager_,
-        //address producedBy_
+        IStructs.CommunitySettings calldata communitySettings,
+        address costManager_,
+        address producedBy_
     ) 
         initializer 
         external 
@@ -114,9 +114,9 @@ contract CommunityCoin is CommunityCoinBase {
             discountSensitivity_, 
             reserveToken_, 
             tradedToken_,
-            communitySettings//,
-            //costManager_,
-            //producedBy_
+            communitySettings,
+            costManager_,
+            producedBy_
         );
         
     }

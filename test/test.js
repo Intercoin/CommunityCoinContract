@@ -152,8 +152,8 @@ describe("Staking contract tests", function () {
             implementationCommunityCoin.address, 
             implementationCommunityStakingPoolFactory.address, 
             implementationCommunityStakingPool.address, 
-            implementationCommunityStakingPoolErc20.address/*,
-            NO_COSTMANAGER*/
+            implementationCommunityStakingPoolErc20.address,
+            NO_COSTMANAGER
         );
 
         // 

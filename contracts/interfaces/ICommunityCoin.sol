@@ -35,9 +35,9 @@ interface ICommunityCoin {
         uint256 discountSensitivity,
         address reserveToken,
         address tradedToken,
-        IStructs.CommunitySettings calldata communitySettings//,
-        //address costManager,
-        //address producedBy
+        IStructs.CommunitySettings calldata communitySettings,
+        address costManager,
+        address producedBy
     ) external;
 
     enum Strategy{ UNSTAKE, UNSTAKE_AND_REMOVE_LIQUIDITY, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
