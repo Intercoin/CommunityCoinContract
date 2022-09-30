@@ -16,6 +16,6 @@ interface ICommunityStakingPool {
     function stake(address addr, uint256 amount) external;
     function getMinimum(address addr) external view returns(uint256);
     */
-    function redeem(address account, uint256 amount) external;
-    function redeemAndRemoveLiquidity(address account, uint256 amount) external;
+    function redeem(address account, uint256 amount) external returns(uint256 affectedLPAmount);
+    function redeemAndRemoveLiquidity(address account, uint256 amount) external returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount);
 }

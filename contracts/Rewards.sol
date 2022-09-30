@@ -54,8 +54,6 @@ contract Rewards is RewardsBase, IHook {
         external
         onlyCaller()
     {
-        
-        
 
         _addBonus(
             account,

@@ -8,15 +8,6 @@ import "hardhat/console.sol";
 library PoolStakesLib {
     using MinimumsLib for MinimumsLib.UserStruct;
 
-    // function unstakeableReduce(
-
-    // ) 
-    //     external 
-    // {
-
-    // }
-
-
     // adjusting amount and applying some discounts, fee, etc
     function getAmountLeft(
         address account,
@@ -27,7 +18,9 @@ library PoolStakesLib {
         uint256 totalUnstakeable,
         uint256 totalReserves,
         uint256 discountSensitivity,
-        mapping(address => ICommunityCoin.UserData) storage users
+        mapping(address => ICommunityCoin.UserData) storage users,
+        uint64 unstakeTariff, 
+        uint64 redeemTariff
 
     ) external view returns(uint256) {
         
@@ -73,15 +66,13 @@ library PoolStakesLib {
             amount = amount * totalReserves / totalSupplyBefore;
 
             /////////////////////////////////////////////////////////////////////
+            
+            // apply unstake tariff
+            amount -= amount * unstakeTariff;
         }
 
         if (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
-            //require(totalSupplyBefore-users[account].tokensBonus._getMinimum() >= amount, "insufficient amount");
-// console.log("totalSupplyBefore                          =",totalSupplyBefore);
-// console.log("users[account].tokensBonus._getMinimum()   =",users[account].tokensBonus._getMinimum());
-// console.log("amount                                     =",amount);
-// console.log("users[account].unstakeable                 =",users[account].unstakeable);
-// console.log("users[account].unstakeableBonuses          =",users[account].unstakeableBonuses);
+
             if (
                (totalSupplyBefore - users[account].tokensBonus._getMinimum() < amount) || // insufficient amount
                (users[account].unstakeable < amount)  // check if user can unstake such amount across all instances
@@ -89,8 +80,9 @@ library PoolStakesLib {
                 revert ICommunityCoin.InsufficientAmount(account, amount);
             }
 
-            // users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
-            // tokensBonus[account]._minimumsAdd(bonusAmount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+            // apply redeem tariff                    
+            amount -= amount * redeemTariff;
+
         }
 
         return amount;
@@ -103,13 +95,7 @@ library PoolStakesLib {
         uint256 amount,
         address[] memory preferredInstances,
         ICommunityCoin.Strategy strategy,
-        //uint256 totalSupplyBefore,
         ICommunityStakingPoolFactory instanceManagment,
-        // uint256 totalRedeemable,
-        // uint256 totalUnstakeable,
-        // uint256 totalReserves,
-        // uint256 discountSensitivity,
-        //mapping(address => ICommunityCoin.UserData) storage users,
         mapping(address => ICommunityCoin.InstanceStruct) storage _instances
     ) 
         external 
@@ -122,7 +108,7 @@ library PoolStakesLib {
         ) 
     {
     
-      //  uint256 FRACTION = 100000;
+        //  uint256 FRACTION = 100000;
 
         if (preferredInstances.length == 0) {
             preferredInstances = instanceManagment.instances();
@@ -181,14 +167,11 @@ library PoolStakesLib {
                 values[len] = amountToRedeem * (instanceInfo.denominator) / (instanceInfo.numerator);
                 
                 len += 1;
-
+                
                 amountLeft -= amountToRedeem;
             }
-            
-
         }
         
-        //require(amountLeft == 0, "insufficient amount");
         if(amountLeft > 0) {revert ICommunityCoin.InsufficientAmount(account, amount);}
 
     }

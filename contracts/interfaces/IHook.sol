@@ -7,6 +7,8 @@ interface IHook {
     function bonus(address instance, address account, uint64 duration, uint256 amount) external;
     function transferHook(address operator, address from, address to, uint256 amount) external returns(bool);
 
-
-    
+function onUnstake(address instance, address account, uint256 amount) external;
+function onStake
+function onRedeem
+function onClaim    
 }

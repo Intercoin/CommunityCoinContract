@@ -3,27 +3,26 @@ pragma solidity ^0.8.11;
 import "./interfaces/IHook.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
+import "./interfaces/ICommunityStakingPoolFactory.sol";
+import "./interfaces/IStructs.sol";
 import "./RolesManagement.sol";
+
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
-//import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
-//import "./minimums/libs/MinimumsLib.sol";
-import "./interfaces/ICommunityStakingPoolFactory.sol";
-import "@artman325/community/contracts/interfaces/ICommunity.sol";
-import "./interfaces/IStructs.sol";
-
-//import "./access/TrustedForwarderUpgradeable.sol";
-import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import "hardhat/console.sol";
+import "@artman325/community/contracts/interfaces/ICommunity.sol";
+import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
+
 import "./libs/PoolStakesLib.sol";
+
+//import "hardhat/console.sol";
 
 abstract contract CommunityCoinBase is 
     OwnableUpgradeable, 
-    ReentrancyGuardUpgradeable, //TrustedForwarderUpgradeable, 
+    ReentrancyGuardUpgradeable, 
     CostManagerHelperERC2771Support,
     ICommunityCoin,
     RolesManagement,
@@ -32,12 +31,6 @@ abstract contract CommunityCoinBase is
 {
     using MinimumsLib for MinimumsLib.UserStruct;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
-
-    /**
-    * strategy ENUM VARS used in calculation algos
-    */ 
-    // moved to ICommunityCoin
-    //enum Strategy{ UNSTAKE, UNSTAKE_AND_REMOVE_LIQUIDITY, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
     
     uint64 internal constant LOCKUP_INTERVAL = 24*60*60; // day in seconds
     uint64 internal constant LOCKUP_BONUS_INTERVAL = 1000*365*24*60*60; // 300 years in seconds
@@ -100,23 +93,6 @@ abstract contract CommunityCoinBase is
     uint8 internal constant OPERATION_SET_TRANSFER_OWNERSHIP = 0x11;
     uint8 internal constant OPERATION_TRANSFER_HOOK = 0x12;
 
-    //EnumerableSet.AddressSet private rewardTokensList;
-    //mapping(address => uint256) public rewardTokenRatios;
-
-    // struct UnstakeableStruct {
-    //     uint256 total;
-    //     EnumerableSetUpgradeable.AddressSet instancesList;
-    //     //      instanceAddr
-    //     mapping(address => uint256) instances;
-    // }
-    // //      users
-    // mapping(address => UnstakeableStruct) internal unstakeable;
-
-    // //      users
-    // mapping(address => MinimumsLib.UserStruct) internal tokensLocked;
-    // //      users
-    // mapping(address => MinimumsLib.UserStruct) internal tokensBonus;
-
     //      users
     mapping(address => UserData) internal users;
 
@@ -128,7 +104,6 @@ abstract contract CommunityCoinBase is
     }
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
-    
 
     /**
     * @param impl address of StakingPool implementation
@@ -190,7 +165,6 @@ abstract contract CommunityCoinBase is
             0
         );
     }
-
     
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
@@ -212,7 +186,6 @@ abstract contract CommunityCoinBase is
         external 
         override
     {
-
         address instance = msg.sender; //here need a msg.sender as a real sender.
 
         // here need to know that is definetely StakingPool. because with EIP-2771 forwarder can call methods as StakingPool. 
@@ -236,13 +209,10 @@ abstract contract CommunityCoinBase is
             }
         }
 
-//        uint256 totalAmount = amount + bonusAmount;
-
         //forward conversion( LP -> СС)
         amount = amount * (instanceInfo.numerator) / (instanceInfo.denominator);
         bonusAmount = bonusAmount * (instanceInfo.numerator) / (instanceInfo.denominator);
         invitedAmount = invitedAmount * (instanceInfo.numerator) / (instanceInfo.denominator);
-        
 
         // todo 0: remove it from here.
         // mb. create three methods onSTake/onUnstake/onREdeem
@@ -283,7 +253,6 @@ abstract contract CommunityCoinBase is
             uint256(uint160(account)),
             amount + bonusAmount
         );
-
         
         // locked main 
         if (bonusAmount > 0) {
@@ -304,7 +273,6 @@ abstract contract CommunityCoinBase is
                 invitedAmount
             );
         }
-        
     }
     
     /**
@@ -319,7 +287,6 @@ abstract contract CommunityCoinBase is
     ) 
         external 
         nonReentrant
-        //onlyRole(roles.circulationRole)
     {
 
         _checkRole(circulationRoleId, _msgSender());
@@ -357,15 +324,9 @@ abstract contract CommunityCoinBase is
         external 
         override
     {
-
-        //require((_msgSender() == address(this) && to == address(this)), "own tokens permitted only");
         if (!(_msgSender() == address(this) && to == address(this))) {revert OwnTokensPermittedOnly();}
-        
         _checkRole(redeemRoleId, from);
-
         __redeem(address(this), from, amount, new address[](0), Strategy.REDEEM);
-
-        
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -441,11 +402,8 @@ abstract contract CommunityCoinBase is
         nonReentrant
     {
         address account = _msgSender();
-// console.log("unstake#1");
         _validateUnstake(account, amount);
-// console.log("unstake#2");
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
-// console.log("unstake#3");
         _accountForOperation(
             OPERATION_UNSTAKE << OPERATION_SHIFT_BITS,
             uint256(uint160(account)),
@@ -479,17 +437,14 @@ abstract contract CommunityCoinBase is
         internal 
         view
     {
-
         uint256 balance = balanceOf(account);
         
-        //require (amount <= balance, "INSUFFICIENT_BALANCE");
         if (amount > balance) {revert InsufficientBalance(account, amount);}
         
         uint256 locked = users[account].tokensLocked._getMinimum();
         uint256 remainingAmount = balance - amount;
-        //require(locked <= remainingAmount, "STAKE_NOT_UNLOCKED_YET");
+        
         if (locked > remainingAmount) {revert StakeNotUnlockedYet(account, locked, remainingAmount);}
-
     }
     
     /**
@@ -631,7 +586,6 @@ abstract contract CommunityCoinBase is
         view 
         returns(address, uint256)
     {
-        
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, /*uint256[] memory amounts*/, /* uint256 len*/) = _poolStakesAvailable(
             account, 
             amount, 
@@ -639,7 +593,6 @@ abstract contract CommunityCoinBase is
             Strategy.REDEEM_AND_REMOVE_LIQUIDITY, 
             totalSupply()//totalSupplyBefore
         );
-
         return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, swapPaths);
     }
 
@@ -816,8 +769,6 @@ abstract contract CommunityCoinBase is
 // console.log("_unstake#0");
         uint256 totalSupplyBefore = _burn(account, amount);
 
-// console.log("_unstake#1");
-        amount -= amount * unstakeTariff;
 
         (address[] memory instancesList, uint256[] memory values, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
 
@@ -875,7 +826,7 @@ astrcut _instances storage
             uint256 len
         ) 
     {
-        amount = PoolStakesLib.getAmountLeft(account, amount, totalSupplyBefore, strategy, totalRedeemable, totalUnstakeable, totalReserves, discountSensitivity, users);
+        amount = PoolStakesLib.getAmountLeft(account, amount, totalSupplyBefore, strategy, totalRedeemable, totalUnstakeable, totalReserves, discountSensitivity, users, unstakeTariff, redeemTariff);
 // console.log("_poolStakesAvailable::amountLeft=", amount);
         (instancesAddress, values, amounts, len) = PoolStakesLib.available(account, amount, preferredInstances, strategy, instanceManagment, _instances);
         
@@ -928,17 +879,7 @@ astrcut _instances storage
 
         uint256 totalSupplyBefore = _burn(account2Burn, amount);
 
-        
-
-        //require (amount <= totalRedeemable, "INSUFFICIENT_BALANCE");
-
-// console.log("amount = ",amount);
-// console.log("totalRedeemable = ",totalRedeemable);
-
         if (amount > totalRedeemable) {revert InsufficientBalance(account2Redeem, amount);}
-
-        
-        amount -= amount * redeemTariff;
 
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(account2Redeem, amount, preferredInstances, strategy/*Strategy.REDEEM*/, totalSupplyBefore);
 
@@ -949,9 +890,8 @@ astrcut _instances storage
                 _instances[instancesToRedeem[i]].redeemable -= amounts[i];
                 totalRedeemable -= amounts[i];
 
-                //if (strategy == Strategy.REDEEM || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-                    totalReserves -= amounts[i];
-                //}
+                totalReserves -= amounts[i];
+                
                 proceedPool(
                     account2Redeem,
                     instancesToRedeem[i],

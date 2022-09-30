@@ -12,6 +12,6 @@ interface ICommunityStakingPoolErc20 {
         address lpFractionBeneficiary_
     ) external;
 
-    function redeem(address account, uint256 amount) external;
+    function redeem(address account, uint256 amount) external returns(uint256 affectedAmount);
     
 }

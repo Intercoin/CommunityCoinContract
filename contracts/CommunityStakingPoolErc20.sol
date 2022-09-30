@@ -84,8 +84,9 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
         external
         //override 
         onlyStaking
+        returns(uint256 affectedLPAmount)
     {
-        _redeem(account, amount);
+        affectedLPAmount = _redeem(account, amount);
     }
 
     
@@ -103,8 +104,10 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
         external
 //        override 
         onlyStaking 
+        returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount)
     {
-        _redeem(account, amount);
+        affectedReservedAmount = 0;
+        affectedTradedAmount = _redeem(account, amount);
     }
 
     function stake(
@@ -154,9 +157,10 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
         uint256 amount
     )
         internal 
+        returns(uint256 affectedLPAmount)
     {
-        uint256 amount2Redeem = __redeem(account, amount);
-        IERC20Upgradeable(erc20Token).transfer(account, amount2Redeem);
+        affectedLPAmount = __redeem(account, amount);
+        IERC20Upgradeable(erc20Token).transfer(account, affectedLPAmount);
     }
     ////////////////////////////////////////////////////////////////////////
     // private section /////////////////////////////////////////////////////

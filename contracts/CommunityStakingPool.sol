@@ -107,9 +107,11 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         external
         override 
         onlyStaking
+        returns(uint256 affectedLPAmount)
     {
-        uint256 amount2Redeem = __redeem(account, amount);
-        uniswapV2Pair.transfer(account, amount2Redeem);
+        affectedLPAmount = __redeem(account, amount);
+        uniswapV2Pair.transfer(account, affectedLPAmount);
+
     }
 
     /**
@@ -122,12 +124,13 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     function redeemAndRemoveLiquidity(
         address account,
         uint256 amount
-    ) 
+    )
         external
         override 
         onlyStaking 
+        returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount)
     {
-        __redeemAndRemoveLiquidity(account, amount);
+        (affectedReservedAmount, affectedTradedAmount) = __redeemAndRemoveLiquidity(account, amount);
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -458,12 +461,13 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         uint256 amount
     ) 
         private 
+        returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount)
     {
         
         uint256 amount2Redeem = __redeem(sender, amount);
 
         require(uniswapV2Pair.approve(uniswapRouter, amount2Redeem), "APPROVE_FAILED");
-        (uint amountA, uint amountB) = UniswapV2Router02.removeLiquidity(
+        (affectedTradedAmount, affectedReservedAmount) = UniswapV2Router02.removeLiquidity(
             tradedToken,//address tokenA,
             reserveToken,//address tokenB,
             amount2Redeem,//uint liquidity,
@@ -474,8 +478,8 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         );
         // _fractionAmountSend(tradedToken, amountA, tradedTokenClaimFraction, stakingProducedBy, sender);
         // _fractionAmountSend(reserveToken, amountB, reserveTokenClaimFraction, stakingProducedBy, sender);
-        _fractionAmountSend(tradedToken, amountA, 0, stakingProducedBy, sender);
-        _fractionAmountSend(reserveToken, amountB, 0, stakingProducedBy, sender);
+        _fractionAmountSend(tradedToken, affectedTradedAmount, 0, stakingProducedBy, sender);
+        _fractionAmountSend(reserveToken, affectedReservedAmount, 0, stakingProducedBy, sender);
         
     }
     
