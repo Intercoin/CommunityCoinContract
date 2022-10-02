@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/IHook.sol";
 contract MockHook is IHook {
+    uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
     // caller which can call methods `bonus`
     address internal caller;
@@ -33,7 +34,7 @@ contract MockHook is IHook {
         caller = msg.sender;
     }
 
-    function claim(
+    function onClaim(
         address /*account*/
     )
         external
@@ -43,11 +44,12 @@ contract MockHook is IHook {
         
     }
 
-    function bonus(
+    function onUnstake(
         address /*instance*/, 
         address /*account*/, 
         uint64 /*duration*/,
-        uint256 /*amount*/
+        uint256 /*amount*/,
+        uint64 /*rewardsFraction*/
     )
         external
         override
@@ -61,13 +63,14 @@ contract MockHook is IHook {
         address /*operator*/, 
         address /*from*/, 
         address /*to*/, 
-        uint256 /*amount*/
+        uint256 amount
     ) 
         external 
         override
-        returns(bool)
+        returns(bool, uint256)
     {
         
-        return hTransferFlag;
+        return (hTransferFlag, amount);
     }
+
 }

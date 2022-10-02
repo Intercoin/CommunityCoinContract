@@ -3,6 +3,8 @@ pragma solidity ^0.8.11;
 import "./interfaces/IHook.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
+import "./interfaces/ICommunityStakingPoolErc20.sol";
+
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "./interfaces/IStructs.sol";
 import "./RolesManagement.sol";
@@ -909,10 +911,10 @@ astrcut _instances storage
     function proceedPool(address account,address pool, uint256 amount, Strategy strategy/*, string memory errmsg*/) internal {
         ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo = instanceManagment.getInstanceInfoByPoolAddress(pool);
 
-        if (instanceInfo.instanceType == IStructs.InstanceType.ERC20) {
+        if (instanceInfo.instanceType == uint8(IStructs.InstanceType.ERC20)) {
             //erc20 pool
             
-                try ICommunityStakingPool(pool).redeem(
+                try ICommunityStakingPoolErc20(pool).redeem(
                     account, 
                     amount
                 ) returns(uint256 affectedAmount, uint64 rewardsRateFraction) {
@@ -930,7 +932,7 @@ astrcut _instances storage
                     revert UNSTAKE_ERROR();
                 }
             
-        } else {
+        } else if (instanceInfo.instanceType == uint8(IStructs.InstanceType.USUAL)) {
             //usual pool
             if (strategy == Strategy.UNSTAKE) {
                 try ICommunityStakingPool(pool).unstake(
