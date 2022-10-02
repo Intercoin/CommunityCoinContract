@@ -40,6 +40,10 @@ abstract contract CommunityCoinBase is
 
     uint64 internal constant MAX_REDEEM_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
     uint64 internal constant MAX_UNSTAKE_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    
+    // max constants used in BeforeTransfer
+    uint64 internal constant MAX_TAX = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 internal constant MAX_BOOST = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
 
     uint64 public redeemTariff;
     uint64 public unstakeTariff;
@@ -1019,7 +1023,7 @@ astrcut _instances storage
 
             flagHookTransferReentrant = true;
 
-            (success, amountAdjusted) = hook.transferHook(operator, from, to, amount);
+            (success, amountAdjusted) = hook.beforeTransfer(operator, from, to, amount);
             if (success == false) { revert HookTransferPrevent(from, to, amount);}
             if (amount < amountAdjusted) {
                 _mint(to, amountAdjusted - amount, "", "");
