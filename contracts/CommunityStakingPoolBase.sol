@@ -44,13 +44,21 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
     * @custom:shortd beneficiary's address which obtain lpFraction of LP tokens
     * @notice beneficiary's address which obtain lpFraction of LP tokens
     */
-
     address public lpFractionBeneficiary;
+
     /**
     * @custom:shortd fraction of LP token multiplied by `FRACTION`
     * @notice fraction of LP token multiplied by `FRACTION`
     */
     uint64 public lpFraction;
+
+    /**
+    * @custom:shortd rate of rewards that can be used on external tokens like RewardsContract (multiplied by `FRACTION`)
+    * @notice rate of rewards calculated by formula amount = amount * rate. 
+    *   means if rate == 1*FRACTION then amount left as this. 
+    *   means if rate == 0.5*FRACTION then amount would be in two times less then was  before. and so on
+    */
+    uint64 public rewardsRateFraction;
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
@@ -113,7 +121,8 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
         address stakingProducedBy_,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 lpFraction_,
-        address lpFractionBeneficiary_
+        address lpFractionBeneficiary_, 
+        uint64 rewardsRateFraction_
     ) 
         onlyInitializing
         internal
@@ -121,6 +130,7 @@ abstract contract CommunityStakingPoolBase is Initializable, ContextUpgradeable,
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
         lpFraction = lpFraction_;
         lpFractionBeneficiary = lpFractionBeneficiary_;
+        rewardsRateFraction = rewardsRateFraction_;
 
         //donations = donations_; 
         // UnimplementedFeatureError: Copying of type struct IStructs.StructAddrUint256 memory[] memory to storage not yet supported.

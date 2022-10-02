@@ -54,13 +54,14 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
         address erc20Token_,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 lpFraction_,
-        address lpFractionBeneficiary_
+        address lpFractionBeneficiary_,
+        uint64 rewardsRateFraction_
     ) 
         initializer 
         external 
         override 
     {
-        CommunityStakingPoolBase_init(stakingProducedBy_, donations_, lpFraction_, lpFractionBeneficiary_);
+        CommunityStakingPoolBase_init(stakingProducedBy_, donations_, lpFraction_, lpFractionBeneficiary_, rewardsRateFraction_);
         
         erc20Token = erc20Token_;
         
@@ -84,30 +85,10 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
         external
         //override 
         onlyStaking
-        returns(uint256 affectedLPAmount)
+        returns(uint256 affectedLPAmount, uint64 rewardsRate)
     {
         affectedLPAmount = _redeem(account, amount);
-    }
-
-    
-    /**
-    * @notice left for compatible 
-    * @param account account address will redeemed from
-    * @param amount The number of shares that will be redeemed.
-    * @custom:calledby staking contract
-    * @custom:shortd redeem erc20 tokens
-    */
-    function redeemAndRemoveLiquidity(
-        address account,
-        uint256 amount
-    ) 
-        external
-//        override 
-        onlyStaking 
-        returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount)
-    {
-        affectedReservedAmount = 0;
-        affectedTradedAmount = _redeem(account, amount);
+        rewardsRate = rewardsRateFraction;
     }
 
     function stake(

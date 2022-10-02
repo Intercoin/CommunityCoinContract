@@ -27,7 +27,7 @@ abstract contract CommunityCoinBase is
     ICommunityCoin,
     RolesManagement,
     ERC777Upgradeable, 
-    IERC777RecipientUpgradeable 
+    IERC777RecipientUpgradeable
 {
     using MinimumsLib for MinimumsLib.UserStruct;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
@@ -96,6 +96,7 @@ abstract contract CommunityCoinBase is
     //      users
     mapping(address => UserData) internal users;
 
+    bool flagHookTransferReentrant;
     bool flagBurnUnstakeRedeem;
     modifier proceedBurnUnstakeRedeem() {
         flagBurnUnstakeRedeem = true;
@@ -213,12 +214,6 @@ abstract contract CommunityCoinBase is
         amount = amount * (instanceInfo.numerator) / (instanceInfo.denominator);
         bonusAmount = bonusAmount * (instanceInfo.numerator) / (instanceInfo.denominator);
         invitedAmount = invitedAmount * (instanceInfo.numerator) / (instanceInfo.denominator);
-
-        // todo 0: remove it from here.
-        // mb. create three methods onSTake/onUnstake/onREdeem
-        if (address(hook) != address(0)) {
-            hook.bonus(instance, account, instanceInfo.duration, amount);
-        }
 
         // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
         // also keep in mind that user can unstake only unstakeable[account].total which saved w/o bonusTokens, but minimums and mint with it.
@@ -352,6 +347,7 @@ abstract contract CommunityCoinBase is
         IStructs.StructAddrUint256[] memory donations,
         uint64 lpFraction,
         address lpFractionBeneficiary,
+        uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
     ) 
@@ -359,7 +355,7 @@ abstract contract CommunityCoinBase is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(duration, bonusTokenFraction, donations, lpFraction, lpFractionBeneficiary, numerator, denominator);
+        return _produce(duration, bonusTokenFraction, donations, lpFraction, lpFractionBeneficiary, rewardsRateFraction, numerator, denominator);
     }
 
     /**
@@ -380,6 +376,7 @@ abstract contract CommunityCoinBase is
         IStructs.StructAddrUint256[] memory donations, 
         uint64 lpFraction,
         address lpFractionBeneficiary,
+        uint64 rewardsRateFraction,
         uint64 numerator, 
         uint64 denominator
     ) 
@@ -387,7 +384,7 @@ abstract contract CommunityCoinBase is
         onlyOwner() 
         returns (address instance) 
     {
-        return _produce(tokenErc20, duration, bonusTokenFraction, donations, lpFraction, lpFractionBeneficiary, numerator, denominator);
+        return _produce(tokenErc20, duration, bonusTokenFraction, donations, lpFraction, lpFractionBeneficiary, rewardsRateFraction, numerator, denominator);
     }
 
     /**
@@ -603,7 +600,7 @@ abstract contract CommunityCoinBase is
             0
         ); 
         if (address(hook) != address(0)) {
-            hook.claim(_msgSender());
+            hook.onClaim(_msgSender());
         }
     
     }
@@ -699,6 +696,7 @@ abstract contract CommunityCoinBase is
         IStructs.StructAddrUint256[] memory donations,
         uint64 lpFraction,
         address lpFractionBeneficiary,
+        uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
     ) 
@@ -713,6 +711,7 @@ abstract contract CommunityCoinBase is
             donations,
             lpFraction, 
             lpFractionBeneficiary,
+            rewardsRateFraction,
             numerator, 
             denominator
         );
@@ -732,6 +731,7 @@ abstract contract CommunityCoinBase is
         IStructs.StructAddrUint256[] memory donations,
         uint64 lpFraction,
         address lpFractionBeneficiary,
+        uint64 rewardsRateFraction,
         uint64 numerator, 
         uint64 denominator
     ) 
@@ -745,6 +745,7 @@ abstract contract CommunityCoinBase is
             donations, 
             lpFraction, 
             lpFractionBeneficiary,
+            rewardsRateFraction,
             numerator,
             denominator
         );
@@ -906,43 +907,82 @@ astrcut _instances storage
     * @param amount already converted amount
     */
     function proceedPool(address account,address pool, uint256 amount, Strategy strategy/*, string memory errmsg*/) internal {
-        
-        if (strategy == Strategy.REDEEM || strategy == Strategy.UNSTAKE) {
+        ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo = instanceManagment.getInstanceInfoByPoolAddress(pool);
 
-            try ICommunityStakingPool(pool).redeem(
-                account, 
-                amount
-            ) {
-                // _instanceStaked[pool] -= amount;
-                // totalRedeemable -= amount;
-            }
-            catch {
-                if (strategy == Strategy.REDEEM) {
-                    revert REDEEM_ERROR();
-                } else if (strategy == Strategy.UNSTAKE){
+        if (instanceInfo.instanceType == IStructs.InstanceType.ERC20) {
+            //erc20 pool
+            
+                try ICommunityStakingPool(pool).redeem(
+                    account, 
+                    amount
+                ) returns(uint256 affectedAmount, uint64 rewardsRateFraction) {
+                    if (
+                        address(hook) != address(0) &&
+                        (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY)
+                    ) {
+                        
+                        require(instanceInfo.exists == true);
+                        hook.onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
+                        
+                    }
+                }
+                catch {
                     revert UNSTAKE_ERROR();
                 }
-                //revert(errmsg);
-            }
-        } else if (strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY || strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-            try ICommunityStakingPool(pool).redeemAndRemoveLiquidity(
-                account, 
-                amount
-            ) {
-                // _instanceStaked[pool] -= valuesToRedeem[i];
-                // totalRedeemable -= valuesToRedeem[i];
-            }
-            catch {
-                if (strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-                    revert REDEEM_ERROR();
-                } else if (strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY){
-                    revert UNSTAKE_ERROR();
+            
+        } else {
+            //usual pool
+            if (strategy == Strategy.UNSTAKE) {
+                try ICommunityStakingPool(pool).unstake(
+                    account, 
+                    amount
+                ) returns(uint256 affectedAmount, uint64 rewardsRateFraction) {
+                //  
                 }
-                //revert(errmsg);
+                catch {
+                    revert UNSTAKE_ERROR();
+                    
+                }
+            } else if (strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
+                try ICommunityStakingPool(pool).unstakeAndRemoveLiquidity(
+                    account, 
+                    amount
+                ) returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount, uint64 rewardsRateFraction) {
+                    if (address(hook) != address(0)) {
+                        require(instanceInfo.exists == true);
+                        hook.onUnstake(pool, account, instanceInfo.duration, affectedTradedAmount, rewardsRateFraction);
+                    }
+                }
+                catch {
+                    revert UNSTAKE_ERROR();
+                    
+                }
+            } else if (strategy == Strategy.REDEEM) {
+                try ICommunityStakingPool(pool).redeem(
+                    account, 
+                    amount
+                ) returns(uint256 affectedAmount, uint64 rewardsRateFraction) {
+                //  
+                }
+                catch {
+                    revert REDEEM_ERROR();
+                    
+                }
+            } else if (strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+                try ICommunityStakingPool(pool).redeemAndRemoveLiquidity(
+                    account, 
+                    amount
+                ) returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount, uint64 rewardsRateFraction) {
+                //  
+                }
+                catch {
+                    revert REDEEM_ERROR();
+                }
+            // } else {
+            //     revert("unknown strategy");
             }
-        // } else {
-        //     revert("unknown strategy");
         }
+
     }
 
     function _beforeTokenTransfer(
@@ -955,24 +995,50 @@ astrcut _instances storage
         virtual 
         override 
     {
+        
+        if (
+            from !=address(0) && //otherwise minted
+            !(from == address(this) && to == address(0)) && //burnt by contract itself
+            address(hook) != address(0) && // hook setup
+            !flagHookTransferReentrant // no reentrant here
+        ) { 
+            // hook should return tuple: (success, amountAdjusted)
+            //  can return true/false
+            // true = revert ;  false -pass tx 
+
+            _accountForOperation(
+                OPERATION_TRANSFER_HOOK << OPERATION_SHIFT_BITS,
+                uint256(uint160(from)),
+                uint256(uint160(to))
+            );
+            //require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
+            bool success;
+            uint256 amountAdjusted;
+
+            flagHookTransferReentrant = true;
+
+            (success, amountAdjusted) = hook.transferHook(operator, from, to, amount);
+            if (success == false) { revert HookTransferPrevent(from, to, amount);}
+            if (amount < amountAdjusted) {
+                _mint(to, amountAdjusted - amount, "", "");
+            } else if (amount > amountAdjusted) {
+                _burn(from, amount - amountAdjusted, "", "");
+                amount = amountAdjusted;
+            }
+            
+            // if amount == amountAdjusted do nothing
+
+            flagHookTransferReentrant = true;
+        }
+
+        super._beforeTokenTransfer(operator, from, to, amount);
+
+
         if (from !=address(0)) { // otherwise minted
             if (from == address(this) && to == address(0)) { // burnt by contract itself
 
             } else { 
-                // todo 0:   add transferhook
-                //  can return true/false
-                // true = revert ;  false -pass tx 
-                if (address(hook) != address(0)) {
-                    _accountForOperation(
-                        OPERATION_TRANSFER_HOOK << OPERATION_SHIFT_BITS,
-                        uint256(uint160(from)),
-                        uint256(uint160(to))
-                    );
-                    //require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
-                    if (hook.transferHook(operator, from, to, amount) == false) { revert HookTransferPrevent(from, to, amount);}
-
-                }
-
+              
                 uint256 balance = balanceOf(from);
 
                 if (balance >= amount) {
@@ -1137,7 +1203,6 @@ astrcut _instances storage
             }
         }
 
-        super._beforeTokenTransfer(operator, from, to, amount);
 
     }
    
@@ -1264,7 +1329,7 @@ astrcut _instances storage
         //uint256 len = instances2Delete.length;
         if (indexUntil > 0) {
             for (uint256 i = 0; i < indexUntil; i++) {
-                console.log("cleanInstancesList::i=",i);
+                
                 _cleanInstance(
                     account, 
                     instances2Delete[i]

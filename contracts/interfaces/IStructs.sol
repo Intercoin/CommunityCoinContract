@@ -17,4 +17,6 @@ interface IStructs {
         uint8 tariffRoleId;
     }
 
+    enum InstanceType{ USUAL, ERC20, NONE }
+
 }

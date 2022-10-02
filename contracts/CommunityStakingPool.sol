@@ -72,7 +72,8 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         address tradedToken_, 
         IStructs.StructAddrUint256[] memory donations_,
         uint64 lpFraction_,
-        address lpFractionBeneficiary_
+        address lpFractionBeneficiary_, 
+        uint64 rewardsRateFraction_
     ) 
         initializer 
         external 
@@ -80,7 +81,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     {
         
 
-        CommunityStakingPoolBase_init(stakingProducedBy_, donations_, lpFraction_, lpFractionBeneficiary_);
+        CommunityStakingPoolBase_init(stakingProducedBy_, donations_, lpFraction_, lpFractionBeneficiary_, rewardsRateFraction_);
 
         (tradedToken, reserveToken) = (tradedToken_, reserveToken_);
         
@@ -91,6 +92,47 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         _token1 = uniswapV2Pair.token1();
 
         WETH = UniswapV2Router02.WETH();
+    }
+
+    /**
+    * @notice way to unstake via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
+    * @param account account address will unstaked from
+    * @param amount The number of shares that will be unstaked.
+    * @custom:calledby staking contract
+    * @custom:shortd redeem lp tokens
+    */
+    function unstake(
+        address account,
+        uint256 amount
+    ) 
+        external
+        override 
+        onlyStaking
+        returns(uint256 affectedLPAmount, uint64 rewardsFraction)
+    {
+        affectedLPAmount = __redeem(account, amount);
+        uniswapV2Pair.transfer(account, affectedLPAmount);
+        rewardsRateFraction = rewardsFraction;
+    }
+
+    /**
+    * @notice way to unstake and remove liquidity via approve/transferFrom shares. User will obtain reserve and traded tokens back
+    * @param account account address will unstaked from
+    * @param amount The number of shares that will be unstaked.
+    * @custom:calledby staking contract
+    * @custom:shortd unstake and remove liquidity
+    */
+    function unstakeAndRemoveLiquidity(
+        address account,
+        uint256 amount
+    )
+        external
+        override 
+        onlyStaking 
+        returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount, uint64 rewardsFraction)
+    {
+        (affectedReservedAmount, affectedTradedAmount) = __redeemAndRemoveLiquidity(account, amount);
+        rewardsRateFraction = rewardsFraction;
     }
 
     /**
@@ -107,11 +149,11 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         external
         override 
         onlyStaking
-        returns(uint256 affectedLPAmount)
+        returns(uint256 affectedLPAmount, uint64 rewardsFraction)
     {
         affectedLPAmount = __redeem(account, amount);
         uniswapV2Pair.transfer(account, affectedLPAmount);
-
+        rewardsRateFraction = rewardsFraction;
     }
 
     /**
@@ -128,9 +170,10 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         external
         override 
         onlyStaking 
-        returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount)
+        returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount, uint64 rewardsFraction)
     {
         (affectedReservedAmount, affectedTradedAmount) = __redeemAndRemoveLiquidity(account, amount);
+        rewardsRateFraction = rewardsFraction;
     }
 
     ////////////////////////////////////////////////////////////////////////

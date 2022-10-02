@@ -31,7 +31,7 @@ import "./libs/SwapSettingsLib.sol";
 
 // import "hardhat/console.sol";
 
-contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory {
+contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory, IStructs {
     using ClonesUpgradeable for address;
 
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
@@ -53,7 +53,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
     address public creator;
  
-    enum InstanceType{ USUAL, ERC20, NONE }
+    
 
     address[] private _instances;
     InstanceType[] private _instanceTypes;
@@ -155,6 +155,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         IStructs.StructAddrUint256[] memory donations,
         uint64 lpFraction,
         address lpFractionBeneficiary,
+        uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
         
@@ -175,6 +176,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             bonusTokenFraction,
             lpFraction, 
             lpFractionBeneficiary,
+            rewardsRateFraction,
             numerator, 
             denominator
         );
@@ -188,7 +190,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //     );
         // } else {
             ICommunityStakingPool(instanceCreated).initialize(
-                creator, reserveToken,  tradedToken, donations, lpFraction, lpFractionBeneficiary
+                creator, reserveToken,  tradedToken, donations, lpFraction, lpFractionBeneficiary, rewardsRateFraction
             );
         // }
         
@@ -203,6 +205,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         IStructs.StructAddrUint256[] memory donations,
         uint64 lpFraction,
         address lpFractionBeneficiary,
+        uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
     ) 
@@ -219,6 +222,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             bonusTokenFraction,
             lpFraction,
             lpFractionBeneficiary,
+            rewardsRateFraction,
             numerator, 
             denominator
         );
@@ -232,7 +236,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //     );
         // } else {
             ICommunityStakingPoolErc20(instanceCreated).initialize(
-                creator, tokenErc20, donations, lpFraction, lpFractionBeneficiary
+                creator, tokenErc20, donations, lpFraction, lpFractionBeneficiary, rewardsRateFraction
             );
         // }
         
@@ -284,6 +288,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         uint64 bonusTokenFraction,
         uint64 lpFraction,
         address lpFractionBeneficiary,
+        uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
     ) internal returns (address instance) {
@@ -305,6 +310,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             tradedToken,
             lpFraction,
             lpFractionBeneficiary,
+            rewardsRateFraction,
             numerator,
             denominator,
             true,
@@ -324,6 +330,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         uint64 bonusTokenFraction,
         uint64 lpFraction,
         address lpFractionBeneficiary,
+        uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
     ) internal returns (address instance) {
@@ -345,6 +352,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             address(0),
             lpFraction,
             lpFractionBeneficiary,
+            rewardsRateFraction,
             numerator,
             denominator,
             true,
