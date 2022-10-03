@@ -3,11 +3,161 @@ pragma solidity ^0.8.11;
 
 import "../interfaces/ICommunityCoin.sol";
 import "../interfaces/ICommunityStakingPoolFactory.sol";
+import "../interfaces/ICommunityStakingPool.sol";
+import "../interfaces/ICommunityStakingPoolErc20.sol";
+import "../interfaces/IHook.sol";
 
 //import "hardhat/console.sol";
 library PoolStakesLib {
     using MinimumsLib for MinimumsLib.UserStruct;
 
+    function lockedPart(
+        mapping(address => ICommunityCoin.UserData) storage users,
+        address from, 
+        uint256 remainingAmount
+    ) external {
+        /*
+        balance = 100
+        amount = 40
+        locked = 50
+        minimumsTransfer - ? =  0
+        */
+        /*
+        balance = 100
+        amount = 60
+        locked = 50
+        minimumsTransfer - ? = [50 > (100-60)] locked-(balance-amount) = 50-(40)=10  
+        */
+        /*
+        balance = 100
+        amount = 100
+        locked = 100
+        minimumsTransfer - ? = [100 > (100-100)] 100-(100-100)=100  
+        */
+
+        uint256 locked = users[from].tokensLocked._getMinimum();
+        uint256 lockedBonus = users[from].tokensBonus._getMinimum();
+        //else drop locked minimum, but remove minimums even if remaining was enough
+        //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
+        // console.log("locked---start");
+        // console.log("balance        = ",balance);
+        // console.log("amount         = ",amount);
+        // console.log("remainingAmount= ",remainingAmount);
+        // console.log("locked         = ",locked);
+        // console.log("lockedBonus    = ",lockedBonus);
+        if (locked + lockedBonus > 0 && locked + lockedBonus >= remainingAmount) {
+            // console.log("#1");
+            uint256 locked2Transfer = locked + lockedBonus - remainingAmount;
+            if (lockedBonus >= locked2Transfer) {
+                // console.log("#2.1");
+                users[from].tokensBonus.minimumsTransfer(
+                    users[address(0)].tokensBonus,
+                    true,
+                    (lockedBonus - locked2Transfer)
+                );
+            } else {
+                // console.log("#2.2");
+
+                // console.log("locked2Transfer = ", locked2Transfer);
+                //uint256 left = (remainingAmount - lockedBonus);
+                if (lockedBonus > 0) {
+                    users[from].tokensBonus.minimumsTransfer(
+                        users[address(0)].tokensBonus,
+                        true,
+                        lockedBonus
+                    );
+                    locked2Transfer -= lockedBonus;
+                }
+                users[from].tokensLocked.minimumsTransfer(
+                    users[address(0)].tokensLocked,
+                    true,
+                    locked2Transfer
+                );
+            }
+        }
+        // console.log("locked         = ",locked);
+        // console.log("lockedBonus    = ",lockedBonus);
+        // console.log("locked---end");
+        //-------------------
+    }
+
+    function proceedPool(
+        ICommunityStakingPoolFactory instanceManagment,
+        address hook,
+        address account,
+        address pool,
+        uint256 amount,
+        ICommunityCoin.Strategy strategy /*, string memory errmsg*/
+    ) external {
+
+        ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo = instanceManagment.getInstanceInfoByPoolAddress(pool);
+
+        if (instanceInfo.instanceType == uint8(IStructs.InstanceType.ERC20)) {
+            //erc20 pool
+
+            try ICommunityStakingPoolErc20(pool).redeem(account, amount) returns (
+                uint256 affectedAmount,
+                uint64 rewardsRateFraction
+            ) {
+                if (
+                    (hook != address(0)) &&
+                    (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY)
+                ) {
+                    require(instanceInfo.exists == true);
+                    IHook(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
+                }
+            } catch {
+                revert ICommunityCoin.UNSTAKE_ERROR();
+            }
+        } else if (instanceInfo.instanceType == uint8(IStructs.InstanceType.USUAL)) {
+            //usual pool
+            if (strategy == ICommunityCoin.Strategy.UNSTAKE) {
+                try ICommunityStakingPool(pool).unstake(account, amount) returns (
+                    uint256 affectedAmount,
+                    uint64 rewardsRateFraction
+                ) {
+                    //
+                } catch {
+                    revert ICommunityCoin.UNSTAKE_ERROR();
+                }
+            } else if (strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
+                try ICommunityStakingPool(pool).unstakeAndRemoveLiquidity(account, amount) returns (
+                    uint256 affectedReservedAmount,
+                    uint256 affectedTradedAmount,
+                    uint64 rewardsRateFraction
+                ) {
+                    if (hook != address(0)) {
+                        require(instanceInfo.exists == true);
+                        IHook(hook).onUnstake(pool, account, instanceInfo.duration, affectedTradedAmount, rewardsRateFraction);
+                    }
+                } catch {
+                    revert ICommunityCoin.UNSTAKE_ERROR();
+                }
+            } else if (strategy == ICommunityCoin.Strategy.REDEEM) {
+                try ICommunityStakingPool(pool).redeem(account, amount) returns (
+                    uint256 affectedAmount,
+                    uint64 rewardsRateFraction
+                ) {
+                    //
+                } catch {
+                    revert ICommunityCoin.REDEEM_ERROR();
+                }
+            } else if (strategy == ICommunityCoin.Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+                try ICommunityStakingPool(pool).redeemAndRemoveLiquidity(account, amount) returns (
+                    uint256 affectedReservedAmount,
+                    uint256 affectedTradedAmount,
+                    uint64 rewardsRateFraction
+                ) {
+                    //
+                } catch {
+                    revert ICommunityCoin.REDEEM_ERROR();
+                }
+                // } else {
+                //     revert("unknown strategy");
+            }
+        }
+        
+    }
     // adjusting amount and applying some discounts, fee, etc
     function getAmountLeft(
         address account,

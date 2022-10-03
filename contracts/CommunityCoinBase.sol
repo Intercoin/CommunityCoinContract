@@ -10,7 +10,7 @@ import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "./interfaces/IStructs.sol";
 import "./RolesManagement.sol";
 
-import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
+//import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
@@ -51,7 +51,7 @@ abstract contract CommunityCoinBase is
     uint64 public redeemTariff;
     uint64 public unstakeTariff;
 
-    IHook public hook; // hook used to bonus calculation
+    address public hook; // hook used to bonus calculation
 
     ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
 
@@ -113,15 +113,18 @@ abstract contract CommunityCoinBase is
     event MaxBoostExceeded();
 
     /**
-     * @param impl address of StakingPool implementation
+     * @notice initializing method. called by factory
+     * @param tokenName internal token name 
+     * @param tokenSymbol internal token symbol. usual it's `${tradedToken}community`
+     * @param impl address of StakingPool implementation. usual it's `${tradedToken}c`
      * @param implErc20 address of StakingPoolErc20 implementation
      * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
      * @param communityCoinInstanceAddr address of contract that managed and cloned pools
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
      * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
      * @param tradedToken_ address of traded token. usual it intercoin investor token
-     * [deprecated]param costManager_ costManager address
-     * [deprecated]param producedBy_ address that produced instance by factory
+     * @param costManager_ costManager address
+     * @param producedBy_ address that produced instance by factory
      * @custom:calledby StakingFactory contract
      * @custom:shortd initializing contract. called by StakingFactory contract
      */
@@ -151,7 +154,7 @@ abstract contract CommunityCoinBase is
         instanceManagment = ICommunityStakingPoolFactory(communityCoinInstanceAddr); //new ICommunityStakingPoolFactory(impl);
         instanceManagment.initialize(impl, implErc20);
 
-        hook = IHook(hook_);
+        hook = hook_;
 
         discountSensitivity = discountSensitivity_;
 
@@ -269,6 +272,7 @@ abstract contract CommunityCoinBase is
 
     /**
      * @notice method to adding tokens to circulation. called externally only by `CIRCULATION_ROLE`
+     * @param account account that will obtain tokens
      * @param amount token's amount
      * @custom:calledby `CIRCULATION_ROLE`
      * @custom:shortd distribute tokens
@@ -489,8 +493,8 @@ abstract contract CommunityCoinBase is
      * @param account address
      * @custom:shortd view locked tokens
      */
-    function viewLockedWalletTokens(address account) public view returns (uint256 amount) {
-        amount = users[account].tokensLocked._getMinimum() + users[account].tokensBonus._getMinimum();
+    function viewLockedWalletTokens(address account) public view returns (uint256) {
+        return users[account].tokensLocked._getMinimum() + users[account].tokensBonus._getMinimum();
     }
 
     function viewLockedWalletTokensList(address account) public view returns (uint256[][] memory, uint256[][] memory) {
@@ -518,7 +522,9 @@ abstract contract CommunityCoinBase is
     ) public view returns (address, uint256) {
         (
             address[] memory instancesToRedeem,
-            uint256[] memory valuesToRedeem, /*uint256[] memory amounts*/ /* uint256 len*/
+            uint256[] memory valuesToRedeem, 
+            /*uint256[] memory amounts*/ 
+            /* uint256 len*/
             ,
 
         ) = _poolStakesAvailable(
@@ -533,8 +539,8 @@ abstract contract CommunityCoinBase is
 
     function claim() public {
         _accountForOperation(OPERATION_CLAIM << OPERATION_SHIFT_BITS, uint256(uint160(_msgSender())), 0);
-        if (address(hook) != address(0)) {
-            hook.onClaim(_msgSender());
+        if (hook != address(0)) {
+            IHook(hook).onClaim(_msgSender());
         }
     }
 
@@ -696,18 +702,13 @@ abstract contract CommunityCoinBase is
 
             //console.log(4);
 
-            proceedPool(account, instancesList[i], values[i], strategy);
+            //proceedPool(account, instancesList[i], values[i], strategy);
+            PoolStakesLib.proceedPool(instanceManagment, hook, account, instancesList[i], values[i], strategy);
             //console.log(5);
         }
         //console.log(6);
     }
 
-    /*
-ICommunityStakingPoolFactory.InstanceInfo
-instanceManagment
-Strategy.
-astrcut _instances storage
-*/
     // create map of instance->amount or LP tokens that need to redeem
     function _poolStakesAvailable(
         address account,
@@ -805,86 +806,8 @@ astrcut _instances storage
 
                 totalReserves -= amounts[i];
 
-                proceedPool(account2Redeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
-            }
-        }
-    }
-
-    /**
-     * @param amount already converted amount
-     */
-    function proceedPool(
-        address account,
-        address pool,
-        uint256 amount,
-        Strategy strategy /*, string memory errmsg*/
-    ) internal {
-        ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo = instanceManagment.getInstanceInfoByPoolAddress(
-            pool
-        );
-
-        if (instanceInfo.instanceType == uint8(IStructs.InstanceType.ERC20)) {
-            //erc20 pool
-
-            try ICommunityStakingPoolErc20(pool).redeem(account, amount) returns (
-                uint256 affectedAmount,
-                uint64 rewardsRateFraction
-            ) {
-                if (
-                    address(hook) != address(0) &&
-                    (strategy == Strategy.UNSTAKE || strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY)
-                ) {
-                    require(instanceInfo.exists == true);
-                    hook.onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
-                }
-            } catch {
-                revert UNSTAKE_ERROR();
-            }
-        } else if (instanceInfo.instanceType == uint8(IStructs.InstanceType.USUAL)) {
-            //usual pool
-            if (strategy == Strategy.UNSTAKE) {
-                try ICommunityStakingPool(pool).unstake(account, amount) returns (
-                    uint256 affectedAmount,
-                    uint64 rewardsRateFraction
-                ) {
-                    //
-                } catch {
-                    revert UNSTAKE_ERROR();
-                }
-            } else if (strategy == Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
-                try ICommunityStakingPool(pool).unstakeAndRemoveLiquidity(account, amount) returns (
-                    uint256 affectedReservedAmount,
-                    uint256 affectedTradedAmount,
-                    uint64 rewardsRateFraction
-                ) {
-                    if (address(hook) != address(0)) {
-                        require(instanceInfo.exists == true);
-                        hook.onUnstake(pool, account, instanceInfo.duration, affectedTradedAmount, rewardsRateFraction);
-                    }
-                } catch {
-                    revert UNSTAKE_ERROR();
-                }
-            } else if (strategy == Strategy.REDEEM) {
-                try ICommunityStakingPool(pool).redeem(account, amount) returns (
-                    uint256 affectedAmount,
-                    uint64 rewardsRateFraction
-                ) {
-                    //
-                } catch {
-                    revert REDEEM_ERROR();
-                }
-            } else if (strategy == Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-                try ICommunityStakingPool(pool).redeemAndRemoveLiquidity(account, amount) returns (
-                    uint256 affectedReservedAmount,
-                    uint256 affectedTradedAmount,
-                    uint64 rewardsRateFraction
-                ) {
-                    //
-                } catch {
-                    revert REDEEM_ERROR();
-                }
-                // } else {
-                //     revert("unknown strategy");
+                //proceedPool(account2Redeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
+                PoolStakesLib.proceedPool(instanceManagment, hook, account2Redeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
             }
         }
     }
@@ -953,74 +876,15 @@ astrcut _instances storage
                     //-------------------
                     // locked sections
                     //-------------------
-
-                    /*
-                    balance = 100
-                    amount = 40
-                    locked = 50
-                    minimumsTransfer - ? =  0
-                    */
-                    /*
-                    balance = 100
-                    amount = 60
-                    locked = 50
-                    minimumsTransfer - ? = [50 > (100-60)] locked-(balance-amount) = 50-(40)=10  
-                    */
-                    /*
-                    balance = 100
-                    amount = 100
-                    locked = 100
-                    minimumsTransfer - ? = [100 > (100-100)] 100-(100-100)=100  
-                    */
-                    uint256 locked = users[from].tokensLocked._getMinimum();
-                    uint256 lockedBonus = users[from].tokensBonus._getMinimum();
-                    //else drop locked minimum, but remove minimums even if remaining was enough
-                    //minimumsTransfer(account, ZERO_ADDRESS, (locked - remainingAmount))
-                    // console.log("locked---start");
-                    // console.log("balance        = ",balance);
-                    // console.log("amount         = ",amount);
-                    // console.log("remainingAmount= ",remainingAmount);
-                    // console.log("locked         = ",locked);
-                    // console.log("lockedBonus    = ",lockedBonus);
-                    if (locked + lockedBonus > 0 && locked + lockedBonus >= remainingAmount) {
-                        // console.log("#1");
-                        uint256 locked2Transfer = locked + lockedBonus - remainingAmount;
-                        if (lockedBonus >= locked2Transfer) {
-                            // console.log("#2.1");
-                            users[from].tokensBonus.minimumsTransfer(
-                                users[address(0)].tokensBonus,
-                                true,
-                                (lockedBonus - locked2Transfer)
-                            );
-                        } else {
-                            // console.log("#2.2");
-
-                            // console.log("locked2Transfer = ", locked2Transfer);
-                            //uint256 left = (remainingAmount - lockedBonus);
-                            if (lockedBonus > 0) {
-                                users[from].tokensBonus.minimumsTransfer(
-                                    users[address(0)].tokensBonus,
-                                    true,
-                                    lockedBonus
-                                );
-                                locked2Transfer -= lockedBonus;
-                            }
-                            users[from].tokensLocked.minimumsTransfer(
-                                users[address(0)].tokensLocked,
-                                true,
-                                locked2Transfer
-                            );
-                        }
-                    }
-                    // console.log("locked         = ",locked);
-                    // console.log("lockedBonus    = ",lockedBonus);
-                    // console.log("locked---end");
-                    //-------------------
+                    PoolStakesLib.lockedPart(users, from, remainingAmount);
+                    //--------------------
 
                     if (
                         // not calculate if
                         flagBurnUnstakeRedeem || to == address(this) // - burn or unstake or redeem // - send directly to contract
-                    ) {} else {
+                    ) {
+
+                    } else {
                         // console.log("amount                         =",amount);
                         // console.log("remainingAmount                =",remainingAmount);
                         // console.log("users[from].unstakeable        =",users[from].unstakeable);
@@ -1041,7 +905,7 @@ astrcut _instances storage
                         uint256 r;
                         uint256 left = amount;
                         if (users[from].unstakeableBonuses > 0) {
-                            // console.log("#1");
+                            
                             if (users[from].unstakeableBonuses >= left) {
                                 r = left;
                             } else {
@@ -1135,7 +999,7 @@ astrcut _instances storage
         _instances[instance].unstakeableBonuses[account] += amount;
         users[account].unstakeableBonuses += amount;
     }
-
+/*
     function _removeBonus(
         address instance,
         address account,
@@ -1152,11 +1016,11 @@ astrcut _instances storage
             _instances[instance].unstakeable[account] -= amount;
         } else if (_instances[instance].unstakeable[account] > 0) {
             _instances[instance].unstakeable[account] = 0;
-            amount -= _instances[instance].unstakeable[account];
+            //amount -= _instances[instance].unstakeable[account];
         }
         _cleanInstance(account, instance);
     }
-
+*/
     function _removeBonusThroughInstances(address account, uint256 amount) internal {
         //console.log("START::_removeBonusThroughInstances");
         uint256 len = users[account].instancesList.length();
