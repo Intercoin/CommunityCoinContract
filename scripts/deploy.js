@@ -49,7 +49,7 @@ async function main() {
     
 	const [deployer] = await ethers.getSigners();
 	
-	// const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
   	// const discountSensitivity = 0;
 
 	var options = {
@@ -60,8 +60,8 @@ async function main() {
 		data_object.communityCoin,
 		data_object.communityStakingPoolFactory,
 		data_object.communityStakingPool,
-		data_object.communityStakingPoolErc20/*,
-		data_object.communityRolesManagement*/
+		data_object.communityStakingPoolErc20,
+		ZERO_ADDRESS // costmanager
 	]
 	let params = [
 		..._params,
