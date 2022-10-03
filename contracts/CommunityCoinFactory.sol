@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/IStructs.sol";
 
-
 import "@artman325/releasemanager/contracts/CostManagerFactoryHelper.sol";
 import "@artman325/releasemanager/contracts/ReleaseManagerHelper.sol";
 
@@ -77,53 +76,54 @@ ARBITRATION
 
 All disputes related to this agreement shall be governed by and interpreted in accordance with the laws of New York, without regard to principles of conflict of laws. The parties to this agreement will submit all disputes arising under this agreement to arbitration in New York City, New York before a single arbitrator of the American Arbitration Association (“AAA”). The arbitrator shall be selected by application of the rules of the AAA, or by mutual agreement of the parties, except that such arbitrator shall be an attorney admitted to practice law New York. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section.
 **/
-contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManagerHelper {
+contract CommunityCoinFactory is
+    Ownable,
+    CostManagerFactoryHelper,
+    ReleaseManagerHelper
+{
     using Clones for address;
 
     /**
-    * @custom:shortd CommunityCoin implementation address
-    * @notice CommunityCoin implementation address
-    */
+     * @custom:shortd CommunityCoin implementation address
+     * @notice CommunityCoin implementation address
+     */
     address public immutable communityCoinImplementation;
-    
+
     /**
-    * @custom:shortd CommunityStakingPoolFactory implementation address
-    * @notice CommunityStakingPoolFactory implementation address
-    */
+     * @custom:shortd CommunityStakingPoolFactory implementation address
+     * @notice CommunityStakingPoolFactory implementation address
+     */
     address public immutable communityStakingPoolFactoryImplementation;
-    
+
     /**
-    * @custom:shortd StakingPool implementation address
-    * @notice StakingPool implementation address
-    */
+     * @custom:shortd StakingPool implementation address
+     * @notice StakingPool implementation address
+     */
     address public immutable stakingPoolImplementation;
     address public immutable stakingPoolErc20Implementation;
 
     address[] public instances;
-    
-    event InstanceCreated(address instance, uint instancesCount);
+
+    event InstanceCreated(address instance, uint256 instancesCount);
 
     /**
-    * @param communityCoinImpl address of CommunityCoin implementation
-    * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
-    * @param stakingPoolImpl address of StakingPool implementation
-    * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
-    * [deprecated]param costManager_ address of costmanager
-    */
+     * @param communityCoinImpl address of CommunityCoin implementation
+     * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
+     * @param stakingPoolImpl address of StakingPool implementation
+     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
+     * [deprecated]param costManager_ address of costmanager
+     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address stakingPoolImplErc20,
         address costManager_
-    ) 
-        CostManagerFactoryHelper(costManager_)
-    {
+    ) CostManagerFactoryHelper(costManager_) {
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
         stakingPoolErc20Implementation = stakingPoolImplErc20;
-
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -131,15 +131,11 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     ////////////////////////////////////////////////////////////////////////
 
     /**
-    * @dev view amount of created instances
-    * @return amount amount instances
-    * @custom:shortd view amount of created instances
-    */
-    function instancesCount()
-        external 
-        view 
-        returns (uint256 amount) 
-    {
+     * @dev view amount of created instances
+     * @return amount amount instances
+     * @custom:shortd view amount of created instances
+     */
+    function instancesCount() external view returns (uint256 amount) {
         amount = instances.length;
     }
 
@@ -148,47 +144,54 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     ////////////////////////////////////////////////////////////////////////
 
     /**
-    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
-    * @param tradedToken address of traded token. usual it intercoin investor token
-    * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
-    * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-    * @param communitySettings tuple of community settings (address of contract and roles(admin,redeem,circulate))
-    * @return instance address of created instance pool `CommunityCoin`
-    * @custom:shortd creation instance
-    */
+     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
+     * @param tradedToken address of traded token. usual it intercoin investor token
+     * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
+     * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+     * @param communitySettings tuple of community settings (address of contract and roles(admin,redeem,circulate))
+     * @return instance address of created instance pool `CommunityCoin`
+     * @custom:shortd creation instance
+     */
     function produce(
         address reserveToken,
         address tradedToken,
         address hook,
         uint256 discountSensitivity,
         IStructs.CommunitySettings memory communitySettings
-    ) 
-        public 
-        onlyOwner()
-        returns (address instance) 
-    {
-        
+    ) public onlyOwner returns (address instance) {
         instance = communityCoinImplementation.clone();
-        address coinInstancesClone = communityStakingPoolFactoryImplementation.clone();
+        address coinInstancesClone = communityStakingPoolFactoryImplementation
+            .clone();
 
-        require(instance != address(0), "CommunityCoinFactory: INSTANCE_CREATION_FAILED");
+        require(
+            instance != address(0),
+            "CommunityCoinFactory: INSTANCE_CREATION_FAILED"
+        );
 
         instances.push(instance);
-        
+
         emit InstanceCreated(instance, instances.length);
 
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, reserveToken, tradedToken, communitySettings, costManager, _msgSender());
-        
+        ICommunityCoin(instance).initialize(
+            stakingPoolImplementation,
+            stakingPoolErc20Implementation,
+            hook,
+            coinInstancesClone,
+            discountSensitivity,
+            reserveToken,
+            tradedToken,
+            communitySettings,
+            costManager,
+            _msgSender()
+        );
+
         Ownable(instance).transferOwnership(_msgSender());
 
         // register instance in release manager
         registerInstance(instance);
-        
     }
 
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-
-    
 }

@@ -71,20 +71,19 @@ ARBITRATION
 All disputes related to this agreement shall be governed by and interpreted in accordance with the laws of New York, without regard to principles of conflict of laws. The parties to this agreement will submit all disputes arising under this agreement to arbitration in New York City, New York before a single arbitrator of the American Arbitration Association (“AAA”). The arbitrator shall be selected by application of the rules of the AAA, or by mutual agreement of the parties, except that such arbitrator shall be an attorney admitted to practice law New York. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section.
 **/
 contract CommunityCoin is CommunityCoinBase {
-
     /**
-    * @param impl address of StakingPool implementation
-    * @param implErc20 address of StakingPoolErc20 implementation
-    * @param hook_ address of contract implemented IHook interface and uses to accumulation bonus tokens amount
-    * @param communityCoinInstanceAddr address of contract that managed and cloned pools
-    * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-    * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
-    * @param tradedToken_ address of traded token. usual it intercoin investor token
-    * @param costManager_ costManager address
-    * @param producedBy_ address that produced instance by factory
-    * @custom:calledby StakingFactory contract 
-    * @custom:shortd initializing contract. called by StakingFactory contract
-    */
+     * @param impl address of StakingPool implementation
+     * @param implErc20 address of StakingPoolErc20 implementation
+     * @param hook_ address of contract implemented IHook interface and uses to accumulation bonus tokens amount
+     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
+     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
+     * @param tradedToken_ address of traded token. usual it intercoin investor token
+     * @param costManager_ costManager address
+     * @param producedBy_ address that produced instance by factory
+     * @custom:calledby StakingFactory contract
+     * @custom:shortd initializing contract. called by StakingFactory contract
+     */
     function initialize(
         address impl,
         address implErc20,
@@ -96,26 +95,30 @@ contract CommunityCoin is CommunityCoinBase {
         IStructs.CommunitySettings calldata communitySettings,
         address costManager_,
         address producedBy_
-    ) 
-        initializer 
-        external 
-        virtual
-        override 
-    {
+    ) external virtual override initializer {
         CommunityCoinBase__init(
-            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), " commnunity")), 
-            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), " c")), 
-            impl, 
-            implErc20, 
-            hook_, 
-            communityCoinInstanceAddr, 
-            discountSensitivity_, 
-            reserveToken_, 
+            string(
+                abi.encodePacked(
+                    IERC777Upgradeable(tradedToken_).name(),
+                    " commnunity"
+                )
+            ),
+            string(
+                abi.encodePacked(
+                    IERC777Upgradeable(tradedToken_).symbol(),
+                    " c"
+                )
+            ),
+            impl,
+            implErc20,
+            hook_,
+            communityCoinInstanceAddr,
+            discountSensitivity_,
+            reserveToken_,
             tradedToken_,
             communitySettings,
             costManager_,
             producedBy_
         );
-        
     }
 }
