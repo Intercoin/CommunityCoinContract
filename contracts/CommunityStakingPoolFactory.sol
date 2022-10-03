@@ -32,11 +32,7 @@ import "./libs/SwapSettingsLib.sol";
 
 // import "hardhat/console.sol";
 
-contract CommunityStakingPoolFactory is
-    Initializable,
-    ICommunityStakingPoolFactory,
-    IStructs
-{
+contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory, IStructs {
     using ClonesUpgradeable for address;
 
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
@@ -45,13 +41,9 @@ contract CommunityStakingPoolFactory is
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
 
-    mapping(address => mapping(address => mapping(uint256 => address)))
-        public
-        override getInstance;
+    mapping(address => mapping(address => mapping(uint256 => address))) public override getInstance;
 
-    mapping(address => mapping(uint256 => address))
-        public
-        override getInstanceErc20;
+    mapping(address => mapping(uint256 => address)) public override getInstanceErc20;
 
     address public implementation;
     address public implementationErc20;
@@ -68,8 +60,7 @@ contract CommunityStakingPoolFactory is
 
     function initialize(address impl, address implErc20) external initializer {
         // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib
-            .netWorkSettings();
+        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
 
         implementation = impl;
         implementationErc20 = implErc20;
@@ -78,11 +69,7 @@ contract CommunityStakingPoolFactory is
         typeProducedByFactory = InstanceType.NONE;
     }
 
-    function instancesByIndex(uint256 index)
-        external
-        view
-        returns (address instance_)
-    {
+    function instancesByIndex(uint256 index) external view returns (address instance_) {
         return _instances[index];
     }
 
@@ -116,11 +103,7 @@ contract CommunityStakingPoolFactory is
         return _instanceInfos[instance];
     }
 
-    function getInstanceInfoByPoolAddress(address addr)
-        external
-        view
-        returns (InstanceInfo memory)
-    {
+    function getInstanceInfoByPoolAddress(address addr) external view returns (InstanceInfo memory) {
         return _instanceInfos[addr];
     }
 
@@ -167,10 +150,7 @@ contract CommunityStakingPoolFactory is
             denominator
         );
 
-        require(
-            instanceCreated != address(0),
-            "CommunityCoin: INSTANCE_CREATION_FAILED"
-        );
+        require(instanceCreated != address(0), "CommunityCoin: INSTANCE_CREATION_FAILED");
         require(duration != 0, "cant be zero duration");
 
         // if (duration == 0) {
@@ -206,13 +186,7 @@ contract CommunityStakingPoolFactory is
     ) external returns (address instance) {
         require(msg.sender == creator);
 
-        _createInstanceErc20Validate(
-            tokenErc20,
-            duration,
-            bonusTokenFraction,
-            lpFraction,
-            lpFractionBeneficiary
-        );
+        _createInstanceErc20Validate(tokenErc20, duration, bonusTokenFraction, lpFraction, lpFractionBeneficiary);
 
         address instanceCreated = _createInstanceErc20(
             tokenErc20,
@@ -225,10 +199,7 @@ contract CommunityStakingPoolFactory is
             denominator
         );
 
-        require(
-            instanceCreated != address(0),
-            "CommunityCoin: INSTANCE_CREATION_FAILED"
-        );
+        require(instanceCreated != address(0), "CommunityCoin: INSTANCE_CREATION_FAILED");
         require(duration != 0, "cant be zero duration");
 
         // if (duration == 0) {
@@ -258,20 +229,13 @@ contract CommunityStakingPoolFactory is
         uint64 lpFraction,
         address lpFractionBeneficiary
     ) internal view {
-        require(
-            reserveToken != tradedToken,
-            "CommunityCoin: IDENTICAL_ADDRESSES"
-        );
-        require(
-            reserveToken != address(0) && tradedToken != address(0),
-            "CommunityCoin: ZERO_ADDRESS"
-        );
+        require(reserveToken != tradedToken, "CommunityCoin: IDENTICAL_ADDRESSES");
+        require(reserveToken != address(0) && tradedToken != address(0), "CommunityCoin: ZERO_ADDRESS");
         require(lpFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
         address instance = getInstance[reserveToken][tradedToken][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
         require(
-            typeProducedByFactory == InstanceType.NONE ||
-                typeProducedByFactory == InstanceType.USUAL,
+            typeProducedByFactory == InstanceType.NONE || typeProducedByFactory == InstanceType.USUAL,
             "CommunityCoin: INVALID_INSTANCE_TYPE"
         );
     }
@@ -287,8 +251,7 @@ contract CommunityStakingPoolFactory is
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
         require(lpFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
         require(
-            typeProducedByFactory == InstanceType.NONE ||
-                typeProducedByFactory == InstanceType.ERC20,
+            typeProducedByFactory == InstanceType.NONE || typeProducedByFactory == InstanceType.ERC20,
             "CommunityCoin: INVALID_INSTANCE_TYPE"
         );
     }
@@ -332,13 +295,7 @@ contract CommunityStakingPoolFactory is
         if (typeProducedByFactory == InstanceType.NONE) {
             typeProducedByFactory = InstanceType.USUAL;
         }
-        emit InstanceCreated(
-            reserveToken,
-            tradedToken,
-            instance,
-            _instances.length,
-            address(0)
-        );
+        emit InstanceCreated(reserveToken, tradedToken, instance, _instances.length, address(0));
     }
 
     function _createInstanceErc20(
@@ -378,13 +335,7 @@ contract CommunityStakingPoolFactory is
         if (typeProducedByFactory == InstanceType.NONE) {
             typeProducedByFactory = InstanceType.ERC20;
         }
-        emit InstanceCreated(
-            address(0),
-            address(0),
-            instance,
-            _instances.length,
-            tokenErc20
-        );
+        emit InstanceCreated(address(0), address(0), instance, _instances.length, tokenErc20);
     }
 
     /**
@@ -408,17 +359,9 @@ contract CommunityStakingPoolFactory is
             //1 calculate  how much traded and reserve tokens we will obtain if redeem and remove liquidity from uniswap
             // take into account LpFraction
             adjusted = _instanceInfos[instancesToRedeem[i]].lpFraction != 0
-                ? valuesToRedeem[i] -
-                    (valuesToRedeem[i] *
-                        _instanceInfos[instancesToRedeem[i]].lpFraction) /
-                    FRACTION
+                ? valuesToRedeem[i] - (valuesToRedeem[i] * _instanceInfos[instancesToRedeem[i]].lpFraction) / FRACTION
                 : valuesToRedeem[i];
-            (
-                tradedAmount,
-                tradedToken,
-                reserveAmount,
-                reserveToken
-            ) = getPairsAmount(
+            (tradedAmount, tradedToken, reserveAmount, reserveToken) = getPairsAmount(
                 instancesToRedeem[i],
                 adjusted //valuesToRedeem[i]
             );
@@ -463,15 +406,9 @@ contract CommunityStakingPoolFactory is
     {
         tradedToken = _instanceInfos[poolAddress].tradedToken;
         reserveToken = _instanceInfos[poolAddress].reserveToken;
-        require(
-            tradedToken != address(0) && reserveToken != address(0),
-            "addresses can not be empty"
-        );
+        require(tradedToken != address(0) && reserveToken != address(0), "addresses can not be empty");
 
-        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(
-            tradedToken,
-            reserveToken
-        );
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
 
         require(pair != address(0), "pair does not exists");
         uint256 balance0 = IERC777Upgradeable(reserveToken).balanceOf(pair);
@@ -529,13 +466,7 @@ contract CommunityStakingPoolFactory is
             }
             revert("paths invalid");
         } else {
-            (bool success, uint256 amountOut) = _swap(
-                tokenFrom,
-                forceTokenSwap,
-                amount0,
-                subReserveFrom,
-                subReserveTo
-            );
+            (bool success, uint256 amountOut) = _swap(tokenFrom, forceTokenSwap, amount0, subReserveFrom, subReserveTo);
             if (success) {
                 return (forceTokenSwap, amountOut);
             }
@@ -558,23 +489,18 @@ contract CommunityStakingPoolFactory is
         )
     {
         success = false;
-        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(
-            tokenFrom,
-            tokenTo
-        );
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tokenFrom, tokenTo);
 
         if (pair == address(0)) {
             //break;
             //revert("pair == address(0)");
         } else {
-            (uint112 _reserve0, uint112 _reserve1, ) = IUniswapV2Pair(pair)
-                .getReserves();
+            (uint112 _reserve0, uint112 _reserve1, ) = IUniswapV2Pair(pair).getReserves();
 
             if (_reserve0 == 0 || _reserve1 == 0) {
                 //break;
             } else {
-                (_reserve0, _reserve1) = (tokenFrom ==
-                    IUniswapV2Pair(pair).token0())
+                (_reserve0, _reserve1) = (tokenFrom == IUniswapV2Pair(pair).token0())
                     ? (_reserve0, _reserve1)
                     : (_reserve1, _reserve0);
                 if (subReserveFrom >= _reserve0 || subReserveTo >= _reserve1) {
@@ -583,11 +509,7 @@ contract CommunityStakingPoolFactory is
                     _reserve0 -= uint112(subReserveFrom);
                     _reserve1 -= uint112(subReserveTo);
                     // amountin reservein reserveout
-                    ret = IUniswapV2Router02(uniswapRouter).getAmountOut(
-                        amountFrom,
-                        _reserve0,
-                        _reserve1
-                    );
+                    ret = IUniswapV2Router02(uniswapRouter).getAmountOut(amountFrom, _reserve0, _reserve1);
 
                     if (ret != 0) {
                         success = true;

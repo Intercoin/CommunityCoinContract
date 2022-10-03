@@ -19,9 +19,7 @@ abstract contract RolesManagement is Initializable {
 
     error MissingRole(address account, uint8 roleId);
 
-    function __RolesManagement_init(
-        IStructs.CommunitySettings calldata communitySettings
-    ) internal onlyInitializing {
+    function __RolesManagement_init(IStructs.CommunitySettings calldata communitySettings) internal onlyInitializing {
         require(communitySettings.addr != address(0));
 
         invitedByFraction = communitySettings.invitedByFraction;
@@ -39,11 +37,7 @@ abstract contract RolesManagement is Initializable {
         invitedByFraction = fraction;
     }
 
-    function _invitedBy(address account)
-        internal
-        view
-        returns (address inviter)
-    {
+    function _invitedBy(address account) internal view returns (address inviter) {
         return CommunityAccessMap(communityAddress).invitedBy(account);
     }
 
@@ -69,9 +63,7 @@ abstract contract RolesManagement is Initializable {
      */
     function hasRole(uint8 role, address account) public view returns (bool) {
         // external call to community contract
-        uint8[] memory communityRoles = ICommunity(communityAddress).getRoles(
-            account
-        );
+        uint8[] memory communityRoles = ICommunity(communityAddress).getRoles(account);
 
         for (uint256 i = 0; i < communityRoles.length; i++) {
             if (role == communityRoles[i]) {

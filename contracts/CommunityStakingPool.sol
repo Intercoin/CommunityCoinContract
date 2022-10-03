@@ -14,10 +14,7 @@ import "./CommunityStakingPoolBase.sol";
 
 // import "hardhat/console.sol";
 
-contract CommunityStakingPool is
-    CommunityStakingPoolBase,
-    ICommunityStakingPool
-{
+contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool {
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
     /**
@@ -87,10 +84,7 @@ contract CommunityStakingPool is
 
         (tradedToken, reserveToken) = (tradedToken_, reserveToken_);
 
-        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(
-            tradedToken,
-            reserveToken
-        );
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(tradedToken, reserveToken);
         require(pair != address(0), "NO_UNISWAP_V2_PAIR");
         uniswapV2Pair = IUniswapV2Pair(pair);
         _token0 = uniswapV2Pair.token0();
@@ -134,10 +128,7 @@ contract CommunityStakingPool is
             uint64 rewardsFraction
         )
     {
-        (
-            affectedReservedAmount,
-            affectedTradedAmount
-        ) = __redeemAndRemoveLiquidity(account, amount);
+        (affectedReservedAmount, affectedTradedAmount) = __redeemAndRemoveLiquidity(account, amount);
         rewardsRateFraction = rewardsFraction;
     }
 
@@ -176,10 +167,7 @@ contract CommunityStakingPool is
             uint64 rewardsFraction
         )
     {
-        (
-            affectedReservedAmount,
-            affectedTradedAmount
-        ) = __redeemAndRemoveLiquidity(account, amount);
+        (affectedReservedAmount, affectedTradedAmount) = __redeemAndRemoveLiquidity(account, amount);
         rewardsRateFraction = rewardsFraction;
     }
 
@@ -192,16 +180,9 @@ contract CommunityStakingPool is
      * Finally will add to liquidity pool and stake it.
      * @custom:shortd  the way to sell traded token and stake liquidity.
      */
-    function sellAndStakeLiquidity(uint256 amountTradedToken)
-        public
-        nonReentrant
-    {
+    function sellAndStakeLiquidity(uint256 amountTradedToken) public nonReentrant {
         address account = _msgSender();
-        IERC20Upgradeable(tradedToken).transferFrom(
-            account,
-            address(this),
-            amountTradedToken
-        );
+        IERC20Upgradeable(tradedToken).transferFrom(account, address(this), amountTradedToken);
 
         _sellTradedAndStake(account, amountTradedToken);
     }
@@ -211,15 +192,8 @@ contract CommunityStakingPool is
      * Finally will add to liquidity pool and stake it. Beneficiary will obtain shares
      * @custom:shortd  the way to sell traded token and stake liquidity. Beneficiary will obtain shares
      */
-    function sellAndStakeLiquidity(
-        uint256 amountTradedToken,
-        address beneficiary
-    ) public nonReentrant {
-        IERC20Upgradeable(tradedToken).transferFrom(
-            _msgSender(),
-            address(this),
-            amountTradedToken
-        );
+    function sellAndStakeLiquidity(uint256 amountTradedToken, address beneficiary) public nonReentrant {
+        IERC20Upgradeable(tradedToken).transferFrom(_msgSender(), address(this), amountTradedToken);
         _sellTradedAndStake(beneficiary, amountTradedToken);
     }
 
@@ -233,11 +207,7 @@ contract CommunityStakingPool is
         require(msg.value > 0, "INSUFFICIENT_BALANCE");
         uint256 amountETH = msg.value;
         IWETH(WETH).deposit{value: amountETH}();
-        uint256 amountReserveToken = doSwapOnUniswap(
-            WETH,
-            reserveToken,
-            amountETH
-        );
+        uint256 amountReserveToken = doSwapOnUniswap(WETH, reserveToken, amountETH);
         _buyAndStakeLiquidity(account, amountReserveToken);
     }
 
@@ -246,21 +216,10 @@ contract CommunityStakingPool is
      * Finally will add to liquidity pool and stake it. Sender will obtain shares
      * @custom:shortd  the way to buy liquidity and stake via paying token
      */
-    function buyAndStakeLiquidity(address payingToken, uint256 amount)
-        public
-        nonReentrant
-    {
+    function buyAndStakeLiquidity(address payingToken, uint256 amount) public nonReentrant {
         address account = _msgSender();
-        IERC20Upgradeable(payingToken).transferFrom(
-            account,
-            address(this),
-            amount
-        );
-        uint256 amountReserveToken = doSwapOnUniswap(
-            payingToken,
-            reserveToken,
-            amount
-        );
+        IERC20Upgradeable(payingToken).transferFrom(account, address(this), amount);
+        uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
         _buyAndStakeLiquidity(account, amountReserveToken);
     }
 
@@ -270,11 +229,7 @@ contract CommunityStakingPool is
      */
     function buyAndStakeLiquidity(uint256 tokenBAmount) public nonReentrant {
         address account = _msgSender();
-        IERC20Upgradeable(reserveToken).transferFrom(
-            account,
-            address(this),
-            tokenBAmount
-        );
+        IERC20Upgradeable(reserveToken).transferFrom(account, address(this), tokenBAmount);
         _buyAndStakeLiquidity(account, tokenBAmount);
     }
 
@@ -283,19 +238,11 @@ contract CommunityStakingPool is
      * Finally will add to liquidity pool and stake it. Beneficiary will obtain shares
      * @custom:shortd  the way to buy liquidity and stake via ETH. Beneficiary will obtain shares
      */
-    function buyAndStakeLiquidity(address beneficiary)
-        public
-        payable
-        nonReentrant
-    {
+    function buyAndStakeLiquidity(address beneficiary) public payable nonReentrant {
         require(msg.value > 0, "INSUFFICIENT_BALANCE");
         uint256 amountETH = msg.value;
         IWETH(WETH).deposit{value: amountETH}();
-        uint256 amountReserveToken = doSwapOnUniswap(
-            WETH,
-            reserveToken,
-            amountETH
-        );
+        uint256 amountReserveToken = doSwapOnUniswap(WETH, reserveToken, amountETH);
         _buyAndStakeLiquidity(beneficiary, amountReserveToken);
     }
 
@@ -312,16 +259,8 @@ contract CommunityStakingPool is
         // note that here can be magic trick
         // trusted forwarder can be call tx as a Bob that wanted to specify alice as a beneficiary
         address account = _msgSender();
-        IERC20Upgradeable(payingToken).transferFrom(
-            account,
-            address(this),
-            amount
-        );
-        uint256 amountReserveToken = doSwapOnUniswap(
-            payingToken,
-            reserveToken,
-            amount
-        );
+        IERC20Upgradeable(payingToken).transferFrom(account, address(this), amount);
+        uint256 amountReserveToken = doSwapOnUniswap(payingToken, reserveToken, amount);
         _buyAndStakeLiquidity(beneficiary, amountReserveToken);
     }
 
@@ -329,15 +268,8 @@ contract CommunityStakingPool is
      * @notice method will receive reserveToken token then will add to liquidity pool and stake it. Beneficiary will obtain shares
      * @custom:shortd  the way to buy liquidity and stake via reserveToken. Beneficiary will obtain shares
      */
-    function buyAndStakeLiquidity(uint256 tokenBAmount, address beneficiary)
-        public
-        nonReentrant
-    {
-        IERC20Upgradeable(reserveToken).transferFrom(
-            _msgSender(),
-            address(this),
-            tokenBAmount
-        );
+    function buyAndStakeLiquidity(uint256 tokenBAmount, address beneficiary) public nonReentrant {
+        IERC20Upgradeable(reserveToken).transferFrom(_msgSender(), address(this), tokenBAmount);
         _buyAndStakeLiquidity(beneficiary, tokenBAmount);
     }
 
@@ -349,24 +281,15 @@ contract CommunityStakingPool is
      */
     function stakeLiquidity(uint256 lpAmount) public nonReentrant {
         require(lpAmount > 0, "AMOUNT_EMPTY");
-        IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(
-            _msgSender(),
-            address(this),
-            lpAmount
-        );
+        IERC20Upgradeable(address(uniswapV2Pair)).transferFrom(_msgSender(), address(this), lpAmount);
         (uint256 reserve0, uint256 reserve1, ) = uniswapV2Pair.getReserves();
         uint256 priceBeforeStake = (
-            _token0 == reserveToken
-                ? (FRACTION * reserve0) / reserve1
-                : (FRACTION * reserve1) / reserve0
+            _token0 == reserveToken ? (FRACTION * reserve0) / reserve1 : (FRACTION * reserve1) / reserve0
         );
         _stake(_msgSender(), lpAmount, priceBeforeStake);
     }
 
-    function addAndStakeLiquidity(
-        uint256 amountTradedToken,
-        uint256 amountReserveToken
-    ) public nonReentrant {
+    function addAndStakeLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) public nonReentrant {
         (
             ,
             ,
@@ -376,45 +299,27 @@ contract CommunityStakingPool is
 
         ) = uniswapPrices();
 
-        require(
-            amountTradedToken > 0 && amountReserveToken > 0,
-            "AMOUNT_EMPTY"
-        );
+        require(amountTradedToken > 0 && amountReserveToken > 0, "AMOUNT_EMPTY");
 
-        IERC20Upgradeable(tradedToken).transferFrom(
-            _msgSender(),
-            address(this),
-            amountTradedToken
-        );
-        IERC20Upgradeable(reserveToken).transferFrom(
-            _msgSender(),
-            address(this),
-            amountReserveToken
-        );
+        IERC20Upgradeable(tradedToken).transferFrom(_msgSender(), address(this), amountTradedToken);
+        IERC20Upgradeable(reserveToken).transferFrom(_msgSender(), address(this), amountReserveToken);
 
         require(
-            IERC20Upgradeable(tradedToken).approve(
-                uniswapRouter,
-                amountTradedToken
-            ) &&
-                IERC20Upgradeable(reserveToken).approve(
-                    uniswapRouter,
-                    amountReserveToken
-                ),
+            IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken) &&
+                IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken),
             "APPROVE_FAILED"
         );
 
-        (uint256 A, uint256 B, uint256 lpTokens) = UniswapV2Router02
-            .addLiquidity(
-                tradedToken,
-                reserveToken,
-                amountTradedToken,
-                amountReserveToken,
-                0, // there may be some slippage
-                0, // there may be some slippage
-                address(this),
-                block.timestamp
-            );
+        (uint256 A, uint256 B, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
+            tradedToken,
+            reserveToken,
+            amountTradedToken,
+            amountReserveToken,
+            0, // there may be some slippage
+            0, // there may be some slippage
+            address(this),
+            block.timestamp
+        );
         require(lpTokens > 0, "NO_LIQUIDITY");
 
         _stake(_msgSender(), lpTokens, priceTraded);
@@ -439,25 +344,13 @@ contract CommunityStakingPool is
 
         require(reserve0 != 0 && reserve1 != 0, "RESERVES_EMPTY");
         if (_token0 == tradedToken) {
-            return (
-                reserve0,
-                reserve1,
-                (FRACTION * reserve0) / reserve1,
-                (FRACTION * reserve1) / reserve0
-            );
+            return (reserve0, reserve1, (FRACTION * reserve0) / reserve1, (FRACTION * reserve1) / reserve0);
         } else {
-            return (
-                reserve1,
-                reserve0,
-                (FRACTION * reserve1) / reserve0,
-                (FRACTION * reserve0) / reserve1
-            );
+            return (reserve1, reserve0, (FRACTION * reserve1) / reserve0, (FRACTION * reserve0) / reserve1);
         }
     }
 
-    function _sellTradedAndStake(address from, uint256 incomingTradedToken)
-        internal
-    {
+    function _sellTradedAndStake(address from, uint256 incomingTradedToken) internal {
         (
             uint256 rTraded, /*uint256 rReserved*/
             ,
@@ -465,48 +358,34 @@ contract CommunityStakingPool is
 
         ) = uniswapPrices();
 
-        uint256 r3 = sqrt((rTraded + incomingTradedToken) * (rTraded)) -
-            rTraded; //
+        uint256 r3 = sqrt((rTraded + incomingTradedToken) * (rTraded)) - rTraded; //
         require(r3 > 0 && incomingTradedToken > r3, "BAD_AMOUNT");
         // remaining (r2-r3) we will exchange at uniswap to traded token
-        uint256 amountReserveToken = doSwapOnUniswap(
-            tradedToken,
-            reserveToken,
-            r3
-        );
+        uint256 amountReserveToken = doSwapOnUniswap(tradedToken, reserveToken, r3);
         uint256 amountTradedToken = incomingTradedToken - r3;
 
         require(
-            IERC20Upgradeable(tradedToken).approve(
-                uniswapRouter,
-                amountTradedToken
-            ) &&
-                IERC20Upgradeable(reserveToken).approve(
-                    uniswapRouter,
-                    amountReserveToken
-                ),
+            IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken) &&
+                IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken),
             "APPROVE_FAILED"
         );
 
-        (uint256 A, uint256 B, uint256 lpTokens) = UniswapV2Router02
-            .addLiquidity(
-                tradedToken,
-                reserveToken,
-                amountTradedToken,
-                amountReserveToken,
-                0, // there may be some slippage
-                0, // there may be some slippage
-                address(this),
-                block.timestamp
-            );
+        (uint256 A, uint256 B, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
+            tradedToken,
+            reserveToken,
+            amountTradedToken,
+            amountReserveToken,
+            0, // there may be some slippage
+            0, // there may be some slippage
+            address(this),
+            block.timestamp
+        );
         require(lpTokens > 0, "NO_LIQUIDITY");
 
         _stake(from, lpTokens, priceTraded);
     }
 
-    function _buyAndStakeLiquidity(address from, uint256 incomingReserveToken)
-        internal
-    {
+    function _buyAndStakeLiquidity(address from, uint256 incomingReserveToken) internal {
         (
             ,
             /*uint256 rTraded*/
@@ -520,25 +399,14 @@ contract CommunityStakingPool is
         // where
         //  r1 - reserve at uniswap(reserve1)
         //  r2 - incoming amount of reserve token
-        uint256 r3 = sqrt((rReserved + incomingReserveToken) * (rReserved)) -
-            rReserved; //
+        uint256 r3 = sqrt((rReserved + incomingReserveToken) * (rReserved)) - rReserved; //
         require(r3 > 0 && incomingReserveToken > r3, "BAD_AMOUNT");
         // remaining (r2-r3) we will exchange at uniswap to traded token
-        uint256 amountTradedToken = doSwapOnUniswap(
-            reserveToken,
-            tradedToken,
-            r3
-        );
+        uint256 amountTradedToken = doSwapOnUniswap(reserveToken, tradedToken, r3);
         uint256 amountReserveToken = incomingReserveToken - r3;
         require(
-            IERC20Upgradeable(tradedToken).approve(
-                uniswapRouter,
-                amountTradedToken
-            ) &&
-                IERC20Upgradeable(reserveToken).approve(
-                    uniswapRouter,
-                    amountReserveToken
-                ),
+            IERC20Upgradeable(tradedToken).approve(uniswapRouter, amountTradedToken) &&
+                IERC20Upgradeable(reserveToken).approve(uniswapRouter, amountReserveToken),
             "APPROVE_FAILED"
         );
         (, , uint256 lpTokens) = UniswapV2Router02.addLiquidity(
@@ -566,42 +434,23 @@ contract CommunityStakingPool is
     {
         uint256 amount2Redeem = __redeem(sender, amount);
 
-        require(
-            uniswapV2Pair.approve(uniswapRouter, amount2Redeem),
-            "APPROVE_FAILED"
+        require(uniswapV2Pair.approve(uniswapRouter, amount2Redeem), "APPROVE_FAILED");
+        (affectedTradedAmount, affectedReservedAmount) = UniswapV2Router02.removeLiquidity(
+            tradedToken, //address tokenA,
+            reserveToken, //address tokenB,
+            amount2Redeem, //uint liquidity,
+            0, //uint amountAMin,
+            0, //uint amountBMin,
+            address(this), //address to,
+            block.timestamp //uint deadline
         );
-        (affectedTradedAmount, affectedReservedAmount) = UniswapV2Router02
-            .removeLiquidity(
-                tradedToken, //address tokenA,
-                reserveToken, //address tokenB,
-                amount2Redeem, //uint liquidity,
-                0, //uint amountAMin,
-                0, //uint amountBMin,
-                address(this), //address to,
-                block.timestamp //uint deadline
-            );
         // _fractionAmountSend(tradedToken, amountA, tradedTokenClaimFraction, stakingProducedBy, sender);
         // _fractionAmountSend(reserveToken, amountB, reserveTokenClaimFraction, stakingProducedBy, sender);
-        _fractionAmountSend(
-            tradedToken,
-            affectedTradedAmount,
-            0,
-            stakingProducedBy,
-            sender
-        );
-        _fractionAmountSend(
-            reserveToken,
-            affectedReservedAmount,
-            0,
-            stakingProducedBy,
-            sender
-        );
+        _fractionAmountSend(tradedToken, affectedTradedAmount, 0, stakingProducedBy, sender);
+        _fractionAmountSend(reserveToken, affectedReservedAmount, 0, stakingProducedBy, sender);
     }
 
-    function __redeem(address sender, uint256 amount)
-        private
-        returns (uint256 amount2Redeem)
-    {
+    function __redeem(address sender, uint256 amount) private returns (uint256 amount2Redeem) {
         emit Redeemed(sender, amount);
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
@@ -610,9 +459,7 @@ contract CommunityStakingPool is
             address(uniswapV2Pair),
             amount,
             lpFraction,
-            lpFractionBeneficiary == address(0)
-                ? stakingProducedBy
-                : lpFractionBeneficiary,
+            lpFractionBeneficiary == address(0) ? stakingProducedBy : lpFractionBeneficiary,
             address(0)
         );
     }
@@ -620,18 +467,9 @@ contract CommunityStakingPool is
     /**
      * @dev implemented EIP-2771
      */
-    function _msgSender()
-        internal
-        view
-        virtual
-        override
-        returns (address signer)
-    {
+    function _msgSender() internal view virtual override returns (address signer) {
         signer = msg.sender;
-        if (
-            msg.data.length >= 20 &&
-            ITrustedForwarder(stakingProducedBy).isTrustedForwarder(signer)
-        ) {
+        if (msg.data.length >= 20 && ITrustedForwarder(stakingProducedBy).isTrustedForwarder(signer)) {
             assembly {
                 signer := shr(96, calldataload(sub(calldatasize(), 20)))
             }

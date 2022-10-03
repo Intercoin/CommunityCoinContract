@@ -6,10 +6,7 @@ import "./interfaces/ICommunityStakingPoolErc20.sol";
 
 //import "hardhat/console.sol";
 
-contract CommunityStakingPoolErc20 is
-    CommunityStakingPoolBase,
-    ICommunityStakingPoolErc20
-{
+contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakingPoolErc20 {
     /**
      * @custom:shortd address of ERC20 token.
      * @notice address of ERC20 token. ie investor token - ITR
@@ -90,16 +87,9 @@ contract CommunityStakingPoolErc20 is
         rewardsRate = rewardsRateFraction;
     }
 
-    function stake(uint256 tokenAmount, address beneficiary)
-        public
-        nonReentrant
-    {
+    function stake(uint256 tokenAmount, address beneficiary) public nonReentrant {
         address account = _msgSender();
-        IERC20Upgradeable(erc20Token).transferFrom(
-            account,
-            address(this),
-            tokenAmount
-        );
+        IERC20Upgradeable(erc20Token).transferFrom(account, address(this), tokenAmount);
         _stake(beneficiary, tokenAmount, 0);
     }
 
@@ -115,24 +105,13 @@ contract CommunityStakingPoolErc20 is
         uint256 tokenAmount,
         address beneficiary
     ) public nonReentrant {
-        IERC20Upgradeable(tokenAddress).transferFrom(
-            _msgSender(),
-            address(this),
-            tokenAmount
-        );
+        IERC20Upgradeable(tokenAddress).transferFrom(_msgSender(), address(this), tokenAmount);
 
-        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(
-            erc20Token,
-            tokenAddress
-        );
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(erc20Token, tokenAddress);
         require(pair != address(0), "NO_UNISWAP_V2_PAIR");
         //uniswapV2Pair = IUniswapV2Pair(pair);
 
-        uint256 erc20TokenAmount = doSwapOnUniswap(
-            tokenAddress,
-            erc20Token,
-            tokenAmount
-        );
+        uint256 erc20TokenAmount = doSwapOnUniswap(tokenAddress, erc20Token, tokenAmount);
         require(erc20TokenAmount != 0, "insufficient on uniswap");
         _stake(beneficiary, erc20TokenAmount, 0);
     }
@@ -140,10 +119,7 @@ contract CommunityStakingPoolErc20 is
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    function _redeem(address account, uint256 amount)
-        internal
-        returns (uint256 affectedLPAmount)
-    {
+    function _redeem(address account, uint256 amount) internal returns (uint256 affectedLPAmount) {
         affectedLPAmount = __redeem(account, amount);
         IERC20Upgradeable(erc20Token).transfer(account, affectedLPAmount);
     }
@@ -151,10 +127,7 @@ contract CommunityStakingPoolErc20 is
     ////////////////////////////////////////////////////////////////////////
     // private section /////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    function __redeem(address sender, uint256 amount)
-        private
-        returns (uint256 amount2Redeem)
-    {
+    function __redeem(address sender, uint256 amount) private returns (uint256 amount2Redeem) {
         emit Redeemed(sender, amount);
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
@@ -163,9 +136,7 @@ contract CommunityStakingPoolErc20 is
             erc20Token,
             amount,
             lpFraction,
-            lpFractionBeneficiary == address(0)
-                ? stakingProducedBy
-                : lpFractionBeneficiary,
+            lpFractionBeneficiary == address(0) ? stakingProducedBy : lpFractionBeneficiary,
             address(0)
         );
     }

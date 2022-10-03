@@ -36,8 +36,7 @@ abstract contract CommunityStakingPoolBase is
     uint64 public constant FRACTION = 100000;
 
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
-    bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH =
-        keccak256("ERC777TokensRecipient");
+    bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
     // CommunityCoin address
     address internal stakingProducedBy;
@@ -133,19 +132,13 @@ abstract contract CommunityStakingPoolBase is
         // UnimplementedFeatureError: Copying of type struct IStructs.StructAddrUint256 memory[] memory to storage not yet supported.
 
         for (uint256 i = 0; i < donations_.length; i++) {
-            donations.push(
-                IStructs.StructAddrUint256({
-                    account: donations_[i].account,
-                    amount: donations_[i].amount
-                })
-            );
+            donations.push(IStructs.StructAddrUint256({account: donations_[i].account, amount: donations_[i].amount}));
         }
 
         __ReentrancyGuard_init();
 
         // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib
-            .netWorkSettings();
+        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
         UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
     }
 
@@ -166,25 +159,18 @@ abstract contract CommunityStakingPoolBase is
             // situation when WETH is a reserve token
             amountOut = amountIn;
         } else {
-            require(
-                IERC20Upgradeable(tokenIn).approve(
-                    address(uniswapRouter),
-                    amountIn
-                ),
-                "APPROVE_FAILED"
-            );
+            require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
             address[] memory path = new address[](2);
             path[0] = address(tokenIn);
             path[1] = address(tokenOut);
             // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
-            uint256[] memory outputAmounts = UniswapV2Router02
-                .swapExactTokensForTokens(
-                    amountIn,
-                    0,
-                    path,
-                    address(this),
-                    block.timestamp
-                );
+            uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
+                amountIn,
+                0,
+                path,
+                address(this),
+                block.timestamp
+            );
             amountOut = outputAmounts[1];
         }
     }
@@ -216,10 +202,7 @@ abstract contract CommunityStakingPoolBase is
             IERC20Upgradeable(token_).transfer(fractionAddr_, adjusted);
             remainingAfterFractionSend = amount_ - adjusted;
             if (!fractionSendOnly_) {
-                IERC20Upgradeable(token_).transfer(
-                    to_,
-                    remainingAfterFractionSend
-                );
+                IERC20Upgradeable(token_).transfer(to_, remainingAfterFractionSend);
                 remainingAfterFractionSend = 0;
             }
         }
@@ -247,11 +230,7 @@ abstract contract CommunityStakingPoolBase is
             }
         }
 
-        ICommunityCoin(stakingProducedBy).issueWalletTokens(
-            addr,
-            left,
-            priceBeforeStake
-        );
+        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, left, priceBeforeStake);
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -261,18 +240,9 @@ abstract contract CommunityStakingPoolBase is
     /**
      * @dev implemented EIP-2771
      */
-    function _msgSender()
-        internal
-        view
-        virtual
-        override
-        returns (address signer)
-    {
+    function _msgSender() internal view virtual override returns (address signer) {
         signer = msg.sender;
-        if (
-            msg.data.length >= 20 &&
-            ITrustedForwarder(stakingProducedBy).isTrustedForwarder(signer)
-        ) {
+        if (msg.data.length >= 20 && ITrustedForwarder(stakingProducedBy).isTrustedForwarder(signer)) {
             assembly {
                 signer := shr(96, calldataload(sub(calldatasize(), 20)))
             }
