@@ -12,6 +12,7 @@ require("@hardhat-docgen/core")
 //require("@hardhat-docgen/markdown")
 require("./docgen-custom-markdown")
 require("solidity-coverage")
+require('hardhat-contract-sizer'); //npx hardhat size-contracts
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
 const goerliURL = `https://eth-goerli.alchemyapi.io/v2/${process.env.ALCHEMY_GOERLI}`
@@ -104,7 +105,7 @@ module.exports = {
           settings: {
             optimizer: {
               enabled: true,
-              runs: 50,
+              runs: 10,
             },
             metadata: {
               // do not include the metadata hash, since this is machine dependent
@@ -120,7 +121,7 @@ module.exports = {
           settings: {
             optimizer: {
               enabled: false,
-              runs: 200,
+              runs: 100,
             },
             metadata: {
               // do not include the metadata hash, since this is machine dependent
@@ -143,10 +144,6 @@ module.exports = {
     
     sources: "./contracts"
     
-  },
-  gasReporter: {
-    currency: 'USD',
-    enabled: (process.env.REPORT_GAS === "true") ? true : false
   },
   mocha: {
     timeout: 200000

@@ -2,11 +2,12 @@
 pragma solidity ^0.8.0;
 
 interface IHook {
+    // uses in initialing. fo example to link hook and caller of this hook
     function setupCaller() external;
-    function claim(address account) external;
-    function bonus(address instance, address account, uint64 duration, uint256 amount) external;
-    function transferHook(address operator, address from, address to, uint256 amount) external returns(bool);
+
+    function onClaim(address account) external;
+
+    function onUnstake(address instance, address account, uint64 duration, uint256 amount, uint64 rewardsFraction) external;
 
 
-    
 }
