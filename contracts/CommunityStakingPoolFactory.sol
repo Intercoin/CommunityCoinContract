@@ -549,7 +549,13 @@ contract CommunityStakingPoolFactory is
         uint256 amountFrom,
         uint256 subReserveFrom,
         uint256 subReserveTo
-    ) internal view returns (bool success, uint256 ret) //address pair
+    )
+        internal
+        view
+        returns (
+            bool success,
+            uint256 ret //address pair
+        )
     {
         success = false;
         address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(
