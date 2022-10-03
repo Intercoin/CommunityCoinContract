@@ -10,6 +10,217 @@ import "../interfaces/IHook.sol";
 //import "hardhat/console.sol";
 library PoolStakesLib {
     using MinimumsLib for MinimumsLib.UserStruct;
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
+
+    function unstakeablePart(
+        mapping(address => ICommunityCoin.UserData) storage users,
+        mapping(address => ICommunityCoin.InstanceStruct) storage _instances,
+        address from, 
+        address to, 
+        IStructs.Total storage total, 
+        uint256 amount
+    ) external {
+        // console.log("amount                         =",amount);
+        // console.log("remainingAmount                =",remainingAmount);
+        // console.log("users[from].unstakeable        =",users[from].unstakeable);
+        // console.log("users[from].unstakeableBonuses =",users[from].unstakeableBonuses);
+        // console.log("users[to].unstakeable          =",users[to].unstakeable);
+        // console.log("users[to].unstakeableBonuses   =",users[to].unstakeableBonuses);
+        // else it's just transfer
+
+        // so while transfer user will user free tokens at first
+        // then try to use locked. when using locked we should descrease
+
+        //users[from].unstakeableBonuses;
+        //try to get from bonuses
+        //  here just increase redeemable
+        //then try to get from main unstakeable
+        //  here decrease any unstakeable vars
+        //              increase redeemable
+        uint256 r;
+        uint256 left = amount;
+        if (users[from].unstakeableBonuses > 0) {
+            
+            if (users[from].unstakeableBonuses >= left) {
+                r = left;
+            } else {
+                r = users[from].unstakeableBonuses;
+            }
+
+            if (to == address(0)) {
+                // it's simple burn and tokens can not be redeemable
+            } else {
+                total.totalRedeemable += r;
+            }
+
+            PoolStakesLib._removeBonusThroughInstances(users, _instances, from, r);
+            users[from].unstakeableBonuses -= r;
+            left -= r;
+        }
+
+        if ((left > 0) && (users[from].unstakeable >= left)) {
+            // console.log("#2");
+            if (users[from].unstakeable >= left) {
+                r = left;
+            } else {
+                r = users[from].unstakeable;
+            }
+
+            //   r = users[from].unstakeable - left;
+            // if (totalUnstakeable >= r) {
+            users[from].unstakeable -= r;
+            total.totalUnstakeable -= r;
+
+            if (to == address(0)) {
+                // it's simple burn and tokens can not be redeemable
+            } else {
+                total.totalRedeemable += r;
+            }
+
+            PoolStakesLib._removeMainThroughInstances(users, _instances, from, r);
+
+            //left -= r;
+
+            // }
+        }
+
+        // if (users[from].unstakeable >= remainingAmount) {
+        //     uint256 r = users[from].unstakeable - remainingAmount;
+        //     // if (totalUnstakeable >= r) {
+        //     users[from].unstakeable -= r;
+        //     totalUnstakeable -= r;
+        //     if (to == address(0)) {
+        //         // it's simple burn and tokens can not be redeemable
+        //     } else {
+        //         totalRedeemable += r;
+        //     }
+        //     // }
+        // }
+        // console.log("----------------------------");
+        // console.log("users[from].unstakeable        =",users[from].unstakeable);
+        // console.log("users[from].unstakeableBonuses =",users[from].unstakeableBonuses);
+        // console.log("users[to].unstakeable          =",users[to].unstakeable);
+        // console.log("users[to].unstakeableBonuses   =",users[to].unstakeableBonuses);
+    }
+
+    
+    function _removeMainThroughInstances(
+        mapping(address => ICommunityCoin.UserData) storage users,
+        mapping(address => ICommunityCoin.InstanceStruct) storage _instances,
+        address account, 
+        uint256 amount
+    ) internal {
+        uint256 len = users[account].instancesList.length();
+        address[] memory instances2Delete = new address[](len);
+        uint256 j = 0;
+        address instance;
+        for (uint256 i = 0; i < len; i++) {
+            instance = users[account].instancesList.at(i);
+            if (_instances[instance].unstakeable[account] >= amount) {
+                _instances[instance].unstakeable[account] -= amount;
+                _instances[instance].redeemable += amount;
+            } else if (_instances[instance].unstakeable[account] > 0) {
+                _instances[instance].unstakeable[account] = 0;
+                instances2Delete[j] = instance;
+                j += 1;
+                amount -= _instances[instance].unstakeable[account];
+            }
+        }
+
+        // do deletion out of loop above. because catch out of array
+        cleanInstancesList(users, _instances, account, instances2Delete, j);
+    }
+
+    function _removeBonusThroughInstances(
+        mapping(address => ICommunityCoin.UserData) storage users,
+        mapping(address => ICommunityCoin.InstanceStruct) storage _instances,
+        // address account, 
+        // // address to, 
+        // // IStructs.Total storage total, 
+        // uint256 amount
+        address account, 
+        uint256 amount
+    ) internal {
+        //console.log("START::_removeBonusThroughInstances");
+        uint256 len = users[account].instancesList.length();
+        address[] memory instances2Delete = new address[](len);
+        uint256 j = 0;
+        //console.log("_removeBonusThroughInstances::len", len);
+        address instance;
+        for (uint256 i = 0; i < len; i++) {
+            instance = users[account].instancesList.at(i);
+            if (_instances[instance].unstakeableBonuses[account] >= amount) {
+                //console.log("_removeBonusThroughInstances::#1");
+                _instances[instance].unstakeableBonuses[account] -= amount;
+            } else if (_instances[instance].unstakeableBonuses[account] > 0) {
+                //console.log("_removeBonusThroughInstances::#2");
+                _instances[instance].unstakeableBonuses[account] = 0;
+                instances2Delete[i] = instance;
+                j += 1;
+                amount -= _instances[instance].unstakeableBonuses[account];
+            }
+        }
+
+        // do deletion out of loop above. because catch out of array
+        PoolStakesLib.cleanInstancesList(users, _instances, account, instances2Delete, j);
+        //console.log("END::_removeBonusThroughInstances");
+    }
+
+    /*
+    function _removeBonus(
+        address instance,
+        address account,
+        uint256 amount
+    ) internal {
+        // todo 0:
+        //  check `instance` exists in list.
+        //  check `amount` should be less or equal `_instances[instance].unstakeableBonuses[account]`
+
+        _instances[instance].unstakeableBonuses[account] -= amount;
+        users[account].unstakeableBonuses -= amount;
+
+        if (_instances[instance].unstakeable[account] >= amount) {
+            _instances[instance].unstakeable[account] -= amount;
+        } else if (_instances[instance].unstakeable[account] > 0) {
+            _instances[instance].unstakeable[account] = 0;
+            //amount -= _instances[instance].unstakeable[account];
+        }
+        _cleanInstance(account, instance);
+    }
+    */
+
+    function cleanInstancesList(
+        
+        mapping(address => ICommunityCoin.UserData) storage users,
+        mapping(address => ICommunityCoin.InstanceStruct) storage _instances,
+        address account,
+        address[] memory instances2Delete,
+        uint256 indexUntil
+    ) internal {
+        // console.log("start::cleanInstancesList");
+        // console.log("cleanInstancesList::indexUntil=",indexUntil);
+        //uint256 len = instances2Delete.length;
+        if (indexUntil > 0) {
+            for (uint256 i = 0; i < indexUntil; i++) {
+                PoolStakesLib._cleanInstance(users, _instances, account, instances2Delete[i]);
+            }
+        }
+        // console.log("end::cleanInstancesList");
+    }
+
+     function _cleanInstance(
+        mapping(address => ICommunityCoin.UserData) storage users,
+        mapping(address => ICommunityCoin.InstanceStruct) storage _instances,
+        address account, 
+        address instance
+    ) internal {
+        //console.log("start::_cleanInstance");
+        if (_instances[instance].unstakeableBonuses[account] == 0 && _instances[instance].unstakeable[account] == 0) {
+            users[account].instancesList.remove(instance);
+        }
+
+        // console.log("end::_cleanInstance");
+    }
 
     function lockedPart(
         mapping(address => ICommunityCoin.UserData) storage users,
@@ -164,9 +375,10 @@ library PoolStakesLib {
         uint256 amount,
         uint256 totalSupplyBefore,
         ICommunityCoin.Strategy strategy,
-        uint256 totalRedeemable,
-        uint256 totalUnstakeable,
-        uint256 totalReserves,
+        IStructs.Total storage total,
+        // uint256 totalRedeemable,
+        // uint256 totalUnstakeable,
+        // uint256 totalReserves,
         uint256 discountSensitivity,
         mapping(address => ICommunityCoin.UserData) storage users,
         uint64 unstakeTariff, 
@@ -182,8 +394,8 @@ library PoolStakesLib {
             // discountSensitivity - constant set in constructor
             // A = totalRedeemable across all pools
             // B = totalSupply - A - totalUnstakeable
-            uint256 A = totalRedeemable;
-            uint256 B = totalSupplyBefore - A - totalUnstakeable;
+            uint256 A = total.totalRedeemable;
+            uint256 B = totalSupplyBefore - A - total.totalUnstakeable;
             // uint256 ratio = A / (A + B * discountSensitivity);
             // amountLeft =  amount * ratio; // LPTokens =  WalletTokens * ratio;
 
@@ -213,7 +425,7 @@ library PoolStakesLib {
             // discount = totalReserves / (totalSupply();
             // !!! keep in mind that we have burn tokens before it's operation and totalSupply() can be zero. use totalSupplyBefore instead 
 
-            amount = amount * totalReserves / totalSupplyBefore;
+            amount = amount * total.totalReserves / totalSupplyBefore;
 
             /////////////////////////////////////////////////////////////////////
             

@@ -17,6 +17,14 @@ interface IStructs {
         uint8 tariffRoleId;
     }
 
+    struct Total {
+        uint256 totalUnstakeable;
+        uint256 totalRedeemable;
+        // it's how tokens will store in pools. without bonuses.
+        // means totalReserves = SUM(pools.totalSupply)
+        uint256 totalReserves;
+    }
+
     enum InstanceType{ USUAL, ERC20, NONE }
 
 }
