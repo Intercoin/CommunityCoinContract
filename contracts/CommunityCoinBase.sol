@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 import "./interfaces/IHook.sol";
+import "./interfaces/ITaxes.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/ICommunityStakingPoolErc20.sol";
@@ -45,6 +46,8 @@ abstract contract CommunityCoinBase is
     uint64 internal constant MAX_TAX = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
     uint64 internal constant MAX_BOOST = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
 
+    address public taxHook;
+    
     uint64 public redeemTariff;
     uint64 public unstakeTariff;
 
@@ -112,6 +115,8 @@ abstract contract CommunityCoinBase is
     event RewardGranted(address indexed token, address indexed account, uint256 amount);
     event Staked(address indexed account, uint256 amount, uint256 priceBeforeStake);
 
+    event MaxTaxExceeded();
+    event MaxBoostExceeded();
     /**
     * @param impl address of StakingPool implementation
     * @param implErc20 address of StakingPoolErc20 implementation
@@ -689,7 +694,11 @@ abstract contract CommunityCoinBase is
         redeemTariff = redeemTariff_;
         unstakeTariff = unstakeTariff_;
     }
-  
+
+    function setupTaxAddress(address taxAddress) public onlyOwner {
+        require(taxHook == address(0));
+        taxHook = taxAddress;
+    }
     
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
@@ -1005,7 +1014,7 @@ astrcut _instances storage
         if (
             from !=address(0) && //otherwise minted
             !(from == address(this) && to == address(0)) && //burnt by contract itself
-            address(hook) != address(0) && // hook setup
+            address(taxHook) != address(0) && // tax hook setup
             !flagHookTransferReentrant // no reentrant here
         ) { 
             // hook should return tuple: (success, amountAdjusted)
@@ -1017,24 +1026,30 @@ astrcut _instances storage
                 uint256(uint160(from)),
                 uint256(uint160(to))
             );
-            //require(hook.transferHook(operator, from, to, amount), "HOOK: TRANSFER_PREVENT");
-            bool success;
-            uint256 amountAdjusted;
-
+            
             flagHookTransferReentrant = true;
 
-            (success, amountAdjusted) = hook.beforeTransfer(operator, from, to, amount);
+            (bool success, uint256 amountAdjusted) = ITaxes(taxHook).beforeTransfer(operator, from, to, amount);
             if (success == false) { revert HookTransferPrevent(from, to, amount);}
+
             if (amount < amountAdjusted) {
+                if (amount+amount*MAX_BOOST < amountAdjusted) {
+                    amountAdjusted = amount+amount*MAX_BOOST;
+                    emit MaxBoostExceeded();
+                }
                 _mint(to, amountAdjusted - amount, "", "");
             } else if (amount > amountAdjusted) {
+                if (amount-amount*MAX_TAX < amountAdjusted) {
+                    amountAdjusted = amount-amount*MAX_TAX;
+                    emit MaxTaxExceeded();
+                }
                 _burn(from, amount - amountAdjusted, "", "");
                 amount = amountAdjusted;
             }
             
             // if amount == amountAdjusted do nothing
 
-            flagHookTransferReentrant = true;
+            flagHookTransferReentrant = false;
         }
 
         super._beforeTokenTransfer(operator, from, to, amount);

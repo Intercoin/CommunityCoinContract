@@ -58,19 +58,4 @@ contract MockHook is IHook {
         // return hAmount;
     }
 
-    
-    function transferHook(
-        address /*operator*/, 
-        address /*from*/, 
-        address /*to*/, 
-        uint256 amount
-    ) 
-        external 
-        override
-        returns(bool, uint256)
-    {
-        
-        return (hTransferFlag, amount);
-    }
-
 }

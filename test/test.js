@@ -628,7 +628,8 @@ describe("Staking contract tests", function () {
         beforeEach("deploying", async() => {
 
             const RewardsF = await ethers.getContractFactory("Rewards");
-            rewards = await RewardsF.deploy(
+            rewards = await RewardsF.deploy();
+            await rewards.initialize(
                 frank.address, //address sellingToken,
                 [], //uint256[] memory timestamps,
                 [], //uint256[] memory prices,
@@ -640,6 +641,7 @@ describe("Staking contract tests", function () {
 
         it("should be empty after init", async() => {
             expect(await rewards.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
+            
         });
 
         it("should be setup by owner", async() => {
@@ -748,20 +750,27 @@ describe("Staking contract tests", function () {
         });
 
         describe("test transferHook ", function () {   
+            var taxHook;
             beforeEach("before each", async() => {
                 await communityStakingPoolWithHook.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
                 
                 walletTokens = await CommunityCoinWithHook.balanceOf(bob.address);
                 lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
+
+                const MockTaxesF = await ethers.getContractFactory("MockTaxes");
+                taxHook = await MockTaxesF.deploy();
                 
-            });
+                CommunityCoinWithHook.connect(owner).setupTaxAddress(taxHook.address);
+
+            }); 
+
             it("should prevent transfer if disabled via hook contract", async() => {
                 
                 // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                 expect(lptokens).not.to.be.eq(ZERO);
                 expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
 
-                await mockHook.setupVars(ZERO,false);
+                await taxHook.setupVars(ZERO,false);
 
                 await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWith(`HookTransferPrevent("${bob.address}", "${alice.address}", ${walletTokens})`);
                 
@@ -773,7 +782,7 @@ describe("Staking contract tests", function () {
                 expect(lptokens).not.to.be.eq(ZERO);
                 expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
 
-                await mockHook.setupVars(ZERO,true);
+                await taxHook.setupVars(FRACTION,true);
 
                 await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).not.to.be.revertedWith(`HookTransferPrevent("${bob.address}", "${alice.address}", ${walletTokens})`);
                 
