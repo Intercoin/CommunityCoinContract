@@ -75,13 +75,13 @@ contract CommunityCoin is CommunityCoinBase {
     /**
     * @param impl address of StakingPool implementation
     * @param implErc20 address of StakingPoolErc20 implementation
-    * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
+    * @param hook_ address of contract implemented IHook interface and uses to accumulation bonus tokens amount
     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
     * @param tradedToken_ address of traded token. usual it intercoin investor token
-    * [deprecated]param costManager_ costManager address
-    * [deprecated]param producedBy_ address that produced instance by factory
+    * @param costManager_ costManager address
+    * @param producedBy_ address that produced instance by factory
     * @custom:calledby StakingFactory contract 
     * @custom:shortd initializing contract. called by StakingFactory contract
     */
@@ -103,8 +103,6 @@ contract CommunityCoin is CommunityCoinBase {
         override 
     {
         CommunityCoinBase__init(
-            // "Staking Tokens", 
-            // "STAKE", 
             string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), " commnunity")), 
             string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), " c")), 
             impl, 
