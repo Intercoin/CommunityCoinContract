@@ -31,7 +31,7 @@ const REDEEM_ROLE       = 0x2;//'redeem';
 const CIRCULATE_ROLE    = 0x3;//'circulate';
 const TARIFF_ROLE       = 0x4;//'tariff';
 
-const FRACTION = 100000;
+const FRACTION = BigNumber.from('100000');
 
 const NO_DONATIONS = [];
 
@@ -760,7 +760,8 @@ describe("Staking contract tests", function () {
                 const MockTaxesF = await ethers.getContractFactory("MockTaxes");
                 taxHook = await MockTaxesF.deploy();
                 
-                CommunityCoinWithHook.connect(owner).setupTaxAddress(taxHook.address);
+                await CommunityCoinWithHook.connect(owner).setupTaxAddress(taxHook.address);
+                
 
             }); 
 
@@ -787,6 +788,94 @@ describe("Staking contract tests", function () {
                 await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).not.to.be.revertedWith(`HookTransferPrevent("${bob.address}", "${alice.address}", ${walletTokens})`);
                 
             });
+
+            describe("test taxes ", function () {   
+                let tmp1,tmp2,tmp3,tmp4;
+                let obtainedTokensWithNoTax, obtainedTokensWithTax, senderTokensWithNoTax, senderTokensTokensWithTax;
+
+                const TokensToSend = ONE_ETH.div(20);
+                const PERCENTS_FRACTION = FIVE.mul(FRACTION).div(100); //5%*fraction
+
+                beforeEach("before each", async() => {
+                    await taxHook.setupVars(FRACTION,true);
+                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    tmp3 = await CommunityCoinWithHook.balanceOf(bob.address);
+                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    tmp4 = await CommunityCoinWithHook.balanceOf(bob.address);
+
+                    obtainedTokensWithNoTax = tmp2.sub(tmp1);
+                    senderTokensWithNoTax = tmp3.sub(tmp4);
+                    
+                });
+                it("should reduce tokens while transfer if taxes used", async() => {
+
+                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    await taxHook.setupVars(FRACTION.sub(PERCENTS_FRACTION), true);
+                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
+
+                    obtainedTokensWithTax = tmp2.sub(tmp1);
+
+                    expect(obtainedTokensWithTax).to.be.lt(obtainedTokensWithNoTax);
+
+                    expect(obtainedTokensWithNoTax.sub(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
+                    
+                });
+
+                it("shouldn't exceed maxTAX ", async() => {
+                    
+                    const TOO_MUCH_PERCENTS_FRACTION = HUNDRED.mul(FRACTION).div(100); //100%*fraction
+                    
+                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    await taxHook.setupVars(FRACTION.sub(TOO_MUCH_PERCENTS_FRACTION), true);
+                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
+
+                    obtainedTokensWithTax = tmp2.sub(tmp1);
+
+                    expect(obtainedTokensWithTax).to.be.lt(obtainedTokensWithNoTax);
+
+                    expect(obtainedTokensWithNoTax.sub(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).not.to.be.eq(obtainedTokensWithTax);
+
+                    let MAX_TAX = await await CommunityCoinWithHook.MAX_TAX();
+                    expect(obtainedTokensWithNoTax.sub(obtainedTokensWithNoTax.mul(MAX_TAX).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
+                    
+                });
+
+                it("should mint extra tokens while transfer if taxes used ", async() => {
+                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    await taxHook.setupVars(FRACTION.add(PERCENTS_FRACTION), true);
+                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
+
+                    obtainedTokensWithTax = tmp2.sub(tmp1);
+
+                    expect(obtainedTokensWithTax).to.be.gt(obtainedTokensWithNoTax);
+
+                    expect(obtainedTokensWithNoTax.add(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
+                });
+                
+                it("shouldn't exceed maxBOOST", async() => {
+                     
+                    const TOO_MUCH_PERCENTS_FRACTION = HUNDRED.mul(FRACTION).div(100); //100%*fraction
+                    
+                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    await taxHook.setupVars(FRACTION.add(TOO_MUCH_PERCENTS_FRACTION), true);
+                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
+
+                    obtainedTokensWithTax = tmp2.sub(tmp1);
+
+                    expect(obtainedTokensWithTax).to.be.gt(obtainedTokensWithNoTax);
+
+                    expect(obtainedTokensWithNoTax.add(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).not.to.be.eq(obtainedTokensWithTax);
+
+                    let MAX_BOOST = await await CommunityCoinWithHook.MAX_BOOST();
+                    expect(obtainedTokensWithNoTax.add(obtainedTokensWithNoTax.mul(MAX_BOOST).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
+                });
+            });
+           
         }); 
 
     });

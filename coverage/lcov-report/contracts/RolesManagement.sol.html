@@ -119,36 +119,7 @@
 74
 75
 76
-77
-78
-79
-80
-81
-82
-83
-84
-85
-86
-87
-88
-89
-90
-91
-92
-93
-94
-95
-96
-97
-98
-99
-100
-101
-102
-103
-104
-105
-106</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+77</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -170,26 +141,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">206×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-yes">206×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -200,28 +159,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">38×</span>
 <span class="cline-any cline-yes">13×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -252,7 +195,6 @@
 <span class="cline-any cline-yes">13×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 &nbsp;
@@ -261,9 +203,8 @@ import "./maps/CommunityAccessMap.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@artman325/community/contracts/interfaces/ICommunity.sol";
 &nbsp;
-&nbsp;
-abstract contract RolesManagement is /*ICommunityRolesManagement, */Initializable {
-&nbsp;
+/*ICommunityRolesManagement, */
+abstract contract RolesManagement is Initializable {
     // itrc' fraction that will send to person who has invited "buy and stake" person
     uint256 internal invitedByFraction;
 &nbsp;
@@ -275,46 +216,27 @@ abstract contract RolesManagement is /*ICommunityRolesManagement, */Initializabl
 &nbsp;
     error MissingRole(address account, uint8 roleId);
 &nbsp;
-    function __RolesManagement_init(
-        IStructs.CommunitySettings calldata communitySettings
-    )
-        onlyInitializing 
-        internal
-    {
+    function __RolesManagement_init(IStructs.CommunitySettings calldata communitySettings) internal onlyInitializing {
         <span class="missing-if-branch" title="else path not taken" >E</span>require(communitySettings.addr != address(0));
 &nbsp;
-        invitedByFraction   = communitySettings.invitedByFraction;
-        communityAddress    = communitySettings.addr;
-        adminRoleId         = communitySettings.adminRoleId;
-        redeemRoleId        = communitySettings.redeemRoleId;
-        circulationRoleId   = communitySettings.circulationRoleId;
-        tariffRoleId        = communitySettings.tariffRoleId;
-&nbsp;
+        invitedByFraction = communitySettings.invitedByFraction;
+        communityAddress = communitySettings.addr;
+        adminRoleId = communitySettings.adminRoleId;
+        redeemRoleId = communitySettings.redeemRoleId;
+        circulationRoleId = communitySettings.circulationRoleId;
+        tariffRoleId = communitySettings.tariffRoleId;
     }
 &nbsp;
-    
     /**
-    * @param fraction fraction that will send to person which has invite person who staked
-    */
-<span class="fstat-no" title="function not covered" >    function _setCommission(</span>
-        uint256 fraction
-    )
-        internal
-    {
+     * @param fraction fraction that will send to person which has invite person who staked
+     */
+<span class="fstat-no" title="function not covered" >    function _setCommission(uint256 fraction) internal {</span>
 <span class="cstat-no" title="statement not covered" >        invitedByFraction = fraction</span>;
-&nbsp;
     }
 &nbsp;
-<span class="fstat-no" title="function not covered" >    function _invitedBy(</span>
-        address account
-    )
-        internal 
-        view
-        returns(address inviter)
-    {
+<span class="fstat-no" title="function not covered" >    function _invitedBy(address account) internal view returns (address inviter) {</span>
 <span class="cstat-no" title="statement not covered" >        return CommunityAccessMap(communityAddress).invitedBy(account);</span>
     }
-&nbsp;
 &nbsp;
     function _checkRole(uint8 roleId, address account) internal view virtual {
         if (!hasRole(roleId, account)) {
@@ -334,17 +256,9 @@ abstract contract RolesManagement is /*ICommunityRolesManagement, */Initializabl
 &nbsp;
     /**
      * @dev Returns `true` if `account` has been granted `role`.
-     * 
+     *
      */
-    function hasRole(
-        uint8 role, 
-        address account
-    ) 
-        public 
-        view 
-        returns (bool) 
-    {
-&nbsp;
+    function hasRole(uint8 role, address account) public view returns (bool) {
         // external call to community contract
         uint8[] memory communityRoles = ICommunity(communityAddress).getRoles(account);
 &nbsp;
@@ -355,16 +269,15 @@ abstract contract RolesManagement is /*ICommunityRolesManagement, */Initializabl
         }
 &nbsp;
         return false;
-        
     }
-&nbsp;
-}</pre></td></tr>
+}
+&nbsp;</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Sep 30 2022 14:38:33 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Tue Oct 04 2022 19:46:11 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>

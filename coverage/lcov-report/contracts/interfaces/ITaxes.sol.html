@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>Code coverage report for contracts\mocks\MockReleaseManager.sol</title>
+    <title>Code coverage report for contracts\interfaces\ITaxes.sol</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -16,7 +16,7 @@
 <div class='wrapper'>
   <div class='pad1'>
     <h1>
-      <a href="../../index.html">all files</a> / <a href="index.html">contracts/mocks/</a> MockReleaseManager.sol
+      <a href="../../index.html">all files</a> / <a href="index.html">contracts/interfaces/</a> ITaxes.sol
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
@@ -48,26 +48,17 @@
 3
 4
 5
-6
-7
-8
-9</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+6</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.11;
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
 &nbsp;
-import "@artman325/releasemanager/contracts/ReleaseManager.sol";
-&nbsp;
-contract MockReleaseManager is ReleaseManager {
-    
-}
-&nbsp;</pre></td></tr>
+interface ITaxes {
+    function beforeTransfer(address operator, address from, address to, uint256 amount) external returns(bool success, uint256 amountAdjusted);
+}</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
 </div><!-- /wrapper -->

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>Code coverage report for contracts\interfaces\ICommunityStakingPool.sol</title>
+    <title>Code coverage report for contracts\mocks\MockTaxes.sol</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -16,13 +16,13 @@
 <div class='wrapper'>
   <div class='pad1'>
     <h1>
-      <a href="../../index.html">all files</a> / <a href="index.html">contracts/interfaces/</a> ICommunityStakingPool.sol
+      <a href="../../index.html">all files</a> / <a href="index.html">contracts/mocks/</a> MockTaxes.sol
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>0/0</span>
+        <span class='fraction'>3/3</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -32,12 +32,12 @@
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>0/0</span>
+        <span class='fraction'>2/2</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>0/0</span>
+        <span class='fraction'>3/3</span>
       </div>
     </div>
   </div>
@@ -67,7 +67,43 @@
 22
 23
 24
-25</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10×</span>
+<span class="cline-any cline-yes">10×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -86,36 +122,51 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
-import "./IStructs.sol";
 &nbsp;
-interface ICommunityStakingPool {
-    
-    function initialize(
-        address stakingProducedBy_,
-        address reserveToken_,
-        address tradedToken_, 
-        IStructs.StructAddrUint256[] memory donations_,
-        uint64 lpFraction_,
-        address lpFractionBeneficiary_,
-        uint64 rewardsRateFraction_
-    ) external;
-    /*
-    function stake(address addr, uint256 amount) external;
-    function getMinimum(address addr) external view returns(uint256);
-    */
-    function unstake(address account, uint256 amount) external returns(uint256 affectedLPAmount, uint64 rewardsRateFraction);
-    function unstakeAndRemoveLiquidity(address account, uint256 amount) external returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount, uint64 rewardsRateFraction);
-    function redeem(address account, uint256 amount) external returns(uint256 affectedLPAmount, uint64 rewardsRateFraction);
-    function redeemAndRemoveLiquidity(address account, uint256 amount) external returns(uint256 affectedReservedAmount, uint256 affectedTradedAmount, uint64 rewardsRateFraction);
-}
-&nbsp;</pre></td></tr>
+import "../interfaces/ITaxes.sol";
+import "hardhat/console.sol";
+&nbsp;
+contract MockTaxes is ITaxes {
+    uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+&nbsp;
+    bool internal hTransferFlag;
+    uint256 internal hFractionAmount;
+&nbsp;
+    function setupVars(
+        uint256 amount,
+        bool boolFlag
+    )
+        public 
+    {
+        hTransferFlag = boolFlag;
+        hFractionAmount = amount;
+&nbsp;
+    }
+&nbsp;
+    function beforeTransfer(
+        address /*operator*/, 
+        address /*from*/, 
+        address /*to*/, 
+        uint256 amount
+    )
+        external
+        //override
+        returns(bool success, uint256 amountAdjusted)
+    {
+// console.log("=============");
+// console.log(amount);
+// console.log(hFractionAmount);
+// console.log(amount*hFractionAmount/FRACTION);
+// console.log("=============");
+        return (hTransferFlag, amount*hFractionAmount/FRACTION);
+    }
+&nbsp;
+}</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
 </div><!-- /wrapper -->

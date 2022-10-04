@@ -2,11 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "../interfaces/ITaxes.sol";
+import "hardhat/console.sol";
+
 contract MockTaxes is ITaxes {
-    //uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+    uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
     bool internal hTransferFlag;
-    uint256 internal hAmount;
+    uint256 internal hFractionAmount;
 
     function setupVars(
         uint256 amount,
@@ -15,7 +17,7 @@ contract MockTaxes is ITaxes {
         public 
     {
         hTransferFlag = boolFlag;
-        hAmount = amount;
+        hFractionAmount = amount;
 
     }
 
@@ -23,13 +25,18 @@ contract MockTaxes is ITaxes {
         address /*operator*/, 
         address /*from*/, 
         address /*to*/, 
-        uint256 /*amount*/
+        uint256 amount
     )
         external
         //override
         returns(bool success, uint256 amountAdjusted)
     {
-        return (hTransferFlag, hAmount);
+// console.log("=============");
+// console.log(amount);
+// console.log(hFractionAmount);
+// console.log(amount*hFractionAmount/FRACTION);
+// console.log("=============");
+        return (hTransferFlag, amount*hFractionAmount/FRACTION);
     }
 
 }

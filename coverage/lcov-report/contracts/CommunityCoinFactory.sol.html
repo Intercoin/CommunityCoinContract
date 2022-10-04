@@ -232,11 +232,7 @@
 187
 188
 189
-190
-191
-192
-193
-194</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+190</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -354,18 +350,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">297×</span>
-<span class="cline-any cline-yes">297×</span>
-<span class="cline-any cline-yes">297×</span>
-<span class="cline-any cline-yes">297×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">309×</span>
+<span class="cline-any cline-yes">309×</span>
+<span class="cline-any cline-yes">309×</span>
+<span class="cline-any cline-yes">309×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -401,28 +389,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">206×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">198×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">198×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">198×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">206×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">206×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -436,7 +428,6 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/IStructs.sol";
-&nbsp;
 &nbsp;
 import "@artman325/releasemanager/contracts/CostManagerFactoryHelper.sol";
 import "@artman325/releasemanager/contracts/ReleaseManagerHelper.sol";
@@ -512,49 +503,46 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     using Clones for address;
 &nbsp;
     /**
-    * @custom:shortd CommunityCoin implementation address
-    * @notice CommunityCoin implementation address
-    */
+     * @custom:shortd CommunityCoin implementation address
+     * @notice CommunityCoin implementation address
+     */
     address public immutable communityCoinImplementation;
-    
+&nbsp;
     /**
-    * @custom:shortd CommunityStakingPoolFactory implementation address
-    * @notice CommunityStakingPoolFactory implementation address
-    */
+     * @custom:shortd CommunityStakingPoolFactory implementation address
+     * @notice CommunityStakingPoolFactory implementation address
+     */
     address public immutable communityStakingPoolFactoryImplementation;
-    
+&nbsp;
     /**
-    * @custom:shortd StakingPool implementation address
-    * @notice StakingPool implementation address
-    */
+     * @custom:shortd StakingPool implementation address
+     * @notice StakingPool implementation address
+     */
     address public immutable stakingPoolImplementation;
     address public immutable stakingPoolErc20Implementation;
 &nbsp;
     address[] public instances;
-    
-    event InstanceCreated(address instance, uint instancesCount);
+&nbsp;
+    event InstanceCreated(address instance, uint256 instancesCount);
 &nbsp;
     /**
-    * @param communityCoinImpl address of CommunityCoin implementation
-    * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
-    * @param stakingPoolImpl address of StakingPool implementation
-    * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
-    * [deprecated]param costManager_ address of costmanager
-    */
+     * @param communityCoinImpl address of CommunityCoin implementation
+     * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
+     * @param stakingPoolImpl address of StakingPool implementation
+     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
+     * [deprecated]param costManager_ address of costmanager
+     */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address stakingPoolImplErc20,
         address costManager_
-    ) 
-        CostManagerFactoryHelper(costManager_)
-    {
+    ) CostManagerFactoryHelper(costManager_) {
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
         stakingPoolErc20Implementation = stakingPoolImplErc20;
-&nbsp;
     }
 &nbsp;
     ////////////////////////////////////////////////////////////////////////
@@ -562,15 +550,11 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     ////////////////////////////////////////////////////////////////////////
 &nbsp;
     /**
-    * @dev view amount of created instances
-    * @return amount amount instances
-    * @custom:shortd view amount of created instances
-    */
-    function instancesCount()
-        external 
-        view 
-        returns (uint256 amount) 
-    {
+     * @dev view amount of created instances
+     * @return amount amount instances
+     * @custom:shortd view amount of created instances
+     */
+    function instancesCount() external view returns (uint256 amount) {
         amount = instances.length;
     }
 &nbsp;
@@ -579,56 +563,60 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     ////////////////////////////////////////////////////////////////////////
 &nbsp;
     /**
-    * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
-    * @param tradedToken address of traded token. usual it intercoin investor token
-    * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
-    * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-    * @param communitySettings tuple of community settings (address of contract and roles(admin,redeem,circulate))
-    * @return instance address of created instance pool `CommunityCoin`
-    * @custom:shortd creation instance
-    */
+     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
+     * @param tradedToken address of traded token. usual it intercoin investor token
+     * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
+     * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+     * @param communitySettings tuple of community settings (address of contract and roles(admin,redeem,circulate))
+     * @return instance address of created instance pool `CommunityCoin`
+     * @custom:shortd creation instance
+     */
     function produce(
         address reserveToken,
         address tradedToken,
         address hook,
         uint256 discountSensitivity,
         IStructs.CommunitySettings memory communitySettings
-    ) 
-        public 
-        onlyOwner()
-        returns (address instance) 
-    {
-        
+    ) public onlyOwner returns (address instance) {
         instance = communityCoinImplementation.clone();
         address coinInstancesClone = communityStakingPoolFactoryImplementation.clone();
 &nbsp;
         <span class="missing-if-branch" title="else path not taken" >E</span>require(instance != address(0), "CommunityCoinFactory: INSTANCE_CREATION_FAILED");
 &nbsp;
         instances.push(instance);
-        
+&nbsp;
         emit InstanceCreated(instance, instances.length);
 &nbsp;
-        ICommunityCoin(instance).initialize(stakingPoolImplementation, stakingPoolErc20Implementation, hook, coinInstancesClone, discountSensitivity, reserveToken, tradedToken, communitySettings, costManager, _msgSender());
-        
+        ICommunityCoin(instance).initialize(
+            stakingPoolImplementation,
+            stakingPoolErc20Implementation,
+            hook,
+            coinInstancesClone,
+            discountSensitivity,
+            reserveToken,
+            tradedToken,
+            communitySettings,
+            costManager,
+            _msgSender()
+        );
+&nbsp;
         Ownable(instance).transferOwnership(_msgSender());
 &nbsp;
         // register instance in release manager
         registerInstance(instance);
-        
     }
 &nbsp;
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-&nbsp;
-    
-}</pre></td></tr>
+}
+&nbsp;</pre></td></tr>
 </table></pre>
 <div class='push'></div><!-- for sticky footer -->
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Sep 30 2022 14:38:33 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Tue Oct 04 2022 19:46:11 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>

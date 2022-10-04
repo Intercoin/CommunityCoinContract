@@ -21,7 +21,7 @@ import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol"
 
 import "./libs/PoolStakesLib.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 abstract contract CommunityCoinBase is
     OwnableUpgradeable,
@@ -43,8 +43,8 @@ abstract contract CommunityCoinBase is
     uint64 internal constant MAX_UNSTAKE_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
 
     // max constants used in BeforeTransfer
-    uint64 internal constant MAX_TAX = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
-    uint64 internal constant MAX_BOOST = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 public constant MAX_TAX = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 public constant MAX_BOOST = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
 
     address public taxHook;
 
@@ -811,13 +811,16 @@ abstract contract CommunityCoinBase is
         }
     }
 
-    function _beforeTokenTransfer(
-        address operator,
+    function _send(
         address from,
         address to,
-        uint256 amount
+        uint256 amount,
+        bytes memory userData,
+        bytes memory operatorData,
+        bool requireReceptionAck
     ) internal virtual override {
-        if (
+        
+    if (
             from != address(0) && //otherwise minted
             !(from == address(this) && to == address(0)) && //burnt by contract itself
             address(taxHook) != address(0) && // tax hook setup
@@ -835,24 +838,28 @@ abstract contract CommunityCoinBase is
 
             flagHookTransferReentrant = true;
 
-            (bool success, uint256 amountAdjusted) = ITaxes(taxHook).beforeTransfer(operator, from, to, amount);
+            (bool success, uint256 amountAdjusted) = ITaxes(taxHook).beforeTransfer(_msgSender(), from, to, amount);
             if (success == false) {
                 revert HookTransferPrevent(from, to, amount);
             }
 
             if (amount < amountAdjusted) {
-                if (amount + amount * MAX_BOOST < amountAdjusted) {
-                    amountAdjusted = amount + amount * MAX_BOOST;
+                if (amount + amount * MAX_BOOST / FRACTION < amountAdjusted) {
+                    amountAdjusted = amount + amount * MAX_BOOST / FRACTION;
                     emit MaxBoostExceeded();
                 }
                 _mint(to, amountAdjusted - amount, "", "");
             } else if (amount > amountAdjusted) {
-                if (amount - amount * MAX_TAX < amountAdjusted) {
-                    amountAdjusted = amount - amount * MAX_TAX;
+                // if amountAdjusted less then amount with max tax
+                if (amount - amount * MAX_TAX / FRACTION > amountAdjusted) {
+                    amountAdjusted = amount - amount * MAX_TAX / FRACTION;
                     emit MaxTaxExceeded();
                 }
+
                 _burn(from, amount - amountAdjusted, "", "");
+
                 amount = amountAdjusted;
+
             }
 
             // if amount == amountAdjusted do nothing
@@ -860,6 +867,16 @@ abstract contract CommunityCoinBase is
             flagHookTransferReentrant = false;
         }
 
+        super._send(from, to, amount, userData, operatorData, requireReceptionAck);
+    }
+
+    function _beforeTokenTransfer(
+        address operator,
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual override {
+    
         super._beforeTokenTransfer(operator, from, to, amount);
 
         if (from != address(0)) {
@@ -896,6 +913,7 @@ abstract contract CommunityCoinBase is
                 }
             }
         }
+
     }
 
     /**
