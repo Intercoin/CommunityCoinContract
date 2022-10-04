@@ -96,20 +96,21 @@ abstract contract RewardsBase is TrustedForwarder, OwnableUpgradeable {
         _bonuses = bonuses;
     }
 
-    function _exchange(uint256 inputAmount) internal {
-        uint256 tokenPrice = getTokenPrice();
-        uint256 amount2send = _getTokenAmount(inputAmount, tokenPrice);
-        require(amount2send > 0, "FundContract: Can not calculate amount of tokens");
+    // [deprecated] used then need toi calculate "how much user will obtain tokens when send ETH(or erc20) into contract"
+    // function _exchange(uint256 inputAmount) internal {
+    //     uint256 tokenPrice = getTokenPrice();
+    //     uint256 amount2send = _getTokenAmount(inputAmount, tokenPrice);
+    //     require(amount2send > 0, "FundContract: Can not calculate amount of tokens");
 
-        uint256 tokenBalance = IERC20(sellingToken).balanceOf(address(this));
-        require(tokenBalance >= amount2send, "FundContract: Amount exceeds allowed balance");
+    //     uint256 tokenBalance = IERC20(sellingToken).balanceOf(address(this));
+    //     require(tokenBalance >= amount2send, "FundContract: Amount exceeds allowed balance");
 
-        bool success = IERC20(sellingToken).transfer(_msgSender(), amount2send);
-        require(success == true, "Transfer tokens were failed");
+    //     bool success = IERC20(sellingToken).transfer(_msgSender(), amount2send);
+    //     require(success == true, "Transfer tokens were failed");
 
-        // bonus calculation
-        _addBonus(_msgSender(), (inputAmount));
-    }
+    //     // bonus calculation
+    //     _addBonus(_msgSender(), (inputAmount));
+    // }
 
     /**
      * @dev setup trusted forwarder address
@@ -209,10 +210,20 @@ abstract contract RewardsBase is TrustedForwarder, OwnableUpgradeable {
     /**
      * calculate token"s amount
      * @param amount amount in eth that should be converted in tokenAmount
-     * @param price token price
+     * @param price token price. can be calculated in getTokenPrice method
+     * @return amount of selling tokens that user should obtain after exchange
      */
     function _getTokenAmount(uint256 amount, uint256 price) internal pure returns (uint256) {
         return (amount * priceDenom) / price;
+    }
+
+    /**
+    * @param tokenAmount amount in selling tokens
+    * @param price token price it current period time. can be calculated in getTokenPrice method
+    * @return amount of input tokens(eth or erc20) that user should send into contract to obtain selling token
+    */
+    function _getNeededInputAmount(uint256 tokenAmount, uint256 price) internal pure returns(uint256) {
+        return (tokenAmount * price / priceDenom);
     }
 
     /**
@@ -302,7 +313,4 @@ abstract contract RewardsBase is TrustedForwarder, OwnableUpgradeable {
         }
     }
 
-    function getContractTotalAmount() internal view returns (uint256) {
-        return address(this).balance;
-    }
 }
