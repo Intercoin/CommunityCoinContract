@@ -20,28 +20,28 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">16.67% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>1/6</span>
+        <span class='fraction'>8/8</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">0% </span>
+        <span class="strong">50% </span>
         <span class="quiet">Branches</span>
-        <span class='fraction'>0/4</span>
+        <span class='fraction'>3/6</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">20% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Functions</span>
-        <span class='fraction'>1/5</span>
+        <span class='fraction'>5/5</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">11.11% </span>
+        <span class="strong">81.82% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>1/9</span>
+        <span class='fraction'>9/11</span>
       </div>
     </div>
   </div>
-  <div class='status-line low'></div>
+  <div class='status-line high'></div>
 <pre><table class="coverage">
 <tr><td class="line-count quiet">1
 2
@@ -103,7 +103,15 @@
 58
 59
 60
-61</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+61
+62
+63
+64
+65
+66
+67
+68
+69</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -124,22 +132,29 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">62×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">58×</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">58×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -155,9 +170,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -169,6 +185,8 @@ pragma solidity ^0.8.11;
 import "./RewardsBase.sol";
 import "./interfaces/IHook.sol";
 import "./interfaces/IRewards.sol";
+&nbsp;
+import "hardhat/console.sol";
 &nbsp;
 contract Rewards is RewardsBase, IHook, IRewards {
     // caller which can call methods `bonus`
@@ -187,28 +205,32 @@ contract Rewards is RewardsBase, IHook, IRewards {
         __Rewards_init(sellingToken, timestamps, prices, thresholds, bonuses);
     }
 &nbsp;
-<span class="fstat-no" title="function not covered" >    modifier onlyCaller() {</span>
-<span class="cstat-no" title="statement not covered" >        if (_msgSender() != caller) {</span>
+    modifier onlyCaller() {
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (_msgSender() != caller) {
             revert AccessDenied();
         }
         _;
     }
 &nbsp;
-<span class="fstat-no" title="function not covered" >    function setupCaller() external override {</span>
-<span class="cstat-no" title="statement not covered" >        if (caller != address(0)) {</span>
+    function setupCaller() external override {
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (caller != address(0)) {
             revert AlreadySetup();
         }
-<span class="cstat-no" title="statement not covered" >        caller = _msgSender()</span>;
+        caller = _msgSender();
     }
 &nbsp;
-<span class="fstat-no" title="function not covered" >    function onClaim(address account) external onlyCaller {</span>
+    function onClaim(address account) external onlyCaller {
         //
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (participants[account].exists == true) {
+            _claim(account, participants[account].groupName);
+        }
+&nbsp;
     }
 &nbsp;
     /**
     @param amount amount in sellingtokens that need to add to `account`
     */
-<span class="fstat-no" title="function not covered" >    function onUnstake(</span>
+    function onUnstake(
         address, /*instance*/
         address account,
         uint64, /*duration*/
@@ -216,8 +238,10 @@ contract Rewards is RewardsBase, IHook, IRewards {
         uint64 /*rewardsFraction*/
     ) external onlyCaller {
         // 
-<span class="cstat-no" title="statement not covered" >        uint256 inputAmount = _getNeededInputAmount(amount, getTokenPrice());</span>
-<span class="cstat-no" title="statement not covered" >        _addBonus(account, inputAmount)</span>;
+        uint256 inputAmount = _getNeededInputAmount(amount, getTokenPrice());
+&nbsp;
+        // here we didn't claim immediately. contract may not contains enough tokens and can revert all transactions.
+        _addBonus(account, inputAmount, false); 
     }
 &nbsp;
 &nbsp;
@@ -229,7 +253,7 @@ contract Rewards is RewardsBase, IHook, IRewards {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Oct 06 2022 16:21:47 GMT+0300 (Восточная Европа, летнее время)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Oct 06 2022 19:27:24 GMT+0300 (Восточная Европа, летнее время)
 </div>
 </div>
 <script src="../prettify.js"></script>

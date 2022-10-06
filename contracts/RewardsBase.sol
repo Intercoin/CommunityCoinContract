@@ -169,12 +169,7 @@ abstract contract RewardsBase is TrustedForwarder, OwnableUpgradeable {
         return _getGroupBonus(groupName);
     }
 
-    function claim() public {
-        address addr = _msgSender();
-        if (participants[addr].exists == true) {
-            _claim(addr, participants[addr].groupName);
-        }
-    }
+   
 
     function _claim(address addr, string memory groupName) internal {
         //// send tokens
@@ -263,7 +258,7 @@ abstract contract RewardsBase is TrustedForwarder, OwnableUpgradeable {
             groups[groupName].participants.push(addr);
 
             if (totalInvestedGroupOutside[addr] > 0) {
-                _addBonus(addr, totalInvestedGroupOutside[addr]);
+                _addBonus(addr, totalInvestedGroupOutside[addr], true);
             }
         }
     }
@@ -273,14 +268,16 @@ abstract contract RewardsBase is TrustedForwarder, OwnableUpgradeable {
      * @param addr Address of participant
      * @param ethAmount amount
      */
-    function _addBonus(address addr, uint256 ethAmount) internal {
+    function _addBonus(address addr, uint256 ethAmount, bool doClaim) internal {
         if (participants[addr].exists == true) {
             string memory groupName = participants[addr].groupName;
 
             groups[groupName].totalAmount += ethAmount;
             participants[addr].totalAmount += ethAmount;
 
-            _claim(addr, groupName);
+            if (doClaim) {
+                _claim(addr, groupName);
+            }
 
             /*
             ////cycle for sending tokens for all group participants

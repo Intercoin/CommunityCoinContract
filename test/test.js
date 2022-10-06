@@ -38,6 +38,9 @@ const NO_DONATIONS = [];
 const NO_BONUS_FRACTIONS = ZERO; // no bonus. means amount*NO_BONUS_FRACTIONS/FRACTION = X*0/100000 = 0
 const BONUS_FRACTIONS = 50000; // 50%
 
+const PRICE_DENOM = 100_000_000; // 1e8
+
+
 
 function convertToHex(str) {
     var hex = '';
@@ -73,17 +76,19 @@ describe("Staking contract tests", function () {
     const discountSensitivity = 1*FRACTION;
     const rewardsRateFraction = FRACTION;
 
+    const rewardsTenPercentBonus = 10;
+
     var implementationCommunityCoin;
     var implementationCommunityStakingPoolFactory;
     var implementationCommunityStakingPool;
     var implementationCommunityStakingPoolErc20;
 
-    var mockHook;
+    var rewardsHook;
     var mockCommunity;
     var ERC20Factory;
     var CommunityCoinFactory;
     var CommunityCoin;
-    var CommunityCoinWithHook;
+    var CommunityCoinWithRewardsHook;
     var erc20;
     var erc777;
     var erc20TradedToken;
@@ -109,7 +114,7 @@ describe("Staking contract tests", function () {
         const CommunityStakingPoolErc20F = await ethers.getContractFactory("CommunityStakingPoolErc20");
         const CommunityStakingPoolFactoryF = await ethers.getContractFactory("CommunityStakingPoolFactory");
 
-        const MockHookF = await ethers.getContractFactory("MockHook");
+        const RewardsF = await ethers.getContractFactory("Rewards");
         const MockCommunityF = await ethers.getContractFactory("MockCommunity");
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
         
@@ -135,7 +140,21 @@ describe("Staking contract tests", function () {
         implementationCommunityStakingPool = await CommunityStakingPoolF.deploy();
         implementationCommunityStakingPoolErc20 = await CommunityStakingPoolErc20F.deploy();
 
-        mockHook = await MockHookF.deploy();
+        rewardsHook = await RewardsF.deploy();
+
+        const PRICE_REWARDS = PRICE_DENOM;
+        let timeLatest = await time.latest();
+
+        await rewardsHook.connect(owner).initialize(
+            erc20Reward.address,                    //address sellingToken,
+            [timeLatest.toString()],                //uint256[] memory timestamps,
+            [PRICE_REWARDS],                        // uint256[] memory _prices,
+            [ethers.utils.parseEther("0.00001")],   // uint256[] memory thresholds,
+            [rewardsTenPercentBonus]   // 10%                           // uint256[] memory bonuses
+        )
+        
+
+
         mockCommunity = await MockCommunityF.deploy();
 
         const COMMUNITY_SETTINGS = [
@@ -177,11 +196,11 @@ describe("Staking contract tests", function () {
         CommunityCoin = await ethers.getContractAt("CommunityCoin",instance);
 
         // with hook
-        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, mockHook.address, discountSensitivity, COMMUNITY_SETTINGS);
+        tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, rewardsHook.address, discountSensitivity, COMMUNITY_SETTINGS);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
-        CommunityCoinWithHook = await ethers.getContractAt("CommunityCoin",instance);
+        CommunityCoinWithRewardsHook = await ethers.getContractAt("CommunityCoin",instance);
         
     });
 
@@ -963,7 +982,7 @@ describe("Staking contract tests", function () {
         
     });
 
-    describe("Hook tests", function () {   
+    describe("Rewards tests", function () {   
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;
         var communityStakingPoolWithHook;
@@ -972,6 +991,7 @@ describe("Staking contract tests", function () {
         var lptokens;
 
         beforeEach("deploying", async() => {
+
             uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
             uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
 
@@ -1000,7 +1020,7 @@ describe("Staking contract tests", function () {
                 timeUntil
             );
 
-            let tx = await CommunityCoinWithHook.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
+            let tx = await CommunityCoinWithRewardsHook.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
@@ -1036,16 +1056,108 @@ describe("Staking contract tests", function () {
 
         });
 
-        it("test bonus tokens if not set", async() => {
-            await mockHook.setupVars(ZERO,true);
-            await communityStakingPoolWithHook.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
-            
-            walletTokens = await CommunityCoinWithHook.balanceOf(bob.address);
-            lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
+        it("test rewards tokens", async() => {
+            const GroupName = "TestGroup";
+          
+            await rewardsHook.connect(owner).setGroup([bob.address], GroupName);
+            const oldGroupBonus = await rewardsHook.getGroupBonus(GroupName);
+            await expect(oldGroupBonus).to.be.eq(ZERO);
 
-            expect(lptokens).not.to.be.eq(ZERO);
-            expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);;
-               
+            await communityStakingPoolWithHook.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
+            let shares = await CommunityCoinWithRewardsHook.balanceOf(bob.address);
+
+            // pass some mtime
+            await time.increase(lockupIntervalCount*dayInSeconds+9);    
+
+            await CommunityCoinWithRewardsHook.connect(bob).approve(CommunityCoinWithRewardsHook.address, shares);
+            await CommunityCoinWithRewardsHook.connect(bob)["unstakeAndRemoveLiquidity(uint256)"](shares);
+
+            const newGroupBonus = await rewardsHook.getGroupBonus(GroupName);
+            expect(newGroupBonus).not.to.be.eq(ZERO);
+            expect(newGroupBonus).to.be.eq(rewardsTenPercentBonus);
+
+            await expect(CommunityCoinWithRewardsHook.connect(bob).claim()).to.be.revertedWith('Amount exceeds allowed balance');
+
+            await erc20Reward.mint(rewardsHook.address, HUNDRED.mul(ONE_ETH));
+            let oldBobBalance = await erc20Reward.balanceOf(bob.address);
+            await CommunityCoinWithRewardsHook.connect(bob).claim();
+            let newBobBalance = await erc20Reward.balanceOf(bob.address);
+            expect(newBobBalance).to.be.gt(oldBobBalance);
+
+        });
+    });
+    describe("taxes tests", function () {   
+        var uniswapRouterFactoryInstance;
+        var uniswapRouterInstance;
+        var communityStakingPoolWithHook;
+
+        var walletTokens;
+        var lptokens;
+
+        beforeEach("deploying", async() => {
+
+            uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
+            uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+            await uniswapRouterFactoryInstance.createPair(erc20ReservedToken.address, erc20TradedToken.address);
+        
+            let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20ReservedToken.address, erc20TradedToken.address);
+
+            pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
+
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+
+            const ts = await time.latest();
+            const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                erc20ReservedToken.address,
+                erc20TradedToken.address,
+                ONE_ETH.mul(SEVEN),
+                ONE_ETH.mul(SEVEN),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
+                lockupIntervalCount,
+                NO_BONUS_FRACTIONS,
+                NO_DONATIONS,
+                lpFraction,
+                ZERO_ADDRESS,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            )
+
+            const rc = await tx.wait(); // 0ms, as tx is already confirmed
+            const event = rc.events.find(event => event.event === 'InstanceCreated');
+            const [tokenA, tokenB, instance] = event.args;
+            
+            communityStakingPoolWithHook = await ethers.getContractAt("CommunityStakingPool",instance);
+            
+            // create pair Token2 => WETH
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidityETH(
+                erc20ReservedToken.address,
+                ONE_ETH.mul(SEVEN),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil,
+                {value: ONE_ETH.mul(SEVEN) }
+            );
+
+            
+
+
         });
 
         describe("test transferHook ", function () {   
@@ -1053,13 +1165,13 @@ describe("Staking contract tests", function () {
             beforeEach("before each", async() => {
                 await communityStakingPoolWithHook.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
                 
-                walletTokens = await CommunityCoinWithHook.balanceOf(bob.address);
+                walletTokens = await CommunityCoin.balanceOf(bob.address);
                 lptokens = await pairInstance.balanceOf(communityStakingPoolWithHook.address);
 
                 const MockTaxesF = await ethers.getContractFactory("MockTaxes");
                 taxHook = await MockTaxesF.deploy();
                 
-                await CommunityCoinWithHook.connect(owner).setupTaxAddress(taxHook.address);
+                await CommunityCoin.connect(owner).setupTaxAddress(taxHook.address);
                 
 
             }); 
@@ -1072,7 +1184,7 @@ describe("Staking contract tests", function () {
 
                 await taxHook.setupVars(ZERO,false);
 
-                await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWith(`HookTransferPrevent("${bob.address}", "${alice.address}", ${walletTokens})`);
+                await expect(CommunityCoin.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWith(`HookTransferPrevent("${bob.address}", "${alice.address}", ${walletTokens})`);
                 
             });
 
@@ -1084,7 +1196,7 @@ describe("Staking contract tests", function () {
 
                 await taxHook.setupVars(FRACTION,true);
 
-                await expect(CommunityCoinWithHook.connect(bob).transfer(alice.address, walletTokens)).not.to.be.revertedWith(`HookTransferPrevent("${bob.address}", "${alice.address}", ${walletTokens})`);
+                await expect(CommunityCoin.connect(bob).transfer(alice.address, walletTokens)).not.to.be.revertedWith(`HookTransferPrevent("${bob.address}", "${alice.address}", ${walletTokens})`);
                 
             });
 
@@ -1097,11 +1209,11 @@ describe("Staking contract tests", function () {
 
                 beforeEach("before each", async() => {
                     await taxHook.setupVars(FRACTION,true);
-                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
-                    tmp3 = await CommunityCoinWithHook.balanceOf(bob.address);
-                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
-                    tmp4 = await CommunityCoinWithHook.balanceOf(bob.address);
+                    tmp1 = await CommunityCoin.balanceOf(alice.address);
+                    tmp3 = await CommunityCoin.balanceOf(bob.address);
+                    await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoin.balanceOf(alice.address);
+                    tmp4 = await CommunityCoin.balanceOf(bob.address);
 
                     obtainedTokensWithNoTax = tmp2.sub(tmp1);
                     senderTokensWithNoTax = tmp3.sub(tmp4);
@@ -1109,10 +1221,10 @@ describe("Staking contract tests", function () {
                 });
                 it("should reduce tokens while transfer if taxes used", async() => {
 
-                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    tmp1 = await CommunityCoin.balanceOf(alice.address);
                     await taxHook.setupVars(FRACTION.sub(PERCENTS_FRACTION), true);
-                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoin.balanceOf(alice.address);
 
                     obtainedTokensWithTax = tmp2.sub(tmp1);
 
@@ -1126,10 +1238,10 @@ describe("Staking contract tests", function () {
                     
                     const TOO_MUCH_PERCENTS_FRACTION = HUNDRED.mul(FRACTION).div(100); //100%*fraction
                     
-                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    tmp1 = await CommunityCoin.balanceOf(alice.address);
                     await taxHook.setupVars(FRACTION.sub(TOO_MUCH_PERCENTS_FRACTION), true);
-                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoin.balanceOf(alice.address);
 
                     obtainedTokensWithTax = tmp2.sub(tmp1);
 
@@ -1137,16 +1249,16 @@ describe("Staking contract tests", function () {
 
                     expect(obtainedTokensWithNoTax.sub(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).not.to.be.eq(obtainedTokensWithTax);
 
-                    let MAX_TAX = await await CommunityCoinWithHook.MAX_TAX();
+                    let MAX_TAX = await await CommunityCoin.MAX_TAX();
                     expect(obtainedTokensWithNoTax.sub(obtainedTokensWithNoTax.mul(MAX_TAX).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
                     
                 });
 
                 it("should mint extra tokens while transfer if taxes used ", async() => {
-                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    tmp1 = await CommunityCoin.balanceOf(alice.address);
                     await taxHook.setupVars(FRACTION.add(PERCENTS_FRACTION), true);
-                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoin.balanceOf(alice.address);
 
                     obtainedTokensWithTax = tmp2.sub(tmp1);
 
@@ -1159,10 +1271,10 @@ describe("Staking contract tests", function () {
                      
                     const TOO_MUCH_PERCENTS_FRACTION = HUNDRED.mul(FRACTION).div(100); //100%*fraction
                     
-                    tmp1 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    tmp1 = await CommunityCoin.balanceOf(alice.address);
                     await taxHook.setupVars(FRACTION.add(TOO_MUCH_PERCENTS_FRACTION), true);
-                    await CommunityCoinWithHook.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoinWithHook.balanceOf(alice.address);
+                    await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
+                    tmp2 = await CommunityCoin.balanceOf(alice.address);
 
                     obtainedTokensWithTax = tmp2.sub(tmp1);
 
@@ -1170,7 +1282,7 @@ describe("Staking contract tests", function () {
 
                     expect(obtainedTokensWithNoTax.add(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).not.to.be.eq(obtainedTokensWithTax);
 
-                    let MAX_BOOST = await await CommunityCoinWithHook.MAX_BOOST();
+                    let MAX_BOOST = await await CommunityCoin.MAX_BOOST();
                     expect(obtainedTokensWithNoTax.add(obtainedTokensWithNoTax.mul(MAX_BOOST).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
                 });
             });

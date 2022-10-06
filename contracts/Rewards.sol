@@ -5,6 +5,8 @@ import "./RewardsBase.sol";
 import "./interfaces/IHook.sol";
 import "./interfaces/IRewards.sol";
 
+import "hardhat/console.sol";
+
 contract Rewards is RewardsBase, IHook, IRewards {
     // caller which can call methods `bonus`
     address internal caller;
@@ -38,6 +40,10 @@ contract Rewards is RewardsBase, IHook, IRewards {
 
     function onClaim(address account) external onlyCaller {
         //
+        if (participants[account].exists == true) {
+            _claim(account, participants[account].groupName);
+        }
+
     }
 
     /**
@@ -52,7 +58,9 @@ contract Rewards is RewardsBase, IHook, IRewards {
     ) external onlyCaller {
         // 
         uint256 inputAmount = _getNeededInputAmount(amount, getTokenPrice());
-        _addBonus(account, inputAmount);
+
+        // here we didn't claim immediately. contract may not contains enough tokens and can revert all transactions.
+        _addBonus(account, inputAmount, false); 
     }
 
 

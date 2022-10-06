@@ -156,6 +156,9 @@ abstract contract CommunityCoinBase is
         instanceManagment.initialize(impl, implErc20);
 
         hook = hook_;
+        if (hook_ != address(0)) {
+            IHook(hook).setupCaller();
+        }
 
         discountSensitivity = discountSensitivity_;
 
@@ -282,7 +285,6 @@ abstract contract CommunityCoinBase is
         _checkRole(circulationRoleId, _msgSender());
 
         _mint(account, amount, "", "");
-
         //users[account].tokensBonus._minimumsAdd(amount, 1, LOCKUP_BONUS_INTERVAL, false);
 
         _accountForOperation(OPERATION_ADD_TO_CIRCULATION << OPERATION_SHIFT_BITS, uint256(uint160(account)), amount);
@@ -535,8 +537,6 @@ abstract contract CommunityCoinBase is
                 Strategy.REDEEM_AND_REMOVE_LIQUIDITY,
                 totalSupply() //totalSupplyBefore
             );
-
-            
 
         return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, swapPaths);
     }
