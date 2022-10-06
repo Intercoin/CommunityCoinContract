@@ -428,9 +428,10 @@ library PoolStakesLib {
             amount = amount * total.totalReserves / totalSupplyBefore;
 
             /////////////////////////////////////////////////////////////////////
+
+            // apply redeem tariff                    
+            amount -= amount * redeemTariff/100000;
             
-            // apply unstake tariff
-            amount -= amount * unstakeTariff;
         }
 
         if (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
@@ -442,8 +443,9 @@ library PoolStakesLib {
                 revert ICommunityCoin.InsufficientAmount(account, amount);
             }
 
-            // apply redeem tariff                    
-            amount -= amount * redeemTariff;
+            // apply unstake tariff
+            amount -= amount * unstakeTariff/100000;
+
 
         }
 

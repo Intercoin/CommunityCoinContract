@@ -37,10 +37,10 @@ abstract contract CommunityCoinBase is
 
     uint64 internal constant LOCKUP_INTERVAL = 24 * 60 * 60; // day in seconds
     uint64 internal constant LOCKUP_BONUS_INTERVAL = 1000 * 365 * 24 * 60 * 60; // 300 years in seconds
-    uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+    uint64 public constant FRACTION = 100000; // fractions are expressed as portions of this
 
-    uint64 internal constant MAX_REDEEM_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
-    uint64 internal constant MAX_UNSTAKE_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 public constant MAX_REDEEM_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 public constant MAX_UNSTAKE_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
 
     // max constants used in BeforeTransfer
     uint64 public constant MAX_TAX = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
@@ -524,9 +524,9 @@ abstract contract CommunityCoinBase is
         (
             address[] memory instancesToRedeem,
             uint256[] memory valuesToRedeem, 
-            /*uint256[] memory amounts*/ 
-            /* uint256 len*/
-            ,
+            /*uint256[] memory amounts*/, 
+            /* uint256 len*/ , 
+            /*uint256 newAmount*/
 
         ) = _poolStakesAvailable(
                 account,
@@ -535,6 +535,9 @@ abstract contract CommunityCoinBase is
                 Strategy.REDEEM_AND_REMOVE_LIQUIDITY,
                 totalSupply() //totalSupplyBefore
             );
+
+            
+
         return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, swapPaths);
     }
 
@@ -683,8 +686,14 @@ abstract contract CommunityCoinBase is
             address[] memory instancesList,
             uint256[] memory values,
             uint256[] memory amounts,
-            uint256 len
+            uint256 len,
+            uint256 newAmount
         ) = _poolStakesAvailable(account, amount, preferredInstances, strategy, totalSupplyBefore);
+
+        // not obviously but we burn all before. not need to burn this things separately
+        // `newAmount` just confirm us how much amount using in calculation pools
+            
+
 
         // console.log("_unstake#2");
         // console.log("len =",len);
@@ -724,10 +733,11 @@ abstract contract CommunityCoinBase is
             address[] memory instancesAddress, // instance's addresses
             uint256[] memory values, // amounts to redeem in instance
             uint256[] memory amounts, // itrc amount equivalent(applied num/den)
-            uint256 len
+            uint256 len,
+            uint256 newAmount
         )
     {
-        amount = PoolStakesLib.getAmountLeft(
+        newAmount = PoolStakesLib.getAmountLeft(
             account,
             amount,
             totalSupplyBefore,
@@ -741,7 +751,7 @@ abstract contract CommunityCoinBase is
         // console.log("_poolStakesAvailable::amountLeft=", amount);
         (instancesAddress, values, amounts, len) = PoolStakesLib.available(
             account,
-            amount,
+            newAmount,
             preferredInstances,
             strategy,
             instanceManagment,
@@ -789,7 +799,7 @@ abstract contract CommunityCoinBase is
             revert InsufficientBalance(account2Redeem, amount);
         }
 
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len) = _poolStakesAvailable(
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len, uint256 newAmount) = _poolStakesAvailable(
             account2Redeem,
             amount,
             preferredInstances,
@@ -797,6 +807,9 @@ abstract contract CommunityCoinBase is
             totalSupplyBefore
         );
 
+        // not obviously but we burn all before. not need to burn this things separately
+        // `newAmount` just confirm us how much amount using in calculation pools
+        
         for (uint256 i = 0; i < len; i++) {
             if (_instances[instancesToRedeem[i]].redeemable > 0) {
                 //_instances[instancesToRedeem[i]]._instanceStaked -= amounts[i];

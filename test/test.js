@@ -294,6 +294,305 @@ describe("Staking contract tests", function () {
         expect(instance).not.to.be.eq(ZERO_ADDRESS); 
     });
 
+    describe("tariff tests", function () {
+        var uniswapRouterFactoryInstance;
+        var uniswapRouterInstance;
+        var communityStakingPool;
+        var pairInstance;
+        var shares;
+
+        beforeEach("deploying", async() => {
+            uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
+            uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+            await uniswapRouterFactoryInstance.createPair(erc20ReservedToken.address, erc20TradedToken.address);
+        
+            let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20ReservedToken.address, erc20TradedToken.address);
+
+            pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
+
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+
+            const ts = await time.latest();
+            const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                erc20ReservedToken.address,
+                erc20TradedToken.address,
+                ONE_ETH.mul(SEVEN),
+                ONE_ETH.mul(SEVEN),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            // add liquidity into erc20ReservedToken::USDT and erc20TradedToken::USDT
+            fakeUSDT = await ERC20Factory.deploy("FAKE USDT Token", "FUSDT");
+            await fakeUSDT.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED).mul(TWO));
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+
+            await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeUSDT.address,
+                erc20TradedToken.address,
+                ONE_ETH.mul(HUNDRED),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeUSDT.address,
+                erc20ReservedToken.address,
+                ONE_ETH.mul(HUNDRED),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+            // add liquidity into erc20ReservedToken::middleToken, erc20TradedToken::middleToken and middleToken::USDT
+            fakeMiddle = await ERC20Factory.deploy("FAKE Middle Token", "FMT");
+
+            await fakeMiddle.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED).mul(TEN));
+            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+            await fakeUSDT.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
+
+            //erc20ReservedToken::middleToken
+            await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED).mul(TWO));
+            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeMiddle.address,
+                erc20ReservedToken.address,
+                ONE_ETH.mul(HUNDRED).mul(TWO),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            //erc20TradedToken::middleToken
+            await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED).mul(TWO));
+            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeMiddle.address,
+                erc20TradedToken.address,
+                ONE_ETH.mul(HUNDRED).mul(TWO),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            // middleToken::USDT
+            await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED).mul(SIX));
+            await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                fakeMiddle.address,
+                fakeUSDT.address,
+                ONE_ETH.mul(HUNDRED).mul(SIX),
+                ONE_ETH.mul(HUNDRED),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+
+            //--------------------------------------------------
+
+            let tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
+                lockupIntervalCount,
+                NO_BONUS_FRACTIONS,
+                NO_DONATIONS,
+                lpFraction,
+                ZERO_ADDRESS,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            )
+
+            const rc = await tx.wait(); // 0ms, as tx is already confirmed
+            const event = rc.events.find(event => event.event === 'InstanceCreated');
+            const [tokenA, tokenB, instance] = event.args;
+            //console.log(tokenA, tokenB, instance, instancesCount);
+
+            communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
+            //console.log("before each №2");
+
+        });    
+        it("shouldn't set tariff by owner or anyone except tariffrole memeber", async () => {
+            await expect(CommunityCoin.connect(owner).setTariff(ONE, ONE)).to.be.revertedWith(`MissingRole("${owner.address}", ${TARIFF_ROLE})`);
+            await expect(CommunityCoin.connect(bob).setTariff(ONE, ONE)).to.be.revertedWith(`MissingRole("${bob.address}", ${TARIFF_ROLE})`);
+            await expect(CommunityCoin.connect(frank).setTariff(ONE, ONE)).to.be.revertedWith(`MissingRole("${frank.address}", ${TARIFF_ROLE})`);
+        });    
+        it("should set tariff(redeem / unstake)", async () => {
+            await mockCommunity.connect(owner).setRoles(charlie.address, [TARIFF_ROLE]);
+            await CommunityCoin.connect(charlie).setTariff(ONE, ONE);
+        });
+
+        it("shouldn't exсeed max tariff(redeem / unstake)", async () => {
+            await mockCommunity.connect(owner).setRoles(charlie.address, [TARIFF_ROLE]);
+
+            const MAX_REDEEM_TARIFF = await CommunityCoin.MAX_REDEEM_TARIFF();
+            const MAX_UNSTAKE_TARIFF = await CommunityCoin.MAX_UNSTAKE_TARIFF(); 
+
+            await expect(CommunityCoin.connect(charlie).setTariff(TWO.mul(MAX_REDEEM_TARIFF), ONE)).to.be.revertedWith(`AmountExceedsMaxTariff()`);
+            await expect(CommunityCoin.connect(charlie).setTariff(ONE, TWO.mul(MAX_UNSTAKE_TARIFF))).to.be.revertedWith(`AmountExceedsMaxTariff()`);
+            
+        });
+
+        describe("should consume by correct tariff", function () {
+            var uniswapV2PairInstance;
+            beforeEach("deploying", async() => {
+
+                let uniswapV2PairAddress = await communityStakingPool.uniswapV2Pair();
+                uniswapV2PairInstance = await ethers.getContractAt("ERC20Mintable",uniswapV2PairAddress);
+
+                await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
+                await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+                await communityStakingPool.connect(bob)['buyAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
+                shares = await CommunityCoin.balanceOf(bob.address);
+
+                // pass some mtime
+                await time.increase(lockupIntervalCount*dayInSeconds+9);    
+
+            });
+            it(" - when unstake", async () => {
+                const MAX_UNSTAKE_TARIFF = await CommunityCoin.MAX_UNSTAKE_TARIFF(); 
+                let snapId;
+                let bobLPTokenWithoutTariff, bobLPTokenWithTariff;
+
+                // make snapshot before time manipulations
+                snapId = await ethers.provider.send('evm_snapshot', []);
+
+                let bobLPTokenBefore1 = await uniswapV2PairInstance.balanceOf(bob.address);
+                let bobReservedTokenBefore1 = await erc20ReservedToken.balanceOf(bob.address);
+                let bobTradedTokenBefore1 = await erc20TradedToken.balanceOf(bob.address);
+
+                await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+                await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
+
+                let bobLPTokenAfter1 = await uniswapV2PairInstance.balanceOf(bob.address);
+                let bobReservedTokenAfter1 = await erc20ReservedToken.balanceOf(bob.address);
+                let bobTradedTokenAfter1 = await erc20TradedToken.balanceOf(bob.address);
+                
+                expect(bobLPTokenAfter1).gt(bobLPTokenBefore1);
+                expect(bobReservedTokenAfter1).eq(bobReservedTokenBefore1);
+                expect(bobTradedTokenAfter1).eq(bobTradedTokenBefore1);
+
+                bobLPTokenWithoutTariff = bobLPTokenAfter1.sub(bobLPTokenBefore1)
+                // restore snapshot
+                await ethers.provider.send('evm_revert', [snapId]);
+                //----------------------------------------------------------------
+                // make snapshot before time manipulations
+                snapId = await ethers.provider.send('evm_snapshot', []);
+
+                await mockCommunity.connect(owner).setRoles(charlie.address, [TARIFF_ROLE]);
+                await CommunityCoin.connect(charlie).setTariff(ONE, MAX_UNSTAKE_TARIFF);
+
+                let bobLPTokenBefore2 = await uniswapV2PairInstance.balanceOf(bob.address);
+                let bobReservedTokenBefore2 = await erc20ReservedToken.balanceOf(bob.address);
+                let bobTradedTokenBefore2 = await erc20TradedToken.balanceOf(bob.address);
+
+                await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+                await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
+
+                let bobLPTokenAfter2 = await uniswapV2PairInstance.balanceOf(bob.address);
+                let bobReservedTokenAfter2 = await erc20ReservedToken.balanceOf(bob.address);
+                let bobTradedTokenAfter2 = await erc20TradedToken.balanceOf(bob.address);
+                
+                expect(bobLPTokenAfter2).gt(bobLPTokenBefore2);
+                expect(bobReservedTokenAfter2).eq(bobReservedTokenBefore2);
+                expect(bobTradedTokenAfter2).eq(bobTradedTokenBefore2);
+
+                bobLPTokenWithTariff = bobLPTokenAfter2.sub(bobLPTokenBefore2)
+
+                // restore snapshot
+                await ethers.provider.send('evm_revert', [snapId]);
+
+                // now check unstake tariff
+                expect(bobLPTokenWithTariff).to.be.eq(bobLPTokenWithoutTariff.sub(bobLPTokenWithoutTariff.mul(MAX_UNSTAKE_TARIFF).div(FRACTION)));
+            });
+            it(" - when redeem", async () => {
+                const MAX_REDEEM_TARIFF = await CommunityCoin.MAX_REDEEM_TARIFF();
+
+                let snapId;
+                let aliceLPTokenWithoutTariff, aliceLPTokenWithTariff;
+
+                // imitate exists role
+                await mockCommunity.connect(owner).setRoles(alice.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
+                // transfer from bob to alice
+                await CommunityCoin.connect(bob).transfer(alice.address, shares);
+
+
+                // make snapshot before time manipulations
+                snapId = await ethers.provider.send('evm_snapshot', []);
+
+                let aliceLPTokenBefore1 = await uniswapV2PairInstance.balanceOf(alice.address);
+                let aliceReservedTokenBefore1 = await erc20ReservedToken.balanceOf(alice.address);
+                let aliceTradedTokenBefore1 = await erc20TradedToken.balanceOf(alice.address);
+
+                await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                await CommunityCoin.connect(alice)["redeem(uint256)"](shares);
+
+                let aliceLPTokenAfter1 = await uniswapV2PairInstance.balanceOf(alice.address);
+                let aliceReservedTokenAfter1 = await erc20ReservedToken.balanceOf(alice.address);
+                let aliceTradedTokenAfter1 = await erc20TradedToken.balanceOf(alice.address);
+                
+                expect(aliceLPTokenAfter1).gt(aliceLPTokenBefore1);
+                expect(aliceReservedTokenAfter1).eq(aliceReservedTokenBefore1);
+                expect(aliceTradedTokenAfter1).eq(aliceTradedTokenBefore1);
+
+                aliceLPTokenWithoutTariff = aliceLPTokenAfter1.sub(aliceLPTokenBefore1)
+                // restore snapshot
+                await ethers.provider.send('evm_revert', [snapId]);
+                //----------------------------------------------------------------
+                // make snapshot before time manipulations
+                snapId = await ethers.provider.send('evm_snapshot', []);
+
+                await mockCommunity.connect(owner).setRoles(charlie.address, [TARIFF_ROLE]);
+                await CommunityCoin.connect(charlie).setTariff(MAX_REDEEM_TARIFF, ONE);
+
+                let aliceLPTokenBefore2 = await uniswapV2PairInstance.balanceOf(alice.address);
+                let aliceReservedTokenBefore2 = await erc20ReservedToken.balanceOf(alice.address);
+                let aliceTradedTokenBefore2 = await erc20TradedToken.balanceOf(alice.address);
+
+                await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                await CommunityCoin.connect(alice)["redeem(uint256)"](shares);
+
+                let aliceLPTokenAfter2 = await uniswapV2PairInstance.balanceOf(alice.address);
+                let aliceReservedTokenAfter2 = await erc20ReservedToken.balanceOf(alice.address);
+                let aliceTradedTokenAfter2 = await erc20TradedToken.balanceOf(alice.address);
+                
+                expect(aliceLPTokenAfter2).gt(aliceLPTokenBefore2);
+                expect(aliceReservedTokenAfter2).eq(aliceReservedTokenBefore2);
+                expect(aliceTradedTokenAfter2).eq(aliceTradedTokenBefore2);
+
+                aliceLPTokenWithTariff = aliceLPTokenAfter2.sub(aliceLPTokenBefore2)
+
+                // restore snapshot
+                await ethers.provider.send('evm_revert', [snapId]);
+
+                // now check redeem tariff
+                expect(aliceLPTokenWithTariff).to.be.eq(aliceLPTokenWithoutTariff.sub(aliceLPTokenWithoutTariff.mul(MAX_REDEEM_TARIFF).div(FRACTION)));
+            });
+        });
+        
+    });
+
     describe("donate tests", function () {   
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;
