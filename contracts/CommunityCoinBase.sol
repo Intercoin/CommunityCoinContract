@@ -208,6 +208,7 @@ abstract contract CommunityCoinBase is
 
         if (invitedByFraction != 0) {
             invitedBy = _invitedBy(account);
+
             if (invitedBy != address(0)) {
                 //do invite comission calculation here
                 invitedAmount = (amount * invitedByFraction) / FRACTION;

@@ -86,6 +86,7 @@ describe("Staking contract tests", function () {
     var rewardsHook;
     var mockCommunity;
     var ERC20Factory;
+    var ERC777Factory;
     var CommunityCoinFactory;
     var CommunityCoin;
     var CommunityCoinWithRewardsHook;
@@ -117,6 +118,8 @@ describe("Staking contract tests", function () {
         const RewardsF = await ethers.getContractFactory("Rewards");
         const MockCommunityF = await ethers.getContractFactory("MockCommunity");
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
+        ERC777Factory = await ethers.getContractFactory("ERC777Mintable");
+        
         
         let implementationReleaseManager    = await ReleaseManagerF.deploy();
 
@@ -130,7 +133,7 @@ describe("Staking contract tests", function () {
         let releaseManager = await ethers.getContractAt("MockReleaseManager",instance);
 
         erc20 = await ERC20Factory.deploy("ERC20 Token", "ERC20");
-        erc777 = await ERC20Factory.deploy("ERC777 Token", "ERC777");
+        erc777 = await ERC777Factory.deploy("ERC777 Token", "ERC777");
         erc20TradedToken = await ERC20Factory.deploy("ERC20 Traded Token", "ERC20-TRD");
         erc20ReservedToken = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
         erc20Reward = await ERC20Factory.deploy("ERC20 Token Reward", "ERC20-R");
@@ -312,6 +315,19 @@ describe("Staking contract tests", function () {
 
         expect(instance).not.to.be.eq(ZERO_ADDRESS); 
     });
+
+    
+    it("should change inviteByFraction ", async() => {
+        const oldInvitedByFraction = await CommunityCoin.invitedByFraction();
+        const toSetInvitedByFraction = FRACTION.sub(123);
+        await expect(CommunityCoin.connect(alice).setCommission(toSetInvitedByFraction)).to.be.revertedWith("Ownable: caller is not the owner");
+        await CommunityCoin.connect(owner).setCommission(toSetInvitedByFraction);
+        const newInvitedByFraction = await CommunityCoin.invitedByFraction();
+
+        expect(oldInvitedByFraction).to.be.eq(INVITEDBY_FRACTION);
+        expect(newInvitedByFraction).to.be.eq(toSetInvitedByFraction);
+    });
+
 
     describe("tariff tests", function () {
         var uniswapRouterFactoryInstance;
@@ -869,6 +885,37 @@ describe("Staking contract tests", function () {
 
         });  
 
+        it("InvitedBy tests", async () => {
+            let snapId, bobTokens, aliceTokens;
+
+            // make snapshot before time manipulations
+            snapId = await ethers.provider.send('evm_snapshot', []);
+
+            await func(NO_BONUS_FRACTIONS, ZERO, ZERO_ADDRESS);
+            bobTokens = await CommunityCoin.balanceOf(bob.address);
+            aliceTokens = await CommunityCoin.balanceOf(alice.address);
+
+            expect(bobTokens).not.to.be.eq(aliceTokens);
+
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+
+            await CommunityCoin.connect(owner).setCommission(FRACTION);
+            await mockCommunity.setInvitedBy(alice.address, bob.address);
+            
+            // make snapshot before time manipulations
+            snapId = await ethers.provider.send('evm_snapshot', []);
+            await func(NO_BONUS_FRACTIONS, ZERO, ZERO_ADDRESS);
+
+            bobTokens = await CommunityCoin.balanceOf(bob.address);
+            aliceTokens = await CommunityCoin.balanceOf(alice.address);
+
+            expect(bobTokens).to.be.eq(aliceTokens); // invitedBy - 100%
+
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });  
+
         it("LP Fraction validate", async () => {
             
             //uint64 public constant FRACTION = 100000;
@@ -979,7 +1026,7 @@ describe("Staking contract tests", function () {
         it("shouldnt become owner and trusted forwarder", async() => {
             await expect(rewards.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith("FORWARDER_CAN_NOT_BE_OWNER");
         });
-        
+
     });
 
     describe("Rewards tests", function () {   
@@ -1086,7 +1133,8 @@ describe("Staking contract tests", function () {
 
         });
     });
-    describe("taxes tests", function () {   
+
+    describe("Taxes tests", function () {   
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;
         var communityStakingPoolWithHook;
@@ -1690,6 +1738,15 @@ describe("Staking contract tests", function () {
                 await expect(CommunityCoin.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith(`TrustedForwarderCanNotBeOwner("${owner.address}")`);
             });
             
+            it("shouldnt transferOwnership if sender is trusted forwarder", async() => {
+                await CommunityCoin.connect(owner).setTrustedForwarder(trustedForwarder.address);
+
+                const dataTx = await CommunityCoin.connect(trustedForwarder).populateTransaction['transferOwnership(address)'](bob.address);
+                dataTx.data = dataTx.data.concat((owner.address).substring(2));
+                await expect(trustedForwarder.sendTransaction(dataTx)).to.be.revertedWith("DeniedForTrustedForwarder");
+
+            });
+            
         });
         
         for (const trustedForwardMode of [false,true]) {
@@ -2252,6 +2309,17 @@ describe("Staking contract tests", function () {
                 expect(bobLPTokenAfter).equal(bobLPTokenBefore);
             });
 
+            it("shouldn't accept unknown tokens if send directly", async () => {
+                let anotherToken = await ERC777Factory.deploy("Another ERC777 Token", "A-ERC777");
+                console.log("bob.address            = ",bob.address);
+                console.log("CommunityCoin.address  = ",CommunityCoin.address);
+                console.log("anotherToken.address   = ",anotherToken.address);
+                await anotherToken.mint(bob.address, ONE_ETH);
+                await expect(anotherToken.connect(bob).transfer(CommunityCoin.address, ONE_ETH)).to.be.revertedWith(
+                    `OwnTokensPermittedOnly()`
+                );
+            });
+
             describe("unstake tests", function () {
                 describe("shouldnt unstake", function () {
                     it("if not unlocked yet", async () => {
@@ -2356,6 +2424,12 @@ describe("Staking contract tests", function () {
                         }); 
 
                         describe("without redeem role", function () {
+                            it("if send directly", async() => {
+                                await expect(CommunityCoin.connect(bob).transfer(CommunityCoin.address, shares)).to.be.revertedWith(
+                                    `MissingRole("${bob.address}", ${REDEEM_ROLE})`
+                                );
+                            });
+
                             it("if anyone didn't transfer tokens to you before", async () => {
                                 await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(
                                     `MissingRole("${bob.address}", ${REDEEM_ROLE})`
@@ -2474,6 +2548,13 @@ describe("Staking contract tests", function () {
 
                             aliceReservedTokenBefore = await erc20ReservedToken.balanceOf(alice.address);
                             aliceTradedTokenBefore = await erc20TradedToken.balanceOf(alice.address);
+                        });
+
+                        it("should redeem directly", async() => {
+                            aliceLPTokenBefore = await uniswapV2PairInstance.balanceOf(alice.address);
+                            await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
+                            aliceLPTokenAfter = await uniswapV2PairInstance.balanceOf(alice.address);
+                            expect(aliceLPTokenAfter).gt(aliceLPTokenBefore);
                         });
 
                         for (const preferredInstance of [false, true]) {

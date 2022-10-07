@@ -9,7 +9,7 @@ import "@artman325/community/contracts/interfaces/ICommunity.sol";
 /*ICommunityRolesManagement, */
 abstract contract RolesManagement is Initializable {
     // itrc' fraction that will send to person who has invited "buy and stake" person
-    uint256 internal invitedByFraction;
+    uint256 public invitedByFraction;
 
     address internal communityAddress;
     uint8 internal adminRoleId;

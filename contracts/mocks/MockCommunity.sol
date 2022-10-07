@@ -2,9 +2,11 @@
 pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 import "@artman325/community/contracts/interfaces/ICommunity.sol";
+import "../maps/CommunityAccessMap.sol";
 
-contract MockCommunity is ICommunity {
-       mapping(address => uint8[]) roles;
+contract MockCommunity is CommunityAccessMap, ICommunity {
+    mapping(address => uint8[]) roles;
+
     uint256 count = 5;
     
     function initialize(
@@ -16,6 +18,10 @@ contract MockCommunity is ICommunity {
         string memory symbol
     ) external {
 
+    }
+
+    function setInvitedBy(address who, address whom) public {
+        invitedBy[whom] = who;
     }
 
     function addressesCount(uint8/* roleIndex*/) public override view returns(uint256) {
