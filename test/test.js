@@ -1807,6 +1807,37 @@ describe("Staking contract tests", function () {
                     expect(shares).not.to.be.eq(ZERO);
                 }); 
 
+                it.only("should sellAndStakeLiquidity(beneficiary)", async () => {
+                    let uniswapV2PairInstance = await ethers.getContractAt("IUniswapV2PairMock",await communityStakingPool.uniswapV2Pair());
+                    await erc20TradedToken.mint(bob.address, ONE_ETH.mul(TEN));
+                    await erc20TradedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+                    let reservesBefore = await uniswapV2PairInstance.getReserves();
+                    
+                    if (trustedForwardMode) {
+                        const dataTx = await communityStakingPool.connect(trustedForwarder).populateTransaction['sellAndStakeLiquidity(uint256,address)'](ONE_ETH.mul(ONE), frank.address);
+                        dataTx.data = dataTx.data.concat((bob.address).substring(2));
+                        await trustedForwarder.sendTransaction(dataTx);
+                    } else {
+                        await communityStakingPool.connect(bob)['sellAndStakeLiquidity(uint256,address)'](ONE_ETH.mul(ONE), frank.address);
+                    }
+                    let sharesBob = await CommunityCoin.balanceOf(bob.address);
+                    let sharesFrank = await CommunityCoin.balanceOf(frank.address);
+                    let reservesAfter = await uniswapV2PairInstance.getReserves();
+
+                    let token0 = await uniswapV2PairInstance.token0();
+                    if (erc20TradedToken.address == token0) {
+                        expect(reservesAfter[0]).to.be.gt(reservesBefore[0]);
+                        expect(reservesAfter[1]).to.be.eq(reservesBefore[1]);
+                    } else {
+                        expect(reservesAfter[0]).to.be.eq(reservesBefore[0]);
+                        expect(reservesAfter[1]).to.be.gt(reservesBefore[1]);
+                    }
+                    
+                    expect(sharesBob).to.be.eq(ZERO);
+                    expect(sharesFrank).not.to.be.eq(ZERO);
+                }); 
+
+
                 it("should addAndStakeLiquidity", async () => {
                     let uniswapV2PairInstance = await ethers.getContractAt("IUniswapV2PairMock",await communityStakingPool.uniswapV2Pair());
                     await erc20TradedToken.mint(bob.address, ONE_ETH.mul(TEN));
