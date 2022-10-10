@@ -13,6 +13,7 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
      */
     address public erc20Token;
 
+    error Denied();
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -21,7 +22,7 @@ contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakin
      * @notice Special function receive ether
      */
     receive() external payable {
-        revert("DENIED");
+        revert Denied();
     }
 
     // left when will be implemented

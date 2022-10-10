@@ -35,7 +35,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     //bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
-    address internal WETH;
+    address public WETH;
 
     /**
      * @custom:shortd uniswap v2 pair

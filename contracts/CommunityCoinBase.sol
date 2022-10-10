@@ -21,7 +21,7 @@ import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol"
 
 import "./libs/PoolStakesLib.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 abstract contract CommunityCoinBase is
     OwnableUpgradeable,

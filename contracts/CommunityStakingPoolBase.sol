@@ -156,7 +156,9 @@ abstract contract CommunityStakingPoolBase is
         uint256 amountIn
     ) internal returns (uint256 amountOut) {
         if (tokenIn == tokenOut) {
-            // situation when WETH is a reserve token
+            // situation when WETH is a reserve token. 
+            // happens when ITR/WETH and user buy liquidity to send ETH directly. System converts ETH to WETH.
+            // and if WETH is a reserve token - we get here. no need to convert
             amountOut = amountIn;
         } else {
             require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
@@ -201,10 +203,14 @@ abstract contract CommunityStakingPoolBase is
             uint256 adjusted = (amount_ * fraction_) / FRACTION;
             IERC20Upgradeable(token_).transfer(fractionAddr_, adjusted);
             remainingAfterFractionSend = amount_ - adjusted;
-            if (!fractionSendOnly_) {
-                IERC20Upgradeable(token_).transfer(to_, remainingAfterFractionSend);
-                remainingAfterFractionSend = 0;
-            }
+
+            // custom case: when need to send fractions what left. (fractions that not 0% and not 100%)
+            // now not used
+            // if (!fractionSendOnly_) {
+                // IERC20Upgradeable(token_).transfer(to_, remainingAfterFractionSend);
+                // remainingAfterFractionSend = 0;
+                //
+            // }
         }
     }
 
@@ -240,12 +246,12 @@ abstract contract CommunityStakingPoolBase is
     /**
      * @dev implemented EIP-2771
      */
-    function _msgSender() internal view virtual override returns (address signer) {
-        signer = msg.sender;
-        if (msg.data.length >= 20 && ITrustedForwarder(stakingProducedBy).isTrustedForwarder(signer)) {
-            assembly {
-                signer := shr(96, calldataload(sub(calldatasize(), 20)))
-            }
-        }
-    }
+    // function _msgSender() internal view virtual override returns (address signer) {
+    //     signer = msg.sender;
+    //     if (msg.data.length >= 20 && ITrustedForwarder(stakingProducedBy).isTrustedForwarder(signer)) {
+    //         assembly {
+    //             signer := shr(96, calldataload(sub(calldatasize(), 20)))
+    //         }
+    //     }
+    // }
 }

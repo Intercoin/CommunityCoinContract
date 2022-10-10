@@ -805,6 +805,7 @@ describe("Staking contract tests", function () {
                     timeUntil2,
                     {value: ONE_ETH.mul(TEN) }
                 );
+                
                 //--------------------------------------------------------
                 await communityStakingPool.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
                 let bobWalletTokens = await CommunityCoin.balanceOf(bob.address);
@@ -812,6 +813,102 @@ describe("Staking contract tests", function () {
                 return bobWalletTokens;
             }
             
+        });
+
+        it("cover for cover", async () => {
+            let snapId, tx, rc,event,tokenA, tokenB, instance;
+            // get WETH adddress from another instnance
+            snapId = await ethers.provider.send('evm_snapshot', []);
+
+            // cover for covered one case. When reserved token is WETH and we send ETH directly to buyAndStakeLiquidity
+            tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
+                lockupIntervalCount,
+                NO_BONUS_FRACTIONS,
+                NO_DONATIONS,
+                ZERO, //lp_fraction,
+                ZERO_ADDRESS, //lp_fraction_beneficiary,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            )
+
+            rc = await tx.wait(); // 0ms, as tx is already confirmed
+            event = rc.events.find(event => event.event === 'InstanceCreated');
+            [tokenA, tokenB, instance] = event.args;
+
+            communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
+            const WETH = await ethers.getContractAt("MockIWETH", await communityStakingPool.WETH());
+            await ethers.provider.send('evm_revert', [snapId]);
+
+            ///----
+            snapId = await ethers.provider.send('evm_snapshot', []);
+
+            uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
+            uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+            await uniswapRouterFactoryInstance.createPair(WETH.address, erc20TradedToken.address);
+        
+            let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20ReservedToken.address, erc20TradedToken.address);
+
+            pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
+            
+            await WETH.connect(liquidityHolder).deposit({value: ONE_ETH.mul(TEN) });
+            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(TEN));
+            await WETH.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
+            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(TEN));
+
+            const ts = await time.latest();
+            const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+
+            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+                WETH.address,
+                erc20TradedToken.address,
+                ONE_ETH.mul(SEVEN),
+                ONE_ETH.mul(SEVEN),
+                0,
+                0,
+                liquidityHolder.address,
+                timeUntil
+            );
+            // without hook
+            tx = await CommunityCoinFactory.connect(owner).produce(WETH.address, erc20TradedToken.address, ZERO_ADDRESS, discountSensitivity, [
+                INVITEDBY_FRACTION,
+                mockCommunity.address, 
+                ADMIN_ROLE, 
+                REDEEM_ROLE, 
+                CIRCULATE_ROLE,
+                TARIFF_ROLE
+            ]);
+            rc = await tx.wait(); // 0ms, as tx is already confirmed
+            event = rc.events.find(event => event.event === 'InstanceCreated');
+            [instance, instancesCount] = event.args;
+            CommunityCoin = await ethers.getContractAt("CommunityCoin",instance);
+
+            // cover for covered one case. When reserved token is WETH and we send ETH directly to buyAndStakeLiquidity
+            tx = await CommunityCoin.connect(owner)["produce(uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
+                lockupIntervalCount,
+                NO_BONUS_FRACTIONS,
+                NO_DONATIONS,
+                ZERO, //lp_fraction,
+                ZERO_ADDRESS, //lp_fraction_beneficiary,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            )
+            
+            rc = await tx.wait(); // 0ms, as tx is already confirmed
+            event = rc.events.find(event => event.event === 'InstanceCreated');
+            [tokenA, tokenB, instance] = event.args;
+            //console.log(tokenA, tokenB, instance, instancesCount);
+
+            communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
+
+            //--------------------------------------------------------
+            // console.log(await CommunityCoin.balanceOf(bob.address));
+            await communityStakingPool.connect(bob)['buyAndStakeLiquidity()']({value: ONE_ETH.mul(ONE) });
+            // console.log(await CommunityCoin.balanceOf(bob.address));
+
+
         });
 
         it("Bonus tests::buyAddLiquidityAndStake (Bonus:50%)", async () => {
@@ -884,6 +981,140 @@ describe("Staking contract tests", function () {
             expect(tokensWithBonus).to.be.eq(tokensWithNoBonus.add(expectedBonusAmount));
 
         });  
+
+        it("(LP Fraction:50%)", async () => {
+            // checking lpfraction (how much tokens will consuming when user unstake/redeem)
+            // actually need to 
+            // -- calculate how much will return with LPFraction=0;
+            // -- make snapshot revert and do the same with LPFraction=50%
+            // -- lp tokens should be less in 2 times.
+            // but we can do it in one cycle. keep in mind that did no any actions before and numerator/denominator are 1:1
+            // in that cases for first transaction lp tokens should be less in 2 times too.
+            
+            let snapId;
+
+            // make snapshot before time manipulations
+            snapId = await ethers.provider.send('evm_snapshot', []);
+
+            let lpFraction = 50000; // 50%
+            let shares = await func(NO_BONUS_FRACTIONS, lpFraction, ZERO_ADDRESS);
+
+            // pass some mtime
+            await time.increase(lockupIntervalCount*dayInSeconds+9);    
+            
+            let lpTokensBefore = await pairInstance.balanceOf(bob.address);
+            await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+            await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
+            let lpTokensAfter = await pairInstance.balanceOf(bob.address);
+
+            // numerator/denominator are 1:1
+            expect(lpTokensAfter.sub(lpTokensBefore)).to.be.eq(shares.sub(shares.mul(lpFraction).div(FRACTION)));
+
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });  
+
+        it("(LP Fraction:100%)", async () => {
+            // custom situation when lpfraction is 100%, user will no obtain LP. [but it's no donation]
+
+            let snapId;
+            // make snapshot before time manipulations
+            snapId = await ethers.provider.send('evm_snapshot', []);
+
+            let lpFraction = FRACTION; // 100%
+            let shares = await func(NO_BONUS_FRACTIONS, lpFraction, ZERO_ADDRESS);
+
+            // pass some mtime
+            await time.increase(lockupIntervalCount*dayInSeconds+9);    
+            
+            let lpTokensBefore = await pairInstance.balanceOf(bob.address);
+            await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+            await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
+            let lpTokensAfter = await pairInstance.balanceOf(bob.address);
+
+            // numerator/denominator are 1:1
+            expect(lpTokensAfter.sub(lpTokensBefore)).to.be.eq(shares.sub(shares.mul(lpFraction).div(FRACTION)));
+
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });  
+
+        it("(LP Fraction:50%) redeemAndRemoveLiquidity", async () => {
+
+            //uint64 public constant FRACTION = 100000;
+            let snapId;
+
+            // make snapshot before time manipulations
+            snapId = await ethers.provider.send('evm_snapshot', []);
+
+            let lpFraction = 50000; // 50%
+            
+            let charlieLPTokensWithNoLPConsumingBefore = await pairInstance.connect(charlie).balanceOf(charlie.address);
+            let charlieErc20ReservedTokensWithNoLPConsumingBefore = await erc20ReservedToken.balanceOf(charlie.address);
+            
+            let tokensWithNoLPConsuming = await func(NO_BONUS_FRACTIONS, ZERO, ZERO_ADDRESS);
+
+            // // pass some mtime
+            // await time.increase(lockupIntervalCount*dayInSeconds+9);  
+
+            // grant role
+            // imitate exists role
+            await mockCommunity.connect(owner).setRoles(charlie.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
+
+            // transfer to charlie who has redeem role
+            //console.log(":JS1");
+            await CommunityCoin.connect(bob).transfer(charlie.address, tokensWithNoLPConsuming);
+            //console.log(":JS2");
+
+            await CommunityCoin.connect(charlie).approve(CommunityCoin.address, tokensWithNoLPConsuming);
+            await CommunityCoin.connect(charlie)["redeemAndRemoveLiquidity(uint256)"](tokensWithNoLPConsuming);  
+
+            let charlieErc20ReservedTokensWithNoLPConsumingAfter = await erc20ReservedToken.balanceOf(charlie.address);
+            let charlieLPTokensWithNoLPConsumingAfter = await pairInstance.connect(charlie).balanceOf(charlie.address);
+
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+            //------------------------------------------------------------------------------
+            // make snapshot before time manipulations
+            snapId = await ethers.provider.send('evm_snapshot', []);
+
+            let charlieLPTokensWithLPConsumingBefore = await pairInstance.connect(charlie).balanceOf(charlie.address);
+            let charlieErc20ReservedTokensWithLPConsumingBefore = await erc20ReservedToken.balanceOf(charlie.address);
+            let tokensWithLPConsuming = await func(NO_BONUS_FRACTIONS, lpFraction, alice.address); // lp = 1%
+
+            // // pass some mtime
+            // await time.increase(lockupIntervalCount*dayInSeconds+9);  
+            // grant role
+            // imitate exists role
+            await mockCommunity.connect(owner).setRoles(charlie.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
+
+            // transfer to charlie who has redeem role
+            await CommunityCoin.connect(bob).transfer(charlie.address, tokensWithLPConsuming);
+
+            await CommunityCoin.connect(charlie).approve(CommunityCoin.address, tokensWithLPConsuming);
+            await CommunityCoin.connect(charlie)["redeemAndRemoveLiquidity(uint256)"](tokensWithLPConsuming);  
+
+            let charlieLPTokensWithLPConsumingAfter = await pairInstance.connect(charlie).balanceOf(charlie.address);
+            let charlieErc20ReservedTokensWithLPConsumingAfter = await erc20ReservedToken.balanceOf(charlie.address);
+
+
+            let diffWithNoLPConsuming = charlieErc20ReservedTokensWithNoLPConsumingAfter.sub(charlieErc20ReservedTokensWithNoLPConsumingBefore);
+            let diffWithLPConsuming = charlieErc20ReservedTokensWithLPConsumingAfter.sub(charlieErc20ReservedTokensWithLPConsumingBefore);
+
+            expect(diffWithNoLPConsuming).to.be.gt(diffWithLPConsuming);
+            expect(diffWithNoLPConsuming.sub(diffWithNoLPConsuming.mul(lpFraction).div(FRACTION))).to.be.eq(diffWithLPConsuming);
+
+
+            expect(
+                charlieLPTokensWithNoLPConsumingAfter.sub(charlieLPTokensWithNoLPConsumingBefore)
+            ).to.be.eq(
+                charlieLPTokensWithLPConsumingAfter.sub(charlieLPTokensWithLPConsumingBefore)
+            );
+
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });  
+
 
         it("InvitedBy tests", async () => {
             let snapId, bobTokens, aliceTokens;
@@ -1363,6 +1594,15 @@ describe("Staking contract tests", function () {
         it("should produce", async() => {
             expect(communityStakingPoolErc20.address).not.to.be.eq(ZERO_ADDRESS); 
         });
+
+        it("shouldn't receive ether", async() => {
+            await expect(
+                owner.sendTransaction({
+                    to: communityStakingPoolErc20.address,
+                    value: ethers.utils.parseEther("1.0"), // Sends exactly 1.0 ether
+                })
+            ).not.to.be.revertedWith("DENIED()"); 
+        });
         
         it("shouldnt create another pair with equal tokens", async() => {
             await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
@@ -1807,7 +2047,7 @@ describe("Staking contract tests", function () {
                     expect(shares).not.to.be.eq(ZERO);
                 }); 
 
-                it.only("should sellAndStakeLiquidity(beneficiary)", async () => {
+                it("should sellAndStakeLiquidity(beneficiary)", async () => {
                     let uniswapV2PairInstance = await ethers.getContractAt("IUniswapV2PairMock",await communityStakingPool.uniswapV2Pair());
                     await erc20TradedToken.mint(bob.address, ONE_ETH.mul(TEN));
                     await erc20TradedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
@@ -2299,7 +2539,6 @@ describe("Staking contract tests", function () {
                 
             }); 
             
-
             it("should return correct instance length", async () => {
                 let data = await instanceManagementInstance.connect(bob).instancesCount();
                 expect(data).to.be.eq(ONE);
@@ -2342,9 +2581,6 @@ describe("Staking contract tests", function () {
 
             it("shouldn't accept unknown tokens if send directly", async () => {
                 let anotherToken = await ERC777Factory.deploy("Another ERC777 Token", "A-ERC777");
-                console.log("bob.address            = ",bob.address);
-                console.log("CommunityCoin.address  = ",CommunityCoin.address);
-                console.log("anotherToken.address   = ",anotherToken.address);
                 await anotherToken.mint(bob.address, ONE_ETH);
                 await expect(anotherToken.connect(bob).transfer(CommunityCoin.address, ONE_ETH)).to.be.revertedWith(
                     `OwnTokensPermittedOnly()`
