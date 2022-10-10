@@ -289,6 +289,12 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         _stake(_msgSender(), lpAmount, priceBeforeStake);
     }
 
+    /**
+     * @notice way to add liquidity with own traded/reserved tokens and stake LP tokens of current pool(traded/reserve tokens)
+     * @param amountTradedToken traded tokens
+     * @param amountReserveToken reserved tokens
+     * @custom:shortd way to stake LP tokens
+     */
     function addAndStakeLiquidity(uint256 amountTradedToken, uint256 amountReserveToken) public nonReentrant {
         (
             ,
@@ -310,7 +316,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
             "APPROVE_FAILED"
         );
 
-        (uint256 A, uint256 B, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
+        (uint256 tradedTokenConsumed, uint256 reserveTokenConsumed, uint256 lpTokens) = UniswapV2Router02.addLiquidity(
             tradedToken,
             reserveToken,
             amountTradedToken,
@@ -323,6 +329,15 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         require(lpTokens > 0, "NO_LIQUIDITY");
 
         _stake(_msgSender(), lpTokens, priceTraded);
+
+        // refund if something left 
+        if (tradedTokenConsumed < amountTradedToken) {
+            IERC20Upgradeable(tradedToken).transfer(_msgSender(), amountTradedToken - tradedTokenConsumed);
+        }
+        if (reserveTokenConsumed < amountReserveToken) {
+            IERC20Upgradeable(reserveToken).transfer(_msgSender(), amountReserveToken - reserveTokenConsumed);
+        }
+
     }
 
     ////////////////////////////////////////////////////////////////////////

@@ -79,6 +79,7 @@ contract CommunityCoin is CommunityCoinBase {
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
      * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
      * @param tradedToken_ address of traded token. usual it intercoin investor token
+     * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
      * @param costManager_ costManager address
      * @param producedBy_ address that produced instance by factory
      * @custom:calledby StakingFactory contract

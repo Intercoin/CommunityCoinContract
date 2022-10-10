@@ -2083,7 +2083,7 @@ describe("Staking contract tests", function () {
                     await erc20TradedToken.mint(bob.address, ONE_ETH.mul(TEN));
                     await erc20TradedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
                     await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(TEN));
-                    await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+                    await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(TEN));
 
                     let reservesBefore = await uniswapV2PairInstance.getReserves();
                     
@@ -2094,7 +2094,7 @@ describe("Staking contract tests", function () {
                     } else {
                         await expect( communityStakingPool.connect(bob).addAndStakeLiquidity(ZERO, ONE_ETH.mul(ONE)) ).to.be.revertedWith("AMOUNT_EMPTY");
                         await expect( communityStakingPool.connect(bob).addAndStakeLiquidity(ONE_ETH.mul(ONE),ZERO) ).to.be.revertedWith("AMOUNT_EMPTY");
-                        await communityStakingPool.connect(bob).addAndStakeLiquidity(ONE_ETH.mul(ONE), ONE_ETH.mul(ONE));
+                        await communityStakingPool.connect(bob).addAndStakeLiquidity(ONE_ETH.mul(ONE), ONE_ETH.mul(TEN));
                     }
                     
                     let shares = await CommunityCoin.balanceOf(bob.address);

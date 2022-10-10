@@ -76,7 +76,7 @@ abstract contract CommunityCoinBase is
     // Constants for shifts
     uint8 internal constant OPERATION_SHIFT_BITS = 240; // 256 - 16
 
-    // // Constants representing operations
+    // Constants representing operations
     uint8 internal constant OPERATION_INITIALIZE = 0x0;
     uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS = 0x1;
     uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS_BONUS = 0x2;
@@ -124,6 +124,7 @@ abstract contract CommunityCoinBase is
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
      * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
      * @param tradedToken_ address of traded token. usual it intercoin investor token
+     * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
      * @param costManager_ costManager address
      * @param producedBy_ address that produced instance by factory
      * @custom:calledby StakingFactory contract
@@ -322,7 +323,7 @@ abstract contract CommunityCoinBase is
     ////////////////////////////////////////////////////////////////////////
 
     /**
-     * @dev it's extended version for create instance pool available for owners only.
+     * @notice it's extended version for create instance pool available for owners only.
      * @param duration duration represented in amount of `LOCKUP_INTERVAL`
      * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
      * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
@@ -358,7 +359,7 @@ abstract contract CommunityCoinBase is
     }
 
     /**
-     * @dev function for creation erc20 instance pool.
+     * @notice function for creation erc20 instance pool.
      * @param tokenErc20 address of erc20 token.
      * @param duration duration represented in amount of `LOCKUP_INTERVAL`
      * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
@@ -394,9 +395,9 @@ abstract contract CommunityCoinBase is
     }
 
     /**
-     * @notice method like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
-     * @param amount The number of wallet tokens that will be unstaked.
-     * @custom:shortd unstake own tokens
+     * @notice method to obtain tokens: lp or erc20, depends of pool that was staked before. like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
+     * @param amount The number of ITRc tokens that will be unstaked.
+     * @custom:shortd unstake own ITRc tokens
      */
     function unstake(uint256 amount) public nonReentrant {
         address account = _msgSender();
@@ -404,7 +405,11 @@ abstract contract CommunityCoinBase is
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
         _accountForOperation(OPERATION_UNSTAKE << OPERATION_SHIFT_BITS, uint256(uint160(account)), amount);
     }
-
+    /**
+     * @notice method to obtain traded and reserved tokens instead ITRc that was staked before. like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
+     * @param amount The number of ITRc tokens that will be unstaked.
+     * @custom:shortd unstake and remove liquidity own ITRc tokens
+     */
     function unstakeAndRemoveLiquidity(uint256 amount) public nonReentrant {
         address account = _msgSender();
 
@@ -417,21 +422,6 @@ abstract contract CommunityCoinBase is
             uint256(uint160(account)),
             amount
         );
-    }
-
-    function _validateUnstake(address account, uint256 amount) internal view {
-        uint256 balance = balanceOf(account);
-
-        if (amount > balance) {
-            revert InsufficientBalance(account, amount);
-        }
-
-        uint256 locked = users[account].tokensLocked._getMinimum();
-        uint256 remainingAmount = balance - amount;
-
-        if (locked > remainingAmount) {
-            revert StakeNotUnlockedYet(account, locked, remainingAmount);
-        }
     }
 
     /**
@@ -501,6 +491,11 @@ abstract contract CommunityCoinBase is
         return users[account].tokensLocked._getMinimum() + users[account].tokensBonus._getMinimum();
     }
 
+    /**
+     * @notice way to view locked tokens lists(main and bonuses) that still can be unstakeable by user
+     * @param account address
+     * @custom:shortd view locked tokens lists (main and bonuses)
+     */
     function viewLockedWalletTokensList(address account) public view returns (uint256[][] memory, uint256[][] memory) {
         return (users[account].tokensLocked._getMinimumList(), users[account].tokensBonus._getMinimumList());
     }
@@ -542,6 +537,10 @@ abstract contract CommunityCoinBase is
         return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, swapPaths);
     }
 
+    /**
+    * @notice calling claim method on Hook Contract. in general it's Rewards contract that can be able to accomulate bonuses. 
+    * calling `claim` user can claim them
+    */
     function claim() public {
         _accountForOperation(OPERATION_CLAIM << OPERATION_SHIFT_BITS, uint256(uint160(_msgSender())), 0);
         if (hook != address(0)) {
@@ -550,14 +549,12 @@ abstract contract CommunityCoinBase is
     }
 
     /**
-     * @dev setup trusted forwarder address
+     * @notice setup trusted forwarder address
      * @param forwarder trustedforwarder's address to set
      * @custom:shortd setup trusted forwarder
      * @custom:calledby owner
      */
-    function setTrustedForwarder(address forwarder) public override onlyOwner //excludeTrustedForwarder
-    {
-        //require(owner() != forwarder, "FORWARDER_CAN_NOT_BE_OWNER");
+    function setTrustedForwarder(address forwarder) public override onlyOwner {
         if (owner() == forwarder) {
             revert TrustedForwarderCanNotBeOwner(forwarder);
         }
@@ -569,27 +566,33 @@ abstract contract CommunityCoinBase is
             uint256(uint160(forwarder))
         );
     }
-
+    /**
+    * @notice ownable version transferOwnership with supports ERC2771 
+    * @param newOwner new owner address
+    * @custom:shortd transferOwnership
+    * @custom:calledby owner
+    */
     function transferOwnership(address newOwner) public virtual override onlyOwner {
-        //require(!_isTrustedForwarder(msg.sender), "DENIED_FOR_FORWARDER");
         if (_isTrustedForwarder(msg.sender)) {
             revert DeniedForTrustedForwarder(msg.sender);
         }
-
         if (_isTrustedForwarder(newOwner)) {
             _setTrustedForwarder(address(0));
         }
-        // _accountForOperation(
-        //     OPERATION_SET_TRANSFER_OWNERSHIP << OPERATION_SHIFT_BITS,
-        //     uint256(uint160(_msgSender())),
-        //     uint256(uint160(newOwner))
-        // );
+        _accountForOperation(
+            OPERATION_SET_TRANSFER_OWNERSHIP << OPERATION_SHIFT_BITS,
+            uint256(uint160(_msgSender())),
+            uint256(uint160(newOwner))
+        );
         super.transferOwnership(newOwner);
     }
 
     /**
-     * @param fraction fraction that will send to person which has invite person who staked
-     */
+    * @notice additional tokens for the inviter
+    * @param fraction fraction that will send to person which has invite person who staked
+    * @custom:shortd set commission for addional tokens
+    * @custom:calledby owner
+    */
     function setCommission(uint256 fraction) public onlyOwner {
         invitedByFraction = fraction;
     }
@@ -603,6 +606,12 @@ abstract contract CommunityCoinBase is
         unstakeTariff = unstakeTariff_;
     }
 
+    /**
+    * @notice set hook contract, tha implement Beforetransfer methodf and can be managed amount of transferred tokens.
+    * @param taxAddress address of TaxHook
+    * @custom:shortd set tax hook contract address
+    * @custom:calledby owner
+    */
     function setupTaxAddress(address taxAddress) public onlyOwner {
         require(taxHook == address(0));
         taxHook = taxAddress;
@@ -611,6 +620,21 @@ abstract contract CommunityCoinBase is
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
+
+    function _validateUnstake(address account, uint256 amount) internal view {
+        uint256 balance = balanceOf(account);
+
+        if (amount > balance) {
+            revert InsufficientBalance(account, amount);
+        }
+
+        uint256 locked = users[account].tokensLocked._getMinimum();
+        uint256 remainingAmount = balance - amount;
+
+        if (locked > remainingAmount) {
+            revert StakeNotUnlockedYet(account, locked, remainingAmount);
+        }
+    }
 
     function _produce(
         uint64 duration,
