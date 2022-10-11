@@ -120,7 +120,7 @@ abstract contract CommunityCoinBase is
      * @param impl address of StakingPool implementation. usual it's `${tradedToken}c`
      * @param implErc20 address of StakingPoolErc20 implementation
      * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
-     * @param communityCoinInstanceAddr address of contract that managed and cloned pools
+     * @param stakingPoolFactory address of contract that managed and cloned pools
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
      * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
      * @param tradedToken_ address of traded token. usual it intercoin investor token
@@ -136,7 +136,7 @@ abstract contract CommunityCoinBase is
         address impl,
         address implErc20,
         address hook_,
-        address communityCoinInstanceAddr,
+        address stakingPoolFactory,
         uint256 discountSensitivity_,
         address reserveToken_,
         address tradedToken_,
@@ -153,7 +153,7 @@ abstract contract CommunityCoinBase is
 
         __ReentrancyGuard_init();
 
-        instanceManagment = ICommunityStakingPoolFactory(communityCoinInstanceAddr); //new ICommunityStakingPoolFactory(impl);
+        instanceManagment = ICommunityStakingPoolFactory(stakingPoolFactory); //new ICommunityStakingPoolFactory(impl);
         instanceManagment.initialize(impl, implErc20);
 
         hook = hook_;
