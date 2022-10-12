@@ -1,7 +1,8 @@
+
 # StakingContract
-StakingContract is not a single contract but it is a complex mechanism of several contracts that linked between itselfs. 
+StakingContract is not a single contract but it is a complex mechanism of several contracts that linked between itselfs. \
 StakingContract allows to distributed tokens(`tradedToken`) by staking it for a period. 
-Here and below we will call it **ITR**, like **I**nves**T**o**R** token.
+Here and below we will call it **ITR**, like **I**nves**T**o**R** token.\
 So user should:
 - buy it for another erc20 token `reserveToken` like USDT, USDC or native coin ETH. 
 - stake it for a period(depends of pool) and obtain `community coins`(we call it **ITRc** like **I**nves**T**o**R** **c**ommunity token.)
@@ -34,11 +35,41 @@ if using usual `CommunityStakingPool` then:
 [reserveToken]:[payingToken]
 
 ## Steps to deploy
-in progress
-### produce instances and desribed parameters
+StakingContract is a complex of several contracts that linked between itselfs. We developed pattern that any produced instances use the same code deployed before and interact with it through DELEGATE_CALL. So any instance should be produced only by factory.\
+So deployed process contains from two steps:
+ 1. Deploy implementations\
+`communityCoin.sol`\
+`communityStakingPoolFactory.sol`\
+`communityStakingPool.sol`\
+`communityStakingPoolErc20.sol`\
+`poolStakesLib.sol`\
+All contracts have proxy-based upgradeability system. so no constructors can be used in upgradeable contracts.\
+example in `./scripts/deploy-implementations.js` 
+ 2. Deploy factory
+deployed `CommunityCoinFactory.sol` with addresses of implementations deployed in the step before and `Costmanager` address that can be empty \
+example in `./scripts/deploy.js` 
 
 ## Steps to use
-in progress
+1. Need to create CommunityCoin
+To produce `CommunityCoin` instance user should call produce with params:
+
+|name|type|description|
+|-|-|-|
+|reserveToken|address|address of reserve token. like a WETH, USDT,USDC, etc.|
+|tradedToken|address|address of traded token. usual it intercoin investor token|
+|hook|address|address of contract implemented IHook interface and used to calculation bonus tokens amount|
+|discountSensitivity|uint256|value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)|
+|communitySettings|tuple|tuple of community settings. see below|
+
+struct CommunitySettings
+
+|name|type|description|
+|-|-|-|
+|invitedByFraction|uint256|fraction(multiplied by `FRACTION`) that will get inviter when invited person do unstake operation |
+|addr|address|address of community contract|
+|redeemRoleId|uint8|users with this role can be able to redeem or redeem and remove liquidity|
+|circulationRoleId|uint8|users with this role can call `addToCirculation`|
+|tariffRoleId|uint8|users with this role can set tariffcall `setComission`|
 
 ## How to stake
 There are several ways:

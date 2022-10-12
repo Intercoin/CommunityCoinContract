@@ -12,7 +12,6 @@ abstract contract RolesManagement is Initializable {
     uint256 public invitedByFraction;
 
     address internal communityAddress;
-    uint8 internal adminRoleId;
     uint8 internal redeemRoleId;
     uint8 internal circulationRoleId;
     uint8 internal tariffRoleId;
@@ -24,7 +23,6 @@ abstract contract RolesManagement is Initializable {
 
         invitedByFraction = communitySettings.invitedByFraction;
         communityAddress = communitySettings.addr;
-        adminRoleId = communitySettings.adminRoleId;
         redeemRoleId = communitySettings.redeemRoleId;
         circulationRoleId = communitySettings.circulationRoleId;
         tariffRoleId = communitySettings.tariffRoleId;

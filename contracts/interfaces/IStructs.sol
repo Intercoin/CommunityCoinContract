@@ -11,7 +11,6 @@ interface IStructs {
     struct CommunitySettings {
         uint256 invitedByFraction;
         address addr;
-        uint8 adminRoleId;
         uint8 redeemRoleId;
         uint8 circulationRoleId;
         uint8 tariffRoleId;

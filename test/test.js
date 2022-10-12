@@ -26,7 +26,7 @@ const UNISWAP_ROUTER_FACTORY_ADDRESS = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA
 const UNISWAP_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
 
 const INVITEDBY_FRACTION = 0;
-const ADMIN_ROLE        = 0x1;//'admin';
+
 const REDEEM_ROLE       = 0x2;//'redeem';
 const CIRCULATE_ROLE    = 0x3;//'circulate';
 const TARIFF_ROLE       = 0x4;//'tariff';
@@ -163,7 +163,6 @@ describe("Staking contract tests", function () {
         const COMMUNITY_SETTINGS = [
             INVITEDBY_FRACTION,
             mockCommunity.address, 
-            ADMIN_ROLE, 
             REDEEM_ROLE, 
             CIRCULATE_ROLE,
             TARIFF_ROLE
@@ -874,7 +873,6 @@ describe("Staking contract tests", function () {
             tx = await CommunityCoinFactory.connect(owner).produce(WETH.address, erc20TradedToken.address, ZERO_ADDRESS, discountSensitivity, [
                 INVITEDBY_FRACTION,
                 mockCommunity.address, 
-                ADMIN_ROLE, 
                 REDEEM_ROLE, 
                 CIRCULATE_ROLE,
                 TARIFF_ROLE
