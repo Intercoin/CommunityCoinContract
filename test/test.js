@@ -106,7 +106,7 @@ describe("Staking contract tests", function () {
         const PoolStakesLibF = await ethers.getContractFactory("PoolStakesLib");
 	    let poolStakesLib = await PoolStakesLibF.deploy();
         
-        const CommunityCoinF = await ethers.getContractFactory("CommunityCoin", {
+        const CommunityCoinF = await ethers.getContractFactory("MockCommunityCoin", {
             libraries: {
                 "contracts/libs/PoolStakesLib.sol:PoolStakesLib": poolStakesLib.address
             }
@@ -195,7 +195,7 @@ describe("Staking contract tests", function () {
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
-        CommunityCoin = await ethers.getContractAt("CommunityCoin",instance);
+        CommunityCoin = await ethers.getContractAt("MockCommunityCoin",instance);
 
         // with hook
         tx = await CommunityCoinFactory.connect(owner).produce(erc20ReservedToken.address, erc20TradedToken.address, rewardsHook.address, discountSensitivity, COMMUNITY_SETTINGS);
@@ -542,7 +542,16 @@ describe("Staking contract tests", function () {
                 let bobTradedTokenBefore2 = await erc20TradedToken.balanceOf(bob.address);
 
                 await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+
+                const userUnstakeableBefore = await CommunityCoin.getUnstakeableMap(bob.address);
+                const instanceStakedBefore = await CommunityCoin.getInstanceStakedMap(communityStakingPool.address);
+                const instanceUnstakeableBefore = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPool.address, bob.address);
+
                 await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
+
+                let userUnstakeableAfter = await CommunityCoin.getUnstakeableMap(bob.address);
+                let instanceStakedAfter = await CommunityCoin.getInstanceStakedMap(communityStakingPool.address);
+                let instanceUnstakeableAfter = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPool.address, bob.address);
 
                 let bobLPTokenAfter2 = await uniswapV2PairInstance.balanceOf(bob.address);
                 let bobReservedTokenAfter2 = await erc20ReservedToken.balanceOf(bob.address);
@@ -558,7 +567,19 @@ describe("Staking contract tests", function () {
                 await ethers.provider.send('evm_revert', [snapId]);
 
                 // now check unstake tariff
-                expect(bobLPTokenWithTariff).to.be.eq(bobLPTokenWithoutTariff.sub(bobLPTokenWithoutTariff.mul(MAX_UNSTAKE_TARIFF).div(FRACTION)));
+                expect(bobLPTokenWithTariff).to.be.eq(bobLPTokenWithoutTariff.sub(shares.mul(MAX_UNSTAKE_TARIFF).div(FRACTION)));
+
+                // issue 53
+                // https://github.com/Intercoin/StakingContract/issues/53
+                //unstakeable tokens for users should consuming completely without taxes
+                expect(userUnstakeableBefore.sub(shares)).to.be.eq(userUnstakeableAfter);
+                expect(instanceUnstakeableBefore.sub(shares)).to.be.eq(instanceUnstakeableAfter);
+                // unstakeable for instances should be as is how unstaked/redeemed
+                expect(userUnstakeableBefore.sub(instanceStakedAfter)).to.be.eq(bobLPTokenWithTariff);
+
+                //if smhow to be zero
+                expect(instanceUnstakeableAfter).not.to.be.eq(userUnstakeableBefore.sub(shares.mul(MAX_UNSTAKE_TARIFF).div(FRACTION)));
+
             });
             it(" - when redeem", async () => {
                 const MAX_REDEEM_TARIFF = await CommunityCoin.MAX_REDEEM_TARIFF();
