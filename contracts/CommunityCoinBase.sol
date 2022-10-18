@@ -68,7 +68,7 @@ abstract contract CommunityCoinBase is
     address internal tradedToken;
 
     //      instance
-    mapping(address => InstanceStruct) private _instances;
+    mapping(address => InstanceStruct) internal _instances;
 
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
@@ -730,10 +730,11 @@ abstract contract CommunityCoinBase is
             //console.log(1);
 
             _instances[instancesList[i]]._instanceStaked -= amounts[i];
-            //console.log(2);
-            _instances[instancesList[i]].unstakeable[account] -= amounts[i];
-            //console.log(3);
-            users[account].unstakeable -= amounts[i];
+
+            // in stats we should minus without taxes as we did in burn
+            _instances[instancesList[i]].unstakeable[account] -= amounts[i] * amount / newAmount;
+            users[account].unstakeable -= amounts[i] * amount / newAmount;
+            
 
             //console.log(4);
 
@@ -837,10 +838,9 @@ abstract contract CommunityCoinBase is
         
         for (uint256 i = 0; i < len; i++) {
             if (_instances[instancesToRedeem[i]].redeemable > 0) {
-                //_instances[instancesToRedeem[i]]._instanceStaked -= amounts[i];
                 _instances[instancesToRedeem[i]].redeemable -= amounts[i];
+                
                 total.totalRedeemable -= amounts[i];
-
                 total.totalReserves -= amounts[i];
 
                 //proceedPool(account2Redeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
@@ -858,7 +858,7 @@ abstract contract CommunityCoinBase is
         bool requireReceptionAck
     ) internal virtual override {
         
-    if (
+        if (
             from != address(0) && //otherwise minted
             !(from == address(this) && to == address(0)) && //burnt by contract itself
             address(taxHook) != address(0) && // tax hook setup
