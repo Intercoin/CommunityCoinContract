@@ -1,4 +1,5 @@
 
+
 # StakingContract
 StakingContract is not a single contract but it is a complex mechanism of several contracts that linked between itselfs. \
 StakingContract allows to distributed tokens(`tradedToken`) by staking it for a period. 
@@ -74,7 +75,7 @@ struct CommunitySettings
 ## How to stake
 There are several ways:
 
-1. `buyAndStakeLiquidity` (via ETH)
+1. **`buyAndStakeLiquidity`** (via ETH)   
 User send network coins(ETH,BNB,MATIC,etc) directly(or with payable method) into the `CommunityStakingPool`. 
 Contract do following:
 	- swap coins  will converts into WrappedCoins(WETH).  
@@ -82,25 +83,25 @@ Contract do following:
 	- then using Formula#1 converts part of reserve tokens to traded to make sure that adding to liquidity happens without remainder.
 	> if uniswap pair [reserveToken]:[WETH] does not exists then transactions will revert.
 	
-2. `buyAndStakeLiquidity` (via paying token)
+2. **`buyAndStakeLiquidity`** (via paying token)   
 User make `ERC20::approve`  paying tokens into `CommunityStakingPool` contract and call `buyAndStakeLiquidity`.  
 Contract do following:
 	- swap paying tokens into `reserveToken`. 
 	- then using Formula#1 converts part of reserve tokens to traded to make sure that adding to liquidity happens without remainder.
 	> if uniswap pair [reserveToken]:[payingToken] does not exists then transactions will revert.
 	
-3. `buyAndStakeLiquidity` (via reserve token)
+3. **`buyAndStakeLiquidity`** (via reserve token)   
 User make `ERC20::approve` reserve tokens into `CommunityStakingPool` contract and call `buyAndStakeLiquidity`.  
 Contract do following:
 	- using Formula#1 converts part of reserve tokens to traded to make sure that adding to liquidity happens without remainder.
 
-4. `sellAndStakeLiquidity`
+4. **`sellAndStakeLiquidity`**   
 used in cases when user already have `tradedToken` but didn't get enough reserved tokens. So user make `ERC20::approve` traded tokens into `CommunityStakingPool` contract and call `sellAndStakeLiquidity`.  
 
-5. `stakeLiquidity` 
+5. **`stakeLiquidity`**   
 used in cases when user have already LP tokens. Could be obtained after unstake/redeem or transfered by another user. So user make the same as before: make `ERC20::approve` LP tokens into `CommunityStakingPool` contract and call `sellAndStakeLiquidity`.  
 
-6. `addAndStakeLiquidity`
+6. **`addAndStakeLiquidity`**   
 used in cases when user have traded and reserve tokens. So user make the same as before: make `ERC20::approve` both tokens into `CommunityStakingPool` contract and call `addAndStakeLiquidity`.  Keep in mind that there are no calculation to add liquidity without remainder. If one of tokens fully consuming but other not, then all that left will refund to user back.
 
 
@@ -131,20 +132,55 @@ end
 mintITRcAndReturnBackToUser --> End
 ```
 ## How to unstake
-[in progress]
+**Requirements**:   
+- sender should have own unstakeable tokens. Means tokens should be no transferable to someone after staking. Thats tokens can be unstake after locked up period is passed.     
 
+So sender should approve tokens to `CommunityCoin` and call one of such methods:   
+ - **`unstake(uint256 amount)`**   
+ in this case user will obtain tokens depends of pool :  
+	- LP tokens(if pool `CommunityStakingPool`)
+	- erc20 tokens (if pool `CommunityStakingPoolErc20`) 
+ - **`unstakeAndRemoveLiquidity(uint256 amount)`**   
+ in this case user will obtain tokens depends of pool:   
+	 - traded and reserve tokens (if pool `CommunityStakingPool`)   
+	 - erc20 tokens (if pool `CommunityStakingPoolErc20`) 
+
+[not completed]
 ## How to redeem
-[in progress]
+**Requirements**:   
+- sender should have a role with Id `redeemRoleId` and have redeemable tokens.    Means tokens should be transfer from someone. It's could be tokens that was transferred after staking and passed locked up period or could be transferred other redeemable tokens.    
+   
+So sender should approve tokens to `CommunityCoin` and call one of such methods:   
+ - **`redeem(uint256 amount)`**  or  
+ - **`redeem(uint256 amount, address[] memory preferredInstances)`**   
+ in this case user will obtain tokens depends of pool :  
+	- LP tokens(if pool `CommunityStakingPool`)
+	- erc20 tokens (if pool `CommunityStakingPoolErc20`) 
+ - **`redeemAndRemoveLiquidity(uint256 amount)`** or  
+ - **`redeemAndRemoveLiquidity(uint256 amount, address[] memory preferredInstances)`**   
+ in this case user will obtain tokens depends of pool:   
+	 - traded and reserve tokens (if pool `CommunityStakingPool`)   
+	 - erc20 tokens (if pool `CommunityStakingPoolErc20`) 
+
+[not completed]
 
 ## CommunityContract
-using external Community Contract as a contraсt that checking users rights
-[in progress]
+using external Community Contract as a contraсt that checking users rights. Settings of Community Contract have pointed in CommunitySettings when producing CommunityCoin. (see "Step to use" section)
 
 ## Bonuses
-General information about bonuses. how, where, when.
+General information about bonuses. how, where, when.  
+There are several bonuses can be happens in system:  
+- **invitedByFraction**   
+parameter, specified in CommunitySettings struct when producing a CommunityCoin. User obtain bonus tokens every time when invited user from community stakes tokens at any pools. Bonus tokens are locked up as usual tokens and spent(unlocked) first on every transfer
+- **bonusTokenFraction**   
+parameter, specified when creating a pool.   
+User obtain bonus tokens every time when stakes tokens. Fraction can be different and depend of pool. Bonus tokens are locked up as usual tokens and spent(unlocked) first on every transfer
+- **addToCirculation**   
+direct way to add tokens to recipient.  Initiator should have a role with id `circulationRoleId` .  Bonus tokens are not locked and become as redeemable tokens.
 [in progress]
 
 ## Taxes
+[in progress]
 
 ## Formulas 
 #### **Formula#1**. 
