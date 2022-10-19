@@ -15,5 +15,11 @@ contract MockCommunityCoin is CommunityCoin {
     function getInstanceUnstakeableMap(address instance, address account) public view returns(uint256) {
         return _instances[instance].unstakeable[account];
     }
+    
+    function getTotal() public view returns(uint256 totalUnstakeable, uint256 totalRedeemable, uint256 totalReserves) {
+        totalUnstakeable = total.totalUnstakeable;
+        totalRedeemable = total.totalRedeemable;
+        totalReserves = total.totalReserves;
+    }
             
 }

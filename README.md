@@ -1,5 +1,6 @@
 
 
+
 # StakingContract
 StakingContract is not a single contract but it is a complex mechanism of several contracts that linked between itselfs. \
 StakingContract allows to distributed tokens(`tradedToken`) by staking it for a period. 
@@ -176,10 +177,31 @@ parameter, specified in CommunitySettings struct when producing a CommunityCoin.
 parameter, specified when creating a pool.   
 User obtain bonus tokens every time when stakes tokens. Fraction can be different and depend of pool. Bonus tokens are locked up as usual tokens and spent(unlocked) first on every transfer
 - **addToCirculation**   
-direct way to add tokens to recipient.  Initiator should have a role with id `circulationRoleId` .  Bonus tokens are not locked and become as redeemable tokens.
-[in progress]
+direct way to add tokens to recipient.  Initiator should have a role with id `circulationRoleId` .  Bonus tokens are not locked. and behave not as bonus tokens. It's like inflation tokens. 
+- **Rewards**   
+Additional way to get bonus (traded)tokens is defined hook contract, which can be triggered in every unstake operation. Hook contract is a fund contract that can accomulate tokens unstaked by user and claim to user when overall amount exceed threshold defined in rewardsContract.
+It's really separate way to get bonus. it can be ITR  or ITRc or any other erc20 tokens.  RewardsContract can send any tokens and implement any different logic.
 
 ## Taxes
+There are couple of taxes applied in system:
+|tax|description|when applied|
+|--|--|--|
+|**discountSensitivity**|see Formula#2. setup through produced CommunityCoin|every transfer|
+|inflation tax|see Formula#3. autocalculated and depend of inflation tokens|every transfer|
+|Tariffs|var **unstakeTariff** and **redeemTariff** can be set by owner|unstake / redeem |
+|**taxHook**|if external taxHook contract are present then in any transfer it can adjust transferred amount up or down. But not more then MAX_BOOST or not less then MAX_TAX fractions respectively.|in every transfer|
+|**lpFraction**|reducing LP tokens by lpFraction tax in pool(not erc20pool)|unstake/redeem|
+
+
+
+**Limit for taxes** (multiple by fraction = 100000)
+|name|value|description|
+|--|--|--|
+|MAX_UNSTAKE_TARIFF|10000|10%|
+|MAX_REDEEM_TARIFF|10000|10%|
+|MAX_TAX|10000|10%|
+|MAX_BOOST|10000|10%|
+
 [in progress]
 
 ## Formulas 
@@ -194,3 +216,17 @@ r1 - reserve at uniswap(reserve side 1)<br>
 r2 - incoming amount of reserve(side 1) token<br>
 r3 - tokens amount from reserve side1 that need to use `swapExactTokensForTokens`<br>
 
+#### **Formula#2**. 
+
+> How tokens calculated with circulation tokens present 
+
+
+<img src="https://latex.codecogs.com/gif.latex?amount=amount*totalReserves/totalSupply"/><br>
+Where:<br>
+totalReserves - tokens over all pools but without bonuses and inflation tokens   
+totalSupply - tokens over all pools   
+
+#### **Formula#3**. 
+> ratio with discount sensitivity
+
+<img src="https://latex.codecogs.com/gif.latex?ratio=A/(A+B*discountSensitivity)"/><br>

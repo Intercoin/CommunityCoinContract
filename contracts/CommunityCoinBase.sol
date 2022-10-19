@@ -284,12 +284,17 @@ abstract contract CommunityCoinBase is
      * @custom:shortd distribute tokens
      */
     function addToCirculation(address account, uint256 amount) external nonReentrant {
+
         _checkRole(circulationRoleId, _msgSender());
 
         _mint(account, amount, "", "");
-        //users[account].tokensBonus._minimumsAdd(amount, 1, LOCKUP_BONUS_INTERVAL, false);
+
+        // dev note.
+        // we shouldn't increase totalRedeemable. Circulations tokens raise inflations and calculated by (total-redeemable-unstakeable)
+        //total.totalRedeemable += amount; 
 
         _accountForOperation(OPERATION_ADD_TO_CIRCULATION << OPERATION_SHIFT_BITS, uint256(uint160(account)), amount);
+
     }
 
     /**
@@ -772,7 +777,8 @@ abstract contract CommunityCoinBase is
             discountSensitivity,
             users,
             unstakeTariff,
-            redeemTariff
+            redeemTariff,
+            FRACTION
         );
         // console.log("_poolStakesAvailable::amountLeft=", amount);
         (instancesAddress, values, amounts, len) = PoolStakesLib.available(
@@ -819,11 +825,12 @@ abstract contract CommunityCoinBase is
         address[] memory preferredInstances,
         Strategy strategy
     ) internal proceedBurnUnstakeRedeem {
-        uint256 totalSupplyBefore = _burn(account2Burn, amount);
 
         if (amount > total.totalRedeemable) {
             revert InsufficientBalance(account2Redeem, amount);
         }
+
+        uint256 totalSupplyBefore = _burn(account2Burn, amount);
 
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len, uint256 newAmount) = _poolStakesAvailable(
             account2Redeem,
@@ -847,6 +854,7 @@ abstract contract CommunityCoinBase is
                 PoolStakesLib.proceedPool(instanceManagment, hook, account2Redeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
             }
         }
+
     }
 
     function _send(

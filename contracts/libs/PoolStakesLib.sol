@@ -382,7 +382,8 @@ library PoolStakesLib {
         uint256 discountSensitivity,
         mapping(address => ICommunityCoin.UserData) storage users,
         uint64 unstakeTariff, 
-        uint64 redeemTariff
+        uint64 redeemTariff,
+        uint64 fraction
 
     ) external view returns(uint256) {
         
@@ -401,9 +402,9 @@ library PoolStakesLib {
 
             // --- proposal from audit to keep precision after division
             // amountLeft = amount * A / (A + B * discountSensitivity / 100000);
-            amount = amount * A * 100000;
-            amount = amount / (A + B * discountSensitivity / 100000);
-            amount = amount / 100000;
+            amount = amount * A * fraction;
+            amount = amount / (A + B * discountSensitivity / fraction);
+            amount = amount / fraction;
 
             /////////////////////////////////////////////////////////////////////
             // Formula: #1
@@ -430,7 +431,7 @@ library PoolStakesLib {
             /////////////////////////////////////////////////////////////////////
 
             // apply redeem tariff                    
-            amount -= amount * redeemTariff/100000;
+            amount -= amount * redeemTariff/fraction;
             
         }
 
@@ -444,7 +445,7 @@ library PoolStakesLib {
             }
 
             // apply unstake tariff
-            amount -= amount * unstakeTariff/100000;
+            amount -= amount * unstakeTariff/fraction;
 
 
         }

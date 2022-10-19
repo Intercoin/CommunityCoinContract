@@ -2572,7 +2572,6 @@ describe("Staking contract tests", function () {
         describe("unstake/redeem/redeem-and-remove-liquidity tests", function () {
             var shares;
             beforeEach("before each callback", async() => {
-                
                 await erc20ReservedToken.mint(bob.address, ONE_ETH.mul(ONE));
                 await erc20ReservedToken.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
                 await communityStakingPool.connect(bob)['buyAndStakeLiquidity(uint256)'](ONE_ETH.mul(ONE));
@@ -2963,33 +2962,68 @@ describe("Staking contract tests", function () {
                                 expect(aliceLPTokenAfter).gt(aliceLPTokenBefore);
                             });
 
-                            describe("discountSensivityTests", function () {
-                                var amountWithout, amountWith;
-                                it("calculate amount obtain without circulation", async () => {
-                                    await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
-                                    amountWithout = await uniswapV2PairInstance.balanceOf(alice.address);
-                                });
+                            // it.only("test", async () => {
+                            //     await mockCommunity.connect(owner).setRoles(charlie.address, [CIRCULATE_ROLE]);
 
-                                it("calculate amount obtain with circulation", async () => {
-                                    
-                                    // imitate exists role
-                                    //await mockCommunity.connect(owner).setRoles([0x99,0x98,0x97,0x96,CIRCULATE_ROLE]);
-                                    await mockCommunity.connect(owner).setRoles(charlie.address, [0x99,0x98,0x97,CIRCULATE_ROLE,REDEEM_ROLE]);
+                            //     await CommunityCoin.connect(charlie).addToCirculation(charlie.address, shares);
 
-                                    await CommunityCoin.connect(charlie).addToCirculation(charlie.address, shares);
-                                    await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
-                                    amountWith = await uniswapV2PairInstance.balanceOf(alice.address);
-                                });
-
-                                it("check correct sensivity discount", async () => {
-                                    // if total shares = X and admin will add to circulation on X more
-                                    // then the user will obtain in a two times less
-
-                                    //expect(amountWithout.div(amountWith)).to.be.eq(TWO); // it will be if sensitivityDiscount is zero
-                                    expect(amountWithout.div(amountWith)).to.be.eq(FOUR);
-                                });
+                            //     //try to unstake
+                            //     await CommunityCoin.connect(charlie).approve(CommunityCoin.address, shares);
+                            //     await CommunityCoin.connect(charlie).unstake(shares);
+                            //     //try to redeem
+                            //     await mockCommunity.connect(owner).setRoles(charlie.address, [REDEEM_ROLE]);
                                 
+                                    
+                            // });
+
+                            it("discountSensivityTests", async () => {
+                                var amountWithout, amountWith, snapId;
+
+                                // ----- calculate amount obtain without circulation ------//
+                                snapId = await ethers.provider.send('evm_snapshot', []);
+                                
+                                await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
+                                amountWithout = await uniswapV2PairInstance.balanceOf(alice.address);
+
+                                await ethers.provider.send('evm_revert', [snapId]);
+
+                                // ----- calculate amount obtain with circulation ------//
+                                snapId = await ethers.provider.send('evm_snapshot', []);
+                                // imitate exists role
+                                //await mockCommunity.connect(owner).setRoles([0x99,0x98,0x97,0x96,CIRCULATE_ROLE]);
+                                await mockCommunity.connect(owner).setRoles(charlie.address, [0x99,0x98,0x97,CIRCULATE_ROLE,REDEEM_ROLE]);
+
+                                await CommunityCoin.connect(charlie).addToCirculation(charlie.address, shares);
+                                await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
+
+                                amountWith = await uniswapV2PairInstance.balanceOf(alice.address);
+
+                                await ethers.provider.send('evm_revert', [snapId]);
+
+                                //---------------
+                                // check correct sensivity discount = 1*FRACTION;
+                                // means 
+                                //  ratio = A / (A + B * discountSensitivity);
+                                //  amount * amount *ratio;
+                                // Where: 
+                                //  B - it's circulation tokens
+                                //  A - totalRedeemable
+
+                                // !!!!! it should be in two times less !!!!!!
+
+                                // then constantly tax
+                                //amount = amount * total.totalReserves / totalSupplyBefore;
+                                // again descrease in two times
+
+                                // i general we expect obtain in four times less
+                                expect(amountWithout.div(amountWith)).to.be.eq(FOUR);
+
+                                 //what if it will be if sensitivityDiscount is zero
+                                
+                                
+
                             });
+                           
                         }
                         
                     
