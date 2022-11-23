@@ -2768,7 +2768,7 @@ describe("Staking contract tests", function () {
                             });
 
                             it("if anyone didn't transfer tokens to you before", async () => {
-                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(`AmountExceedsAllowance("${bob.address}", ${shares})`);
+                                await expect(CommunityCoin.connect(bob)[`${forkAction ? 'redeem(uint256)' : 'redeemAndRemoveLiquidity(uint256)'}`](shares)).to.be.revertedWith(`InsufficientBalance("${bob.address}", ${shares})`);
                             });
         
                             it("but without transfer to some one", async () => {
