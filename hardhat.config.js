@@ -26,7 +26,7 @@ module.exports = {
     local: {
       url: "http://localhost:8545", //rinkebyURL,
       chainId: 1337,
-      gasPrice: "auto",
+      //gasPrice: "auto",
       //accounts: {mnemonic: process.env.MNEMONIC,initialIndex:1},
       accounts: [process.env.private_key],
       saveDeployments: true
@@ -105,7 +105,7 @@ module.exports = {
           settings: {
             optimizer: {
               enabled: true,
-              runs: 10,
+              runs: 1,
             },
             metadata: {
               // do not include the metadata hash, since this is machine dependent

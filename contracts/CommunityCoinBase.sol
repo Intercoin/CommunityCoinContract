@@ -21,7 +21,7 @@ import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol"
 
 import "./libs/PoolStakesLib.sol";
 
-//import "hardhat/console.sol";
+//import "hardhat/console.sfol";
 
 abstract contract CommunityCoinBase is
     OwnableUpgradeable,
@@ -32,7 +32,7 @@ abstract contract CommunityCoinBase is
     ERC777Upgradeable,
     IERC777RecipientUpgradeable
 {
-    using MinimumsLib for MinimumsLib.UserStruct;
+    //using MinimumsLib for MinimumsLib.UserStruct;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
     uint64 internal constant LOCKUP_INTERVAL = 24 * 60 * 60; // day in seconds
@@ -248,7 +248,9 @@ abstract contract CommunityCoinBase is
         _mint(account, (amount + bonusAmount), "", "");
         emit Staked(account, (amount + bonusAmount), priceBeforeStake);
         // locked main
-        users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+        //users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+        MinimumsLib._minimumsAdd(users[account].tokensLocked, amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+
         _accountForOperation(
             OPERATION_ISSUE_WALLET_TOKENS << OPERATION_SHIFT_BITS,
             uint256(uint160(account)),
@@ -257,7 +259,8 @@ abstract contract CommunityCoinBase is
 
         // locked main
         if (bonusAmount > 0) {
-            users[account].tokensBonus._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+            //users[account].tokensBonus._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+            MinimumsLib._minimumsAdd(users[account].tokensBonus, bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             _accountForOperation(
                 OPERATION_ISSUE_WALLET_TOKENS_BONUS << OPERATION_SHIFT_BITS,
                 uint256(uint160(account)),
@@ -267,7 +270,8 @@ abstract contract CommunityCoinBase is
 
         if (invitedBy != address(0)) {
             _mint(invitedBy, invitedAmount, "", "");
-            users[invitedBy].tokensBonus._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+            //users[invitedBy].tokensBonus._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+            MinimumsLib._minimumsAdd(users[invitedBy].tokensBonus, invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             _accountForOperation(
                 OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE << OPERATION_SHIFT_BITS,
                 uint256(uint160(invitedBy)),
@@ -493,7 +497,8 @@ abstract contract CommunityCoinBase is
      * @custom:shortd view locked tokens
      */
     function viewLockedWalletTokens(address account) public view returns (uint256) {
-        return users[account].tokensLocked._getMinimum() + users[account].tokensBonus._getMinimum();
+        //return users[account].tokensLocked._getMinimum() + users[account].tokensBonus._getMinimum();
+        return MinimumsLib._getMinimum(users[account].tokensLocked) + MinimumsLib._getMinimum(users[account].tokensBonus);
     }
 
     /**
@@ -502,7 +507,8 @@ abstract contract CommunityCoinBase is
      * @custom:shortd view locked tokens lists (main and bonuses)
      */
     function viewLockedWalletTokensList(address account) public view returns (uint256[][] memory, uint256[][] memory) {
-        return (users[account].tokensLocked._getMinimumList(), users[account].tokensBonus._getMinimumList());
+        //return (users[account].tokensLocked._getMinimumList(), users[account].tokensBonus._getMinimumList());
+        return (MinimumsLib._getMinimumList(users[account].tokensLocked), MinimumsLib._getMinimumList(users[account].tokensBonus));
     }
 
     /**
@@ -633,7 +639,9 @@ abstract contract CommunityCoinBase is
             revert InsufficientBalance(account, amount);
         }
 
-        uint256 locked = users[account].tokensLocked._getMinimum();
+        //uint256 locked = users[account].tokensLocked._getMinimum();
+        uint256 locked = MinimumsLib._getMinimum(users[account].tokensLocked);
+
         uint256 remainingAmount = balance - amount;
 
         if (locked > remainingAmount) {

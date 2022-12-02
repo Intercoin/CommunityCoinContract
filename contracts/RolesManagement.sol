@@ -60,11 +60,14 @@ abstract contract RolesManagement is Initializable {
      *
      */
     function hasRole(uint8 role, address account) public view returns (bool) {
-        // external call to community contract
-        uint8[] memory communityRoles = ICommunity(communityAddress).getRoles(account);
 
-        for (uint256 i = 0; i < communityRoles.length; i++) {
-            if (role == communityRoles[i]) {
+        address[] memory addrs = new address[](1);
+        addrs[0] = account;
+        // external call to community contract
+        uint8[][] memory communityRoles = ICommunity(communityAddress).getRoles(addrs);
+
+        for (uint256 i = 0; i < communityRoles[0].length; i++) {
+            if (role == communityRoles[0][i]) {
                 return true;
             }
         }
