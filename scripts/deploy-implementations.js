@@ -47,6 +47,7 @@ async function main() {
 	const [deployer] = await ethers.getSigners();
 	
 	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+	const RELEASE_MANAGER = process.env.RELEASE_MANAGER;
 	console.log(
 		"Deploying contracts with the account:",
 		deployer.address
@@ -93,6 +94,7 @@ async function main() {
 	data_object.communityStakingPoolErc20	= communityStakingPoolErc20.address;
 	//data_object.communityRolesManagement	= communityRolesManagement.address;
 	data_object.poolStakesLib				= poolStakesLib.address;
+	data_object.releaseManager                  = RELEASE_MANAGER;
 
 	//---
 	const ts_updated = Date.now();
