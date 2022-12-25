@@ -4,10 +4,10 @@
 # StakingContract
 StakingContract is not a single contract but it is a complex mechanism of several contracts that linked between itselfs. \
 StakingContract allows to distributed tokens(`tradedToken`) by staking it for a period. 
-Here and below we will call it **ITR**, like **I**nves**T**o**R** token.\
+Here and below we will call it **ITR**, like **I**n**T**e**R**coin token.\
 So user should:
 - buy it for another erc20 token `reserveToken` like USDT, USDC or native coin ETH. 
-- stake it for a period(depends of pool) and obtain `community coins`(we call it **ITRc** like **I**nves**T**o**R** **c**ommunity token.)
+- stake it for a period(depends of pool) and obtain `community coins`(we call it **ITRc** like **I**n**T**e**R**coin **c**ommunity token.)
 - unstake `community coins` after period passed to get `tradedToken` and `reserveToken` tokens with some fraction bonuses 
 > Actually bonus will applied for ITRc. so user obtain additionally bonus ITRc and can unstake it, only paid for smth. but about this it will write below
 
@@ -58,7 +58,7 @@ To produce `CommunityCoin` instance user should call produce with params:
 |name|type|description|
 |-|-|-|
 |reserveToken|address|address of reserve token. like a WETH, USDT,USDC, etc.|
-|tradedToken|address|address of traded token. usual it intercoin investor token|
+|tradedToken|address|address of traded token. For example the intercoin ITR token|
 |hook|address|address of contract implemented IHook interface and used to calculation bonus tokens amount|
 |discountSensitivity|uint256|value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)|
 |communitySettings|tuple|tuple of community settings. see below|
