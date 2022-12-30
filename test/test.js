@@ -175,7 +175,8 @@ describe("Staking contract tests", function () {
             implementationCommunityStakingPoolFactory.address, 
             implementationCommunityStakingPool.address, 
             implementationCommunityStakingPoolErc20.address,
-            NO_COSTMANAGER
+            NO_COSTMANAGER,
+            releaseManager.address
         );
 
         // 
@@ -187,7 +188,7 @@ describe("Staking contract tests", function () {
                 "0x53696c766572000000000000000000000000000000000000"//bytes24 factoryChangeNotes;
             ]
         ]
-        await CommunityCoinFactory.connect(owner).registerReleaseManager(releaseManager.address);
+        
         await releaseManager.connect(owner).newRelease(factoriesList, factoryInfo);
 
         // without hook

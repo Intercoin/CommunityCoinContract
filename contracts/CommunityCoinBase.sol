@@ -840,7 +840,7 @@ abstract contract CommunityCoinBase is
 
         uint256 totalSupplyBefore = _burn(account2Burn, amount);
 
-        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len, uint256 newAmount) = _poolStakesAvailable(
+        (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len, /*uint256 newAmount*/) = _poolStakesAvailable(
             account2Redeem,
             amount,
             preferredInstances,

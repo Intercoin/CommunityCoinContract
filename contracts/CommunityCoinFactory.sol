@@ -86,6 +86,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     address public immutable communityCoinImplementation;
 
     /**
+     * @dev public in StakingPoolFactory
      * @custom:shortd CommunityStakingPoolFactory implementation address
      * @notice CommunityStakingPoolFactory implementation address
      */
@@ -95,8 +96,14 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      * @custom:shortd StakingPool implementation address
      * @notice StakingPool implementation address
      */
-    address public immutable stakingPoolImplementation;
-    address public immutable stakingPoolErc20Implementation;
+    address internal immutable stakingPoolImplementation;
+
+    /**
+     * @dev public in StakingPoolFactory
+     * @custom:shortd StakingPool implementation address
+     * @notice StakingPoolErc20 implementation address
+     */
+    address internal immutable stakingPoolErc20Implementation;
 
     address[] public instances;
 
@@ -107,15 +114,20 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
      * @param stakingPoolImpl address of StakingPool implementation
      * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
-     * [deprecated]param costManager_ address of costmanager
+     * @param costManager_ address of costmanager
+     * @param releaseManager_ address of releaseManager
      */
     constructor(
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address stakingPoolImplErc20,
-        address costManager_
-    ) CostManagerFactoryHelper(costManager_) {
+        address costManager_,
+        address releaseManager_
+    ) 
+        CostManagerFactoryHelper(costManager_) 
+        ReleaseManagerHelper(releaseManager_)
+    {
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;

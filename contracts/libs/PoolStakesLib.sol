@@ -324,8 +324,8 @@ library PoolStakesLib {
             //usual pool
             if (strategy == ICommunityCoin.Strategy.UNSTAKE) {
                 try ICommunityStakingPool(pool).unstake(account, amount) returns (
-                    uint256 affectedAmount,
-                    uint64 rewardsRateFraction
+                    uint256 /*affectedAmount*/,
+                    uint64 /*rewardsRateFraction*/
                 ) {
                     //
                 } catch {
@@ -333,7 +333,7 @@ library PoolStakesLib {
                 }
             } else if (strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
                 try ICommunityStakingPool(pool).unstakeAndRemoveLiquidity(account, amount) returns (
-                    uint256 affectedReservedAmount,
+                    uint256 /*affectedReservedAmount*/,
                     uint256 affectedTradedAmount,
                     uint64 rewardsRateFraction
                 ) {
@@ -346,8 +346,8 @@ library PoolStakesLib {
                 }
             } else if (strategy == ICommunityCoin.Strategy.REDEEM) {
                 try ICommunityStakingPool(pool).redeem(account, amount) returns (
-                    uint256 affectedAmount,
-                    uint64 rewardsRateFraction
+                    uint256 /*affectedAmount*/,
+                    uint64 /*rewardsRateFraction*/
                 ) {
                     //
                 } catch {
@@ -355,9 +355,9 @@ library PoolStakesLib {
                 }
             } else if (strategy == ICommunityCoin.Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
                 try ICommunityStakingPool(pool).redeemAndRemoveLiquidity(account, amount) returns (
-                    uint256 affectedReservedAmount,
-                    uint256 affectedTradedAmount,
-                    uint64 rewardsRateFraction
+                    uint256 /*affectedReservedAmount*/,
+                    uint256 /*affectedTradedAmount*/,
+                    uint64 /*rewardsRateFraction*/
                 ) {
                     //
                 } catch {
