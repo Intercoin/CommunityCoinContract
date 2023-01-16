@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/Intercoin/StakingContract#readme",
   "dependencies": {
-    "@artman325/community": "^1.1.1",
+    "@artman325/community": "^1.1.3",
     "@artman325/releasemanager": "^2.0.0",
     "@artman325/trustedforwarder": "^1.0.1",
     "@openzeppelin/contracts": "^4.1.0",

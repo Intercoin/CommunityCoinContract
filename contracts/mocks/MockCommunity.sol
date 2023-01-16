@@ -64,5 +64,14 @@ contract MockCommunity is CommunityAccessMap, ICommunity {
         return list;
     }
 
+    function hasRole(address account, uint8 roleIndex) external view returns(bool) {
+        
+        for(uint256 i = 0; i < roles[account].length; i++) {
+            if (roles[account][i] == roleIndex) {
+                return true;
+            }
+        }
+        return false;
+    }
     
 }

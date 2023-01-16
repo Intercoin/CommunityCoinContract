@@ -40,7 +40,7 @@ abstract contract RolesManagement is Initializable {
     }
 
     function _checkRole(uint8 roleId, address account) internal view virtual {
-        if (!hasRole(roleId, account)) {
+        if (!hasRole(account, roleId)) {
             revert MissingRole(account, roleId);
             // revert(
             //     string(
@@ -59,19 +59,10 @@ abstract contract RolesManagement is Initializable {
      * @dev Returns `true` if `account` has been granted `role`.
      *
      */
-    function hasRole(uint8 role, address account) public view returns (bool) {
+    function hasRole(address account, uint8 role) public view returns (bool) {
 
-        address[] memory addrs = new address[](1);
-        addrs[0] = account;
         // external call to community contract
-        uint8[][] memory communityRoles = ICommunity(communityAddress).getRoles(addrs);
+        return ICommunity(communityAddress).hasRole(account, role);
 
-        for (uint256 i = 0; i < communityRoles[0].length; i++) {
-            if (role == communityRoles[0][i]) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
