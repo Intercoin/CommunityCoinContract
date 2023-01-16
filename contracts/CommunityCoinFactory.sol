@@ -86,7 +86,6 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     address public immutable communityCoinImplementation;
 
     /**
-     * @dev public in StakingPoolFactory
      * @custom:shortd CommunityStakingPoolFactory implementation address
      * @notice CommunityStakingPoolFactory implementation address
      */
@@ -96,14 +95,13 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      * @custom:shortd StakingPool implementation address
      * @notice StakingPool implementation address
      */
-    address internal immutable stakingPoolImplementation;
+    address public immutable stakingPoolImplementation;
 
     /**
-     * @dev public in StakingPoolFactory
      * @custom:shortd StakingPool implementation address
      * @notice StakingPoolErc20 implementation address
      */
-    address internal immutable stakingPoolErc20Implementation;
+    address public immutable stakingPoolErc20Implementation;
 
     address[] public instances;
 

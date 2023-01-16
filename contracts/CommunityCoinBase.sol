@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
-import "./interfaces/IHook.sol";
+//import "./interfaces/IHook.sol"; exists in PoolStakesLib
 import "./interfaces/ITaxes.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/ICommunityStakingPoolErc20.sol";
 
 import "./interfaces/ICommunityStakingPoolFactory.sol";
-import "./interfaces/IStructs.sol";
+//import "./interfaces/IStructs.sol"; exists in ICommunityCoin
 import "./RolesManagement.sol";
 
 //import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
@@ -35,8 +35,8 @@ abstract contract CommunityCoinBase is
     //using MinimumsLib for MinimumsLib.UserStruct;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
-    uint64 internal constant LOCKUP_INTERVAL = 24 * 60 * 60; // day in seconds
-    uint64 internal constant LOCKUP_BONUS_INTERVAL = 1000 * 365 * 24 * 60 * 60; // 300 years in seconds
+    uint64 internal constant LOCKUP_INTERVAL = 1 days;//24 * 60 * 60; // day in seconds
+    uint64 internal constant LOCKUP_BONUS_INTERVAL = 52000 weeks;//1000 * 365 * 24 * 60 * 60; // 1000 years in seconds
     uint64 public constant FRACTION = 100000; // fractions are expressed as portions of this
 
     uint64 public constant MAX_REDEEM_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
