@@ -98,8 +98,10 @@ contract CommunityCoin is CommunityCoinBase {
         address producedBy_
     ) external virtual override initializer {
         CommunityCoinBase__init(
-            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), " commnunity")),
-            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), " c")),
+            // string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), " commnunity")),
+            // string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), " c")),
+            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), bytes32(0x20636f6d6d6e756e697479000000000000000000000000000000000000000000))),
+            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), bytes32(0x2063000000000000000000000000000000000000000000000000000000000000))),
             impl,
             implErc20,
             hook_,
