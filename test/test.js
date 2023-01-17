@@ -81,7 +81,7 @@ describe("Staking contract tests", function () {
     var implementationCommunityCoin;
     var implementationCommunityStakingPoolFactory;
     var implementationCommunityStakingPool;
-    var implementationCommunityStakingPoolErc20;
+    var implementationCommunityStakingPoolERC20;
 
     var rewardsHook;
     var mockCommunity;
@@ -112,7 +112,7 @@ describe("Staking contract tests", function () {
             }
         });
         const CommunityStakingPoolF = await ethers.getContractFactory("MockCommunityStakingPool");
-        const CommunityStakingPoolErc20F = await ethers.getContractFactory("CommunityStakingPoolErc20");
+        const CommunityStakingPoolERC20F = await ethers.getContractFactory("CommunityStakingPoolERC20");
         const CommunityStakingPoolFactoryF = await ethers.getContractFactory("CommunityStakingPoolFactory");
 
         const RewardsF = await ethers.getContractFactory("Rewards");
@@ -141,7 +141,7 @@ describe("Staking contract tests", function () {
         implementationCommunityCoin = await CommunityCoinF.deploy();
         implementationCommunityStakingPoolFactory = await CommunityStakingPoolFactoryF.deploy();
         implementationCommunityStakingPool = await CommunityStakingPoolF.deploy();
-        implementationCommunityStakingPoolErc20 = await CommunityStakingPoolErc20F.deploy();
+        implementationCommunityStakingPoolERC20 = await CommunityStakingPoolERC20F.deploy();
 
         rewardsHook = await RewardsF.deploy();
 
@@ -174,7 +174,7 @@ describe("Staking contract tests", function () {
             implementationCommunityCoin.address, 
             implementationCommunityStakingPoolFactory.address, 
             implementationCommunityStakingPool.address, 
-            implementationCommunityStakingPoolErc20.address,
+            implementationCommunityStakingPoolERC20.address,
             NO_COSTMANAGER,
             releaseManager.address
         );
@@ -1591,7 +1591,7 @@ describe("Staking contract tests", function () {
     });
 
     describe("ERC20 pool tests", function () { 
-        var communityStakingPoolErc20; 
+        var communityStakingPoolERC20; 
         beforeEach("deploying", async() => { 
             let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
                 erc20.address,
@@ -1609,16 +1609,16 @@ describe("Staking contract tests", function () {
             const event = rc.events.find(event => event.event === 'InstanceErc20Created');
             const [erc20tokenAddress, instance] = event.args;
             
-            communityStakingPoolErc20 = await ethers.getContractAt("CommunityStakingPoolErc20",instance);
+            communityStakingPoolERC20 = await ethers.getContractAt("CommunityStakingPoolERC20",instance);
         });
         it("should produce", async() => {
-            expect(communityStakingPoolErc20.address).not.to.be.eq(ZERO_ADDRESS); 
+            expect(communityStakingPoolERC20.address).not.to.be.eq(ZERO_ADDRESS); 
         });
 
         it("shouldn't receive ether", async() => {
             await expect(
                 owner.sendTransaction({
-                    to: communityStakingPoolErc20.address,
+                    to: communityStakingPoolERC20.address,
                     value: ethers.utils.parseEther("1.0"), // Sends exactly 1.0 ether
                 })
             ).not.to.be.revertedWith("DENIED()"); 
@@ -1693,9 +1693,9 @@ describe("Staking contract tests", function () {
 
                 
                 await erc20TradedToken.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20TradedToken.connect(bob).approve(communityStakingPoolErc20.address, ONE_ETH.mul(ONE));
+                await erc20TradedToken.connect(bob).approve(communityStakingPoolERC20.address, ONE_ETH.mul(ONE));
                 
-                await communityStakingPoolErc20.connect(bob).buyAndStake(erc20TradedToken.address, ONE_ETH.mul(ONE), charlie.address);
+                await communityStakingPoolERC20.connect(bob).buyAndStake(erc20TradedToken.address, ONE_ETH.mul(ONE), charlie.address);
 
                 charlieWalletTokensAfter = await CommunityCoin.balanceOf(charlie.address);
                 bobWalletTokensAfter = await CommunityCoin.balanceOf(bob.address);
@@ -1704,15 +1704,15 @@ describe("Staking contract tests", function () {
             it("just stake", async () => {
 
                 await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20.connect(bob).approve(communityStakingPoolErc20.address, ONE_ETH.mul(ONE));
+                await erc20.connect(bob).approve(communityStakingPoolERC20.address, ONE_ETH.mul(ONE));
 
                 let charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
-                let bobLptokensBefore = await erc20.balanceOf(communityStakingPoolErc20.address);
+                let bobLptokensBefore = await erc20.balanceOf(communityStakingPoolERC20.address);
 
-                await communityStakingPoolErc20.connect(bob).stake(ONE_ETH.mul(ONE), charlie.address);
+                await communityStakingPoolERC20.connect(bob).stake(ONE_ETH.mul(ONE), charlie.address);
 
                 let walletTokens = await CommunityCoin.balanceOf(charlie.address);
-                let lptokens = await erc20.balanceOf(communityStakingPoolErc20.address);
+                let lptokens = await erc20.balanceOf(communityStakingPoolERC20.address);
                 
                 // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
                 expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);

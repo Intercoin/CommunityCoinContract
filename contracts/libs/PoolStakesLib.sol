@@ -4,7 +4,7 @@ pragma solidity ^0.8.11;
 import "../interfaces/ICommunityCoin.sol";
 import "../interfaces/ICommunityStakingPoolFactory.sol";
 import "../interfaces/ICommunityStakingPool.sol";
-import "../interfaces/ICommunityStakingPoolErc20.sol";
+import "../interfaces/ICommunityStakingPoolERC20.sol";
 import "../interfaces/IHook.sol";
 
 //import "hardhat/console.sol";
@@ -306,7 +306,7 @@ library PoolStakesLib {
         if (instanceInfo.instanceType == uint8(IStructs.InstanceType.ERC20)) {
             //erc20 pool
 
-            try ICommunityStakingPoolErc20(pool).redeem(account, amount) returns (
+            try ICommunityStakingPoolERC20(pool).redeem(account, amount) returns (
                 uint256 affectedAmount,
                 uint64 rewardsRateFraction
             ) {

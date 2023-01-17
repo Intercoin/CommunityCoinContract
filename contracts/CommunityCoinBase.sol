@@ -4,7 +4,7 @@ pragma solidity ^0.8.11;
 import "./interfaces/ITaxes.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
-import "./interfaces/ICommunityStakingPoolErc20.sol";
+import "./interfaces/ICommunityStakingPoolERC20.sol";
 
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 //import "./interfaces/IStructs.sol"; exists in ICommunityCoin

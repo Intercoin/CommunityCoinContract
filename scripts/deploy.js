@@ -36,13 +36,13 @@ async function main() {
 		typeof data_object.communityCoin === 'undefined' ||
 		typeof data_object.communityStakingPoolFactory === 'undefined' ||
 		typeof data_object.communityStakingPool === 'undefined' ||
-		typeof data_object.communityStakingPoolErc20 === 'undefined' ||
+		typeof data_object.communityStakingPoolERC20 === 'undefined' ||
 		typeof data_object.releaseManager === 'undefined' ||
 		//typeof data_object.communityRolesManagement === 'undefined' ||
 		!data_object.communityCoin ||
 		!data_object.communityStakingPoolFactory ||
 		!data_object.communityStakingPool ||
-		!data_object.communityStakingPoolErc20 ||
+		!data_object.communityStakingPoolERC20 ||
 		!data_object.releaseManager
 		/* ||
 		!data_object.communityRolesManagement*/
@@ -63,7 +63,7 @@ async function main() {
 		data_object.communityCoin,
 		data_object.communityStakingPoolFactory,
 		data_object.communityStakingPool,
-		data_object.communityStakingPoolErc20,
+		data_object.communityStakingPoolERC20,
 		ZERO_ADDRESS // costmanager
 	]
 	let params = [

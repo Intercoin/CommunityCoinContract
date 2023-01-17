@@ -10,7 +10,7 @@ pragma solidity ^0.8.11;
 // import "./interfaces/IERC20Dpl.sol";
 
 // import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
-import "./interfaces/ICommunityStakingPoolErc20.sol";
+import "./interfaces/ICommunityStakingPoolERC20.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 
@@ -207,7 +207,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         //         reserveToken,  tradedToken, reserveTokenClaimFraction, tradedTokenClaimFraction, lpClaimFraction
         //     );
         // } else {
-        ICommunityStakingPoolErc20(instanceCreated).initialize(
+        ICommunityStakingPoolERC20(instanceCreated).initialize(
             creator,
             tokenErc20,
             donations,

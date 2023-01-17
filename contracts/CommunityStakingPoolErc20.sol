@@ -2,11 +2,11 @@
 pragma solidity ^0.8.11;
 
 import "./CommunityStakingPoolBase.sol";
-import "./interfaces/ICommunityStakingPoolErc20.sol";
+import "./interfaces/ICommunityStakingPoolERC20.sol";
 
 //import "hardhat/console.sol";
 
-contract CommunityStakingPoolErc20 is CommunityStakingPoolBase, ICommunityStakingPoolErc20 {
+contract CommunityStakingPoolERC20 is CommunityStakingPoolBase, ICommunityStakingPoolERC20 {
     /**
      * @custom:shortd address of ERC20 token.
      * @notice address of ERC20 token. ie investor token - ITR

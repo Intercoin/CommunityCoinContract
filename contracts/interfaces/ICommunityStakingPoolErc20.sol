@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 import "./IStructs.sol";
 
-interface ICommunityStakingPoolErc20 {
+interface ICommunityStakingPoolERC20 {
     
     function initialize(
         address stakingProducedBy_,
