@@ -1593,13 +1593,11 @@ describe("Staking contract tests", function () {
     describe("ERC20 pool tests", function () { 
         var communityStakingPoolERC20; 
         beforeEach("deploying", async() => { 
-            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
+            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
-                lpFraction,
-                ZERO_ADDRESS,
                 rewardsRateFraction,
                 numerator,
                 denominator
@@ -1624,14 +1622,12 @@ describe("Staking contract tests", function () {
             ).not.to.be.revertedWith("DENIED()"); 
         });
         
-        it("shouldnt create another pair with equal tokens", async() => {
-            await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
+        it.only("shouldnt create another pair with equal tokens", async() => {
+            await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
-                lpFraction,
-                ZERO_ADDRESS,
                 rewardsRateFraction,
                 numerator,
                 denominator
@@ -1962,13 +1958,11 @@ describe("Staking contract tests", function () {
         });
 
         it("shouldn't produce another instance type", async() => {
-          await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,address,uint64,uint64,uint64)"](
+          await expect(CommunityCoin["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_DONATIONS,
-                lpFraction,
-                ZERO_ADDRESS,
                 rewardsRateFraction,
                 numerator,
                 denominator

@@ -29,7 +29,7 @@ interface ICommunityStakingPoolFactory {
     function instances() external view returns (address[] memory instances);
     function instancesCount() external view returns (uint);
     function produce(address reserveToken, address tradedToken, uint64 duration, uint64 bonusTokenFraction, IStructs.StructAddrUint256[] memory donations, uint64 lpFraction, address lpFractionBeneficiary, uint64 rewardsRateFraction, uint64 numerator, uint64 denominator) external returns (address instance);
-    function produceErc20(address tokenErc20, uint64 duration, uint64 bonusTokenFraction, IStructs.StructAddrUint256[] memory donations, uint64 lpFraction, address lpFractionBeneficiary, uint64 rewardsRateFraction, uint64 numerator, uint64 denominator) external returns (address instance);
+    function produceErc20(address tokenErc20, uint64 duration, uint64 bonusTokenFraction, IStructs.StructAddrUint256[] memory donations, uint64 rewardsRateFraction, uint64 numerator, uint64 denominator) external returns (address instance);
     function getInstanceInfoByPoolAddress(address addr) external view returns(InstanceInfo memory);
     function amountAfterSwapLP(address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, address[][] memory swapPaths) external view returns(address, uint256);
 }

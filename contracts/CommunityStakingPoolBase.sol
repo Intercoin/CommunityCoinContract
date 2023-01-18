@@ -45,18 +45,6 @@ abstract contract CommunityStakingPoolBase is
     IStructs.StructAddrUint256[] donations;
 
     /**
-     * @custom:shortd beneficiary's address which obtain lpFraction of LP tokens
-     * @notice beneficiary's address which obtain lpFraction of LP tokens
-     */
-    address public lpFractionBeneficiary;
-
-    /**
-     * @custom:shortd fraction of LP token multiplied by `FRACTION`
-     * @notice fraction of LP token multiplied by `FRACTION`
-     */
-    uint64 public lpFraction;
-
-    /**
      * @custom:shortd rate of rewards that can be used on external tokens like RewardsContract (multiplied by `FRACTION`)
      * @notice rate of rewards calculated by formula amount = amount * rate.
      *   means if rate == 1*FRACTION then amount left as this.
@@ -112,20 +100,15 @@ abstract contract CommunityStakingPoolBase is
      * @notice initialize method. Called once by the factory at time of deployment
      * @param stakingProducedBy_ address of Community Coin token.
      * @param donations_ array of tuples [[address,uint256],...] account, ratio
-     * @param lpFraction_ fraction of LP token multiplied by `FRACTION`.
-     * @param lpFractionBeneficiary_ beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
      * @custom:shortd initialize method. Called once by the factory at time of deployment
      */
     function CommunityStakingPoolBase_init(
         address stakingProducedBy_,
         IStructs.StructAddrUint256[] memory donations_,
-        uint64 lpFraction_,
-        address lpFractionBeneficiary_,
         uint64 rewardsRateFraction_
     ) internal onlyInitializing {
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
-        lpFraction = lpFraction_;
-        lpFractionBeneficiary = lpFractionBeneficiary_;
+        
         rewardsRateFraction = rewardsRateFraction_;
 
         //donations = donations_;

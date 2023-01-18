@@ -8,8 +8,6 @@ interface ICommunityStakingPoolERC20 {
         address stakingProducedBy_,
         address token_,
         IStructs.StructAddrUint256[] memory donations_,
-        uint64 lpFraction_,
-        address lpFractionBeneficiary_,
         uint64 rewardsRateFraction_
     ) external;
 
