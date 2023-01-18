@@ -178,22 +178,18 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         uint64 duration,
         uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
-        uint64 lpFraction,
-        address lpFractionBeneficiary,
         uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
     ) external returns (address instance) {
         require(msg.sender == creator);
 
-        _createInstanceErc20Validate(tokenErc20, duration, bonusTokenFraction, lpFraction, lpFractionBeneficiary);
+        _createInstanceErc20Validate(tokenErc20, duration, bonusTokenFraction);
 
         address instanceCreated = _createInstanceErc20(
             tokenErc20,
             duration,
             bonusTokenFraction,
-            lpFraction,
-            lpFractionBeneficiary,
             rewardsRateFraction,
             numerator,
             denominator
@@ -211,8 +207,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             creator,
             tokenErc20,
             donations,
-            lpFraction,
-            lpFractionBeneficiary,
             rewardsRateFraction
         );
         // }
@@ -243,13 +237,10 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function _createInstanceErc20Validate(
         address tokenErc20,
         uint64 duration,
-        uint64 bonusTokenFraction,
-        uint64 lpFraction,
-        address lpFractionBeneficiary
+        uint64 bonusTokenFraction
     ) internal view {
         address instance = getInstanceErc20[tokenErc20][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
-        require(lpFraction <= FRACTION, "CommunityCoin: WRONG_CLAIM_FRACTION");
         require(
             typeProducedByFactory == InstanceType.NONE || typeProducedByFactory == InstanceType.ERC20,
             "CommunityCoin: INVALID_INSTANCE_TYPE"
@@ -302,8 +293,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address tokenErc20,
         uint64 duration,
         uint64 bonusTokenFraction,
-        uint64 lpFraction,
-        address lpFractionBeneficiary,
         uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
@@ -323,8 +312,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             duration,
             bonusTokenFraction,
             address(0),
-            lpFraction,
-            lpFractionBeneficiary,
+            0,//lpFraction,
+            address(0),//lpFractionBeneficiary,
             rewardsRateFraction,
             numerator,
             denominator,

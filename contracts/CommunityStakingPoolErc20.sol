@@ -44,23 +44,17 @@ contract CommunityStakingPoolERC20 is CommunityStakingPoolBase, ICommunityStakin
      * @param stakingProducedBy_ address of Community Coin token.
      * @param erc20Token_ address of ERC20 token.
      * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
-     * @param lpFraction_ fraction of LP token multiplied by `FRACTION`.
-     * @param lpFractionBeneficiary_ beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
      * @custom:shortd initialize method. Called once by the factory at time of deployment
      */
     function initialize(
         address stakingProducedBy_,
         address erc20Token_,
         IStructs.StructAddrUint256[] memory donations_,
-        uint64 lpFraction_,
-        address lpFractionBeneficiary_,
         uint64 rewardsRateFraction_
     ) external override initializer {
         CommunityStakingPoolBase_init(
             stakingProducedBy_,
             donations_,
-            lpFraction_,
-            lpFractionBeneficiary_,
             rewardsRateFraction_
         );
 
@@ -133,11 +127,12 @@ contract CommunityStakingPoolERC20 is CommunityStakingPoolBase, ICommunityStakin
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
         // transfer and burn moved to upper level
+        // #dev strange way to point to burn tokens. means need to set lpFraction == 0 and lpFractionBeneficiary should not be address(0) so just setup as `producedBy`
         amount2Redeem = _fractionAmountSend(
             erc20Token,
             amount,
-            lpFraction,
-            lpFractionBeneficiary == address(0) ? stakingProducedBy : lpFractionBeneficiary,
+            0, // lpFraction,
+            stakingProducedBy, //lpFractionBeneficiary == address(0) ? stakingProducedBy : lpFractionBeneficiary,
             address(0)
         );
     }

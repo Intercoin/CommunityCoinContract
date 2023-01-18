@@ -46,6 +46,18 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     IERC1820RegistryUpgradeable internal constant _ERC1820_REGISTRY =
         IERC1820RegistryUpgradeable(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
+    /**
+     * @custom:shortd beneficiary's address which obtain lpFraction of LP tokens
+     * @notice beneficiary's address which obtain lpFraction of LP tokens
+     */
+    address public lpFractionBeneficiary;
+
+    /**
+     * @custom:shortd fraction of LP token multiplied by `FRACTION`
+     * @notice fraction of LP token multiplied by `FRACTION`
+     */
+    uint64 public lpFraction;
+
     ////////////////////////////////////////////////////////////////////////
     // external section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -77,10 +89,11 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         CommunityStakingPoolBase_init(
             stakingProducedBy_,
             donations_,
-            lpFraction_,
-            lpFractionBeneficiary_,
             rewardsRateFraction_
         );
+
+        lpFraction = lpFraction_;
+        lpFractionBeneficiary = lpFractionBeneficiary_;
 
         (tradedToken, reserveToken) = (tradedToken_, reserveToken_);
 

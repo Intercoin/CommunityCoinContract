@@ -373,8 +373,6 @@ abstract contract CommunityCoinBase is
      * @param duration duration represented in amount of `LOCKUP_INTERVAL`
      * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
      * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
-     * @param lpFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
-     * @param lpFractionBeneficiary beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
      * @return instance address of created instance pool `CommunityStakingPoolErc20`
      * @custom:shortd creation erc20 instance with simple options
      */
@@ -383,8 +381,6 @@ abstract contract CommunityCoinBase is
         uint64 duration,
         uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
-        uint64 lpFraction,
-        address lpFractionBeneficiary,
         uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
@@ -395,8 +391,6 @@ abstract contract CommunityCoinBase is
                 duration,
                 bonusTokenFraction,
                 donations,
-                lpFraction,
-                lpFractionBeneficiary,
                 rewardsRateFraction,
                 numerator,
                 denominator
@@ -685,8 +679,6 @@ abstract contract CommunityCoinBase is
         uint64 duration,
         uint64 bonusTokenFraction,
         IStructs.StructAddrUint256[] memory donations,
-        uint64 lpFraction,
-        address lpFractionBeneficiary,
         uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
@@ -696,8 +688,6 @@ abstract contract CommunityCoinBase is
             duration,
             bonusTokenFraction,
             donations,
-            lpFraction,
-            lpFractionBeneficiary,
             rewardsRateFraction,
             numerator,
             denominator
@@ -707,7 +697,7 @@ abstract contract CommunityCoinBase is
         _accountForOperation(
             OPERATION_PRODUCE_ERC20 << OPERATION_SHIFT_BITS,
             (duration << (256 - 64)) + (bonusTokenFraction << (256 - 128)) + (numerator << (256 - 192)) + (denominator),
-            (uint160(lpFractionBeneficiary) << (256 - 160)) + lpFraction
+            0
         );
     }
 
