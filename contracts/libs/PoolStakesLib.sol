@@ -4,7 +4,6 @@ pragma solidity ^0.8.11;
 import "../interfaces/ICommunityCoin.sol";
 import "../interfaces/ICommunityStakingPoolFactory.sol";
 import "../interfaces/ICommunityStakingPool.sol";
-import "../interfaces/ICommunityStakingPoolERC20.sol";
 import "../interfaces/IHook.sol";
 
 //import "hardhat/console.sol";
@@ -303,72 +302,23 @@ library PoolStakesLib {
 
         ICommunityStakingPoolFactory.InstanceInfo memory instanceInfo = instanceManagment.getInstanceInfoByPoolAddress(pool);
 
-        if (instanceInfo.instanceType == uint8(IStructs.InstanceType.ERC20)) {
-            //erc20 pool
-
-            try ICommunityStakingPoolERC20(pool).redeem(account, amount) returns (
-                uint256 affectedAmount,
-                uint64 rewardsRateFraction
+        try ICommunityStakingPool(pool).redeem(account, amount) returns (
+            uint256 affectedAmount,
+            uint64 rewardsRateFraction
+        ) {
+            if (
+                (hook != address(0)) &&
+                (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY)
             ) {
-                if (
-                    (hook != address(0)) &&
-                    (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY)
-                ) {
-                    require(instanceInfo.exists == true);
-                    IHook(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
-                }
-            } catch {
-                revert ICommunityCoin.UNSTAKE_ERROR();
+                require(instanceInfo.exists == true);
+                IHook(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
             }
-        } else if (instanceInfo.instanceType == uint8(IStructs.InstanceType.USUAL)) {
-            //usual pool
-            if (strategy == ICommunityCoin.Strategy.UNSTAKE) {
-                try ICommunityStakingPool(pool).unstake(account, amount) returns (
-                    uint256 /*affectedAmount*/,
-                    uint64 /*rewardsRateFraction*/
-                ) {
-                    //
-                } catch {
-                    revert ICommunityCoin.UNSTAKE_ERROR();
-                }
-            } else if (strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
-                try ICommunityStakingPool(pool).unstakeAndRemoveLiquidity(account, amount) returns (
-                    uint256 /*affectedReservedAmount*/,
-                    uint256 affectedTradedAmount,
-                    uint64 rewardsRateFraction
-                ) {
-                    if (hook != address(0)) {
-                        require(instanceInfo.exists == true);
-                        IHook(hook).onUnstake(pool, account, instanceInfo.duration, affectedTradedAmount, rewardsRateFraction);
-                    }
-                } catch {
-                    revert ICommunityCoin.UNSTAKE_ERROR();
-                }
-            } else if (strategy == ICommunityCoin.Strategy.REDEEM) {
-                try ICommunityStakingPool(pool).redeem(account, amount) returns (
-                    uint256 /*affectedAmount*/,
-                    uint64 /*rewardsRateFraction*/
-                ) {
-                    //
-                } catch {
-                    revert ICommunityCoin.REDEEM_ERROR();
-                }
-            } else if (strategy == ICommunityCoin.Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
-                try ICommunityStakingPool(pool).redeemAndRemoveLiquidity(account, amount) returns (
-                    uint256 /*affectedReservedAmount*/,
-                    uint256 /*affectedTradedAmount*/,
-                    uint64 /*rewardsRateFraction*/
-                ) {
-                    //
-                } catch {
-                    revert ICommunityCoin.REDEEM_ERROR();
-                }
-                // } else {
-                //     revert("unknown strategy");
-            }
+        } catch {
+            revert ICommunityCoin.UNSTAKE_ERROR();
         }
         
     }
+
     // adjusting amount and applying some discounts, fee, etc
     function getAmountLeft(
         address account,

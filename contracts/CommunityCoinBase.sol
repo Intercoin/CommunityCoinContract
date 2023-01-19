@@ -4,7 +4,6 @@ pragma solidity ^0.8.11;
 import "./interfaces/ITaxes.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
-import "./interfaces/ICommunityStakingPoolERC20.sol";
 
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 //import "./interfaces/IStructs.sol"; exists in ICommunityCoin
@@ -64,7 +63,6 @@ abstract contract CommunityCoinBase is
     // uint256 internal totalReserves;
     IStructs.Total internal total;
 
-    address internal reserveToken;
     address internal tradedToken;
 
     //      instance
@@ -118,11 +116,9 @@ abstract contract CommunityCoinBase is
      * @param tokenName internal token name 
      * @param tokenSymbol internal token symbol. usual it's `${tradedToken}community`
      * @param impl address of StakingPool implementation. usual it's `${tradedToken}c`
-     * @param implErc20 address of StakingPoolErc20 implementation
      * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
      * @param stakingPoolFactory address of contract that managed and cloned pools
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
      * @param tradedToken_ address of traded token. usual it intercoin investor token
      * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
      * @param costManager_ costManager address
@@ -134,11 +130,9 @@ abstract contract CommunityCoinBase is
         string memory tokenName,
         string memory tokenSymbol,
         address impl,
-        address implErc20,
         address hook_,
         address stakingPoolFactory,
         uint256 discountSensitivity_,
-        address reserveToken_,
         address tradedToken_,
         IStructs.CommunitySettings calldata communitySettings,
         address costManager_,
@@ -154,7 +148,7 @@ abstract contract CommunityCoinBase is
         __ReentrancyGuard_init();
 
         instanceManagment = ICommunityStakingPoolFactory(stakingPoolFactory); //new ICommunityStakingPoolFactory(impl);
-        instanceManagment.initialize(impl, implErc20);
+        instanceManagment.initialize(impl);
 
         hook = hook_;
         if (hook_ != address(0)) {
@@ -165,7 +159,6 @@ abstract contract CommunityCoinBase is
 
         __RolesManagement_init(communitySettings);
 
-        reserveToken = reserveToken_;
         tradedToken = tradedToken_;
 
         // register interfaces
@@ -332,42 +325,6 @@ abstract contract CommunityCoinBase is
     ////////////////////////////////////////////////////////////////////////
 
     /**
-     * @notice it's extended version for create instance pool available for owners only.
-     * @param duration duration represented in amount of `LOCKUP_INTERVAL`
-     * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
-     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
-     * @param lpFraction fraction of LP token multiplied by {CommunityStakingPool::FRACTION}. See more in {CommunityStakingPool::initialize}
-     * @param lpFractionBeneficiary beneficiary's address which obtain lpFraction of LP tokens. if address(0) then it would be owner()
-     * @param numerator used in conversion LP/CC
-     * @param denominator used in conversion LP/CC
-     * @return instance address of created instance pool `CommunityStakingPool`
-     * @custom:calledby owner
-     * @custom:shortd creation instance with extended options
-     */
-    function produce(
-        uint64 duration,
-        uint64 bonusTokenFraction,
-        IStructs.StructAddrUint256[] memory donations,
-        uint64 lpFraction,
-        address lpFractionBeneficiary,
-        uint64 rewardsRateFraction,
-        uint64 numerator,
-        uint64 denominator
-    ) public onlyOwner returns (address instance) {
-        return
-            _produce(
-                duration,
-                bonusTokenFraction,
-                donations,
-                lpFraction,
-                lpFractionBeneficiary,
-                rewardsRateFraction,
-                numerator,
-                denominator
-            );
-    }
-
-    /**
      * @notice function for creation erc20 instance pool.
      * @param tokenErc20 address of erc20 token.
      * @param duration duration represented in amount of `LOCKUP_INTERVAL`
@@ -505,42 +462,42 @@ abstract contract CommunityCoinBase is
         return (MinimumsLib._getMinimumList(users[account].tokensLocked), MinimumsLib._getMinimumList(users[account].tokensBonus));
     }
 
-    /**
-     * @dev calculate how much token user will obtain if redeem and remove liquidity token.
-     * There are steps:
-     * 1. LP tokens swap to Reserved and Traded Tokens
-     * 2. TradedToken swap to Reverved
-     * 3. All Reserved tokens try to swap in order of swapPaths
-     * @param account address which will be redeem funds from
-     * @param amount liquidity tokens amount
-     * @param preferredInstances array of preferred Stakingpool instances which will be redeem funds from
-     * @param swapPaths array of arrays uniswap swapPath
-     * @return address destination address
-     * @return uint256 destination amount
-     */
-    function simulateRedeemAndRemoveLiquidity(
-        address account,
-        uint256 amount, //amountLP,
-        address[] memory preferredInstances,
-        address[][] memory swapPaths
-    ) public view returns (address, uint256) {
-        (
-            address[] memory instancesToRedeem,
-            uint256[] memory valuesToRedeem, 
-            /*uint256[] memory amounts*/, 
-            /* uint256 len*/ , 
-            /*uint256 newAmount*/
+    // /**
+    //  * @dev calculate how much token user will obtain if redeem and remove liquidity token.
+    //  * There are steps:
+    //  * 1. LP tokens swap to Reserved and Traded Tokens
+    //  * 2. TradedToken swap to Reverved
+    //  * 3. All Reserved tokens try to swap in order of swapPaths
+    //  * @param account address which will be redeem funds from
+    //  * @param amount liquidity tokens amount
+    //  * @param preferredInstances array of preferred Stakingpool instances which will be redeem funds from
+    //  * @param swapPaths array of arrays uniswap swapPath
+    //  * @return address destination address
+    //  * @return uint256 destination amount
+    //  */
+    // function simulateRedeemAndRemoveLiquidity(
+    //     address account,
+    //     uint256 amount, //amountLP,
+    //     address[] memory preferredInstances,
+    //     address[][] memory swapPaths
+    // ) public view returns (address, uint256) {
+    //     (
+    //         address[] memory instancesToRedeem,
+    //         uint256[] memory valuesToRedeem, 
+    //         /*uint256[] memory amounts*/, 
+    //         /* uint256 len*/ , 
+    //         /*uint256 newAmount*/
 
-        ) = _poolStakesAvailable(
-                account,
-                amount,
-                preferredInstances,
-                Strategy.REDEEM_AND_REMOVE_LIQUIDITY,
-                totalSupply() //totalSupplyBefore
-            );
+    //     ) = _poolStakesAvailable(
+    //             account,
+    //             amount,
+    //             preferredInstances,
+    //             Strategy.REDEEM_AND_REMOVE_LIQUIDITY,
+    //             totalSupply() //totalSupplyBefore
+    //         );
 
-        return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, swapPaths);
-    }
+    //     return instanceManagment.amountAfterSwapLP(instancesToRedeem, valuesToRedeem, swapPaths);
+    // }
 
     /**
     * @notice calling claim method on Hook Contract. in general it's Rewards contract that can be able to accomulate bonuses. 
@@ -644,37 +601,6 @@ abstract contract CommunityCoinBase is
     }
 
     function _produce(
-        uint64 duration,
-        uint64 bonusTokenFraction,
-        IStructs.StructAddrUint256[] memory donations,
-        uint64 lpFraction,
-        address lpFractionBeneficiary,
-        uint64 rewardsRateFraction,
-        uint64 numerator,
-        uint64 denominator
-    ) internal returns (address instance) {
-        instance = instanceManagment.produce(
-            reserveToken,
-            tradedToken,
-            duration,
-            bonusTokenFraction,
-            donations,
-            lpFraction,
-            lpFractionBeneficiary,
-            rewardsRateFraction,
-            numerator,
-            denominator
-        );
-        emit InstanceCreated(reserveToken, tradedToken, instance);
-
-        _accountForOperation(
-            OPERATION_PRODUCE << OPERATION_SHIFT_BITS,
-            (duration << (256 - 64)) + (bonusTokenFraction << (256 - 128)) + (numerator << (256 - 192)) + (denominator),
-            (uint160(lpFractionBeneficiary) << (256 - 160)) + lpFraction
-        );
-    }
-
-    function _produce(
         address tokenErc20,
         uint64 duration,
         uint64 bonusTokenFraction,
@@ -683,7 +609,7 @@ abstract contract CommunityCoinBase is
         uint64 numerator,
         uint64 denominator
     ) internal returns (address instance) {
-        instance = instanceManagment.produceErc20(
+        instance = instanceManagment.produce(
             tokenErc20,
             duration,
             bonusTokenFraction,
@@ -692,7 +618,7 @@ abstract contract CommunityCoinBase is
             numerator,
             denominator
         );
-        emit InstanceErc20Created(tokenErc20, instance);
+        emit InstanceCreated(tokenErc20, instance);
 
         _accountForOperation(
             OPERATION_PRODUCE_ERC20 << OPERATION_SHIFT_BITS,

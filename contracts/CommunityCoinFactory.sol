@@ -97,12 +97,6 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      */
     address public immutable stakingPoolImplementation;
 
-    /**
-     * @custom:shortd StakingPool implementation address
-     * @notice StakingPoolErc20 implementation address
-     */
-    address public immutable stakingPoolErc20Implementation;
-
     address[] public instances;
 
     event InstanceCreated(address instance, uint256 instancesCount);
@@ -111,7 +105,6 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      * @param communityCoinImpl address of CommunityCoin implementation
      * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
      * @param stakingPoolImpl address of StakingPool implementation
-     * @param stakingPoolImplErc20 address of StakingPoolErc20 implementation
      * @param costManager_ address of costmanager
      * @param releaseManager_ address of releaseManager
      */
@@ -119,7 +112,6 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
-        address stakingPoolImplErc20,
         address costManager_,
         address releaseManager_
     ) 
@@ -129,7 +121,6 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
-        stakingPoolErc20Implementation = stakingPoolImplErc20;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -150,7 +141,6 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     ////////////////////////////////////////////////////////////////////////
 
     /**
-     * @param reserveToken address of reserve token. like a WETH, USDT,USDC, etc.
      * @param tradedToken address of traded token. usual it intercoin investor token
      * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
      * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
@@ -159,7 +149,6 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      * @custom:shortd creation instance
      */
     function produce(
-        address reserveToken,
         address tradedToken,
         address hook,
         uint256 discountSensitivity,
@@ -176,11 +165,9 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
 
         ICommunityCoin(instance).initialize(
             stakingPoolImplementation,
-            stakingPoolErc20Implementation,
             hook,
             coinInstancesClone,
             discountSensitivity,
-            reserveToken,
             tradedToken,
             communitySettings,
             costManager,

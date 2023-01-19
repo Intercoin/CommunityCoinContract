@@ -7,7 +7,7 @@ contract MockCommunityStakingPool is CommunityStakingPool {
 
     //IUniswapV2Pair public uniswapV2Pair;
 
-    function setUniswapPair(address addr) public {
-        uniswapV2Pair = IUniswapV2Pair(addr);
-    }
+    // function setUniswapPair(address addr) public {
+    //     uniswapV2Pair = IUniswapV2Pair(addr);
+    // }
 }

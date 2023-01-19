@@ -73,11 +73,9 @@ All disputes related to this agreement shall be governed by and interpreted in a
 contract CommunityCoin is CommunityCoinBase {
     /**
      * @param impl address of StakingPool implementation
-     * @param implErc20 address of StakingPoolErc20 implementation
      * @param hook_ address of contract implemented IHook interface and uses to accumulation bonus tokens amount
      * @param communityCoinInstanceAddr address of contract that managed and cloned pools
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-     * @param reserveToken_ address of reserve token. like a WETH, USDT,USDC, etc.
      * @param tradedToken_ address of traded token. usual it intercoin investor token
      * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
      * @param costManager_ costManager address
@@ -87,11 +85,9 @@ contract CommunityCoin is CommunityCoinBase {
      */
     function initialize(
         address impl,
-        address implErc20,
         address hook_,
         address communityCoinInstanceAddr,
         uint256 discountSensitivity_,
-        address reserveToken_,
         address tradedToken_,
         IStructs.CommunitySettings calldata communitySettings,
         address costManager_,
@@ -103,11 +99,9 @@ contract CommunityCoin is CommunityCoinBase {
             string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), bytes32(0x20636f6d6d6e756e697479000000000000000000000000000000000000000000))),
             string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), bytes32(0x2063000000000000000000000000000000000000000000000000000000000000))),
             impl,
-            implErc20,
             hook_,
             communityCoinInstanceAddr,
             discountSensitivity_,
-            reserveToken_,
             tradedToken_,
             communitySettings,
             costManager_,
