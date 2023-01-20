@@ -38,7 +38,7 @@ interface ICommunityCoin {
         address producedBy
     ) external;
 
-    enum Strategy{ UNSTAKE, UNSTAKE_AND_REMOVE_LIQUIDITY, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
+    enum Strategy{ UNSTAKE, REDEEM} 
 
     event InstanceCreated(address indexed erc20token, address instance);
     

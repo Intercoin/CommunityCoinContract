@@ -84,16 +84,13 @@ abstract contract CommunityCoinBase is
     uint8 internal constant OPERATION_PRODUCE = 0x6;
     uint8 internal constant OPERATION_PRODUCE_ERC20 = 0x7;
     uint8 internal constant OPERATION_UNSTAKE = 0x8;
-    uint8 internal constant OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY = 0x9;
-    uint8 internal constant OPERATION_REDEEM = 0xA;
-    uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY = 0xB;
-    uint8 internal constant OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST = 0xC;
-    uint8 internal constant OPERATION_GRANT_ROLE = 0xD;
-    uint8 internal constant OPERATION_REVOKE_ROLE = 0xE;
-    uint8 internal constant OPERATION_CLAIM = 0xF;
-    uint8 internal constant OPERATION_SET_TRUSTEDFORWARDER = 0x10;
-    uint8 internal constant OPERATION_SET_TRANSFER_OWNERSHIP = 0x11;
-    uint8 internal constant OPERATION_TRANSFER_HOOK = 0x12;
+    uint8 internal constant OPERATION_REDEEM = 0x9;
+    uint8 internal constant OPERATION_GRANT_ROLE = 0xA;
+    uint8 internal constant OPERATION_REVOKE_ROLE = 0xB;
+    uint8 internal constant OPERATION_CLAIM = 0xC;
+    uint8 internal constant OPERATION_SET_TRUSTEDFORWARDER = 0xD;
+    uint8 internal constant OPERATION_SET_TRANSFER_OWNERSHIP = 0xE;
+    uint8 internal constant OPERATION_TRANSFER_HOOK = 0xF;
 
     //      users
     mapping(address => UserData) internal users;
@@ -365,25 +362,7 @@ abstract contract CommunityCoinBase is
         _unstake(account, amount, new address[](0), Strategy.UNSTAKE);
         _accountForOperation(OPERATION_UNSTAKE << OPERATION_SHIFT_BITS, uint256(uint160(account)), amount);
     }
-    /**
-     * @notice method to obtain traded and reserved tokens instead ITRc that was staked before. like redeem but can applicable only for own staked tokens that haven't transfer yet. so no need to have redeem role for this
-     * @param amount The number of ITRc tokens that will be unstaked.
-     * @custom:shortd unstake and remove liquidity own ITRc tokens
-     */
-    function unstakeAndRemoveLiquidity(uint256 amount) public nonReentrant {
-        address account = _msgSender();
-
-        _validateUnstake(account, amount);
-
-        _unstake(account, amount, new address[](0), Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY);
-
-        _accountForOperation(
-            OPERATION_UNSTAKE_AND_REMOVE_LIQUIDITY << OPERATION_SHIFT_BITS,
-            uint256(uint160(account)),
-            amount
-        );
-    }
-
+    
     /**
      * @dev function has overloaded. wallet tokens will be redeemed from pools in order from deployed
      * @notice way to redeem via approve/transferFrom. Another way is send directly to contract. User will obtain uniswap-LP tokens
@@ -407,39 +386,6 @@ abstract contract CommunityCoinBase is
         _redeem(_msgSender(), amount, preferredInstances, Strategy.REDEEM);
 
         _accountForOperation(OPERATION_REDEEM << OPERATION_SHIFT_BITS, uint256(uint160(_msgSender())), amount);
-    }
-
-    /**
-     * @dev function has overloaded. wallet tokens will be redeemed from pools in order from deployed
-     * @notice way to redeem and remove liquidity via approve/transferFrom wallet tokens. User will obtain reserve and traded tokens back
-     * @param amount The number of wallet tokens that will be redeemed.
-     * @custom:shortd redeem tokens and remove liquidity
-     */
-    function redeemAndRemoveLiquidity(uint256 amount) public nonReentrant {
-        _redeem(_msgSender(), amount, new address[](0), Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
-
-        _accountForOperation(
-            OPERATION_REDEEM_AND_REMOVE_LIQUIDITY << OPERATION_SHIFT_BITS,
-            uint256(uint160(_msgSender())),
-            amount
-        );
-    }
-
-    /**
-     * @dev function has overloaded. wallet tokens will be redeemed from pools in order from `preferredInstances`. tx reverted if amoutn is unsufficient even if it is enough in other pools
-     * @notice way to redeem and remove liquidity via approve/transferFrom wallet tokens. User will obtain reserve and traded tokens back
-     * @param amount The number of wallet tokens that will be redeemed.
-     * @param preferredInstances preferred instances for redeem first
-     * @custom:shortd redeem tokens and remove liquidity with preferredInstances
-     */
-    function redeemAndRemoveLiquidity(uint256 amount, address[] memory preferredInstances) public nonReentrant {
-        _redeem(_msgSender(), amount, preferredInstances, Strategy.REDEEM_AND_REMOVE_LIQUIDITY);
-
-        _accountForOperation(
-            OPERATION_REDEEM_AND_REMOVE_LIQUIDITY_PREF_INST << OPERATION_SHIFT_BITS,
-            uint256(uint160(_msgSender())),
-            amount
-        );
     }
 
     /**

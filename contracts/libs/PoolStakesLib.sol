@@ -308,7 +308,7 @@ library PoolStakesLib {
         ) {
             if (
                 (hook != address(0)) &&
-                (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY)
+                (strategy == ICommunityCoin.Strategy.UNSTAKE)
             ) {
                 require(instanceInfo.exists == true);
                 IHook(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
@@ -337,7 +337,7 @@ library PoolStakesLib {
 
     ) external view returns(uint256) {
         
-        if (strategy == ICommunityCoin.Strategy.REDEEM || strategy == ICommunityCoin.Strategy.REDEEM_AND_REMOVE_LIQUIDITY) {
+        if (strategy == ICommunityCoin.Strategy.REDEEM) {
 
             // LPTokens =  WalletTokens * ratio;
             // ratio = A / (A + B * discountSensitivity);
@@ -385,7 +385,7 @@ library PoolStakesLib {
             
         }
 
-        if (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY) {
+        if (strategy == ICommunityCoin.Strategy.UNSTAKE) {
 
             if (
                (totalSupplyBefore - users[account].tokensBonus._getMinimum() < amount) || // insufficient amount
@@ -443,7 +443,7 @@ library PoolStakesLib {
         for (uint256 i = 0; i < preferredInstances.length; i++) {
 
             if (
-                (strategy == ICommunityCoin.Strategy.UNSTAKE || strategy == ICommunityCoin.Strategy.UNSTAKE_AND_REMOVE_LIQUIDITY ) &&
+                (strategy == ICommunityCoin.Strategy.UNSTAKE) &&
                 (_instances[preferredInstances[i]].unstakeable[account] > 0)
             ) {
                 amountToRedeem = 
@@ -460,8 +460,7 @@ library PoolStakesLib {
 
             }  
             if (
-                strategy == ICommunityCoin.Strategy.REDEEM || 
-                strategy == ICommunityCoin.Strategy.REDEEM_AND_REMOVE_LIQUIDITY 
+                strategy == ICommunityCoin.Strategy.REDEEM
             ) {
                 amountToRedeem = 
                     amountLeft > _instances[preferredInstances[i]]._instanceStaked
