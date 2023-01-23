@@ -44,15 +44,6 @@ contract CommunityStakingPool is Initializable,
 
     uint64 public constant FRACTION = 100000;
 
-    //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
-    bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
-
-    // CommunityCoin address
-    address internal stakingProducedBy;
-
-    // if donations does not empty then after staking any tokens will obtain proportionally by donations.address(end user) in donations.amount(ratio)
-    IStructs.StructAddrUint256[] donations;
-
     /**
      * @custom:shortd rate of rewards that can be used on external tokens like RewardsContract (multiplied by `FRACTION`)
      * @notice rate of rewards calculated by formula amount = amount * rate.
@@ -61,10 +52,19 @@ contract CommunityStakingPool is Initializable,
      */
     uint64 public rewardsRateFraction;
 
+    // CommunityCoin address
+    address internal stakingProducedBy;
+
+    // if donations does not empty then after staking any tokens will obtain proportionally by donations.address(end user) in donations.amount(ratio)
+    IStructs.StructAddrUint256[] internal donations;
+
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
 
     IUniswapV2Router02 internal UniswapV2Router02;
+
+    //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
+    bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
     modifier onlyStaking() {
         require(stakingProducedBy == msg.sender);
@@ -114,13 +114,26 @@ contract CommunityStakingPool is Initializable,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 rewardsRateFraction_
     ) external override initializer {
-        CommunityStakingPoolBase_init(
-            stakingProducedBy_,
-            donations_,
-            rewardsRateFraction_
-        );
+        
 
+        stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
         stakingToken = stakingToken_;
+        rewardsRateFraction = rewardsRateFraction_;
+
+        //donations = donations_;
+        // UnimplementedFeatureError: Copying of type struct IStructs.StructAddrUint256 memory[] memory to storage not yet supported.
+
+        for (uint256 i = 0; i < donations_.length; i++) {
+            donations.push(IStructs.StructAddrUint256({account: donations_[i].account, amount: donations_[i].amount}));
+        }
+
+        __ReentrancyGuard_init();
+
+        // setup swap addresses
+        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
+        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
+
+        
     }
 
     
@@ -152,39 +165,6 @@ contract CommunityStakingPool is Initializable,
     ) external override {}
 
     /**
-     * @notice initialize method. Called once by the factory at time of deployment
-     * @param stakingProducedBy_ address of Community Coin token.
-     * @param donations_ array of tuples [[address,uint256],...] account, ratio
-     * @custom:shortd initialize method. Called once by the factory at time of deployment
-     */
-    function CommunityStakingPoolBase_init(
-        address stakingProducedBy_,
-        IStructs.StructAddrUint256[] memory donations_,
-        uint64 rewardsRateFraction_
-    ) internal onlyInitializing {
-        stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
-        
-        rewardsRateFraction = rewardsRateFraction_;
-
-        //donations = donations_;
-        // UnimplementedFeatureError: Copying of type struct IStructs.StructAddrUint256 memory[] memory to storage not yet supported.
-
-        for (uint256 i = 0; i < donations_.length; i++) {
-            donations.push(IStructs.StructAddrUint256({account: donations_[i].account, amount: donations_[i].amount}));
-        }
-
-        __ReentrancyGuard_init();
-
-        // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
-        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
-    }
-
-    ////////////////////////////////////////////////////////////////////////
-    // public section //////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////
-
-    /**
      * @notice way to redeem via approve/transferFrom. Another way is send directly to contract.
      * @param account account address will redeemed from
      * @param amount The number of shares that will be redeemed
@@ -200,6 +180,10 @@ contract CommunityStakingPool is Initializable,
         affectedLPAmount = _redeem(account, amount);
         rewardsRate = rewardsRateFraction;
     }
+    ////////////////////////////////////////////////////////////////////////
+    // public section //////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////
+
 
     function stake(uint256 tokenAmount, address beneficiary) public nonReentrant {
         address account = _msgSender();

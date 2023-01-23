@@ -145,7 +145,7 @@ contract CommunityCoin is
     /**
      * @notice initializing method. called by factory
      * @param tokenName internal token name 
-     * @param tokenSymbol internal token symbol. usual it's `${tradedToken}community`
+     * @param tokenSymbol internal token symbol.
      * @param impl address of StakingPool implementation. usual it's `${tradedToken}c`
      * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
      * @param stakingPoolFactory address of contract that managed and cloned pools
