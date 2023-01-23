@@ -11,7 +11,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
      * @custom:shortd address of ERC20 token.
      * @notice address of ERC20 token. ie investor token - ITR
      */
-    address public erc20Token;
+    address public stakingToken;
 
     error Denied();
     ////////////////////////////////////////////////////////////////////////
@@ -42,13 +42,13 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     /**
      * @notice initialize method. Called once by the factory at time of deployment
      * @param stakingProducedBy_ address of Community Coin token.
-     * @param erc20Token_ address of ERC20 token.
+     * @param stakingToken_ address of ERC20 token.
      * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
      * @custom:shortd initialize method. Called once by the factory at time of deployment
      */
     function initialize(
         address stakingProducedBy_,
-        address erc20Token_,
+        address stakingToken_,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 rewardsRateFraction_
     ) external override initializer {
@@ -58,7 +58,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
             rewardsRateFraction_
         );
 
-        erc20Token = erc20Token_;
+        stakingToken = stakingToken_;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -84,7 +84,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
 
     function stake(uint256 tokenAmount, address beneficiary) public nonReentrant {
         address account = _msgSender();
-        IERC20Upgradeable(erc20Token).transferFrom(account, address(this), tokenAmount);
+        IERC20Upgradeable(stakingToken).transferFrom(account, address(this), tokenAmount);
         _stake(beneficiary, tokenAmount, 0);
     }
 
@@ -102,13 +102,13 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     ) public nonReentrant {
         IERC20Upgradeable(tokenAddress).transferFrom(_msgSender(), address(this), tokenAmount);
 
-        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(erc20Token, tokenAddress);
+        address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(stakingToken, tokenAddress);
         require(pair != address(0), "NO_UNISWAP_V2_PAIR");
         //uniswapV2Pair = IUniswapV2Pair(pair);
 
-        uint256 erc20TokenAmount = doSwapOnUniswap(tokenAddress, erc20Token, tokenAmount);
-        require(erc20TokenAmount != 0, "insufficient on uniswap");
-        _stake(beneficiary, erc20TokenAmount, 0);
+        uint256 stakingTokenAmount = doSwapOnUniswap(tokenAddress, stakingToken, tokenAmount);
+        require(stakingTokenAmount != 0, "insufficient on uniswap");
+        _stake(beneficiary, stakingTokenAmount, 0);
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -116,7 +116,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
     ////////////////////////////////////////////////////////////////////////
     function _redeem(address account, uint256 amount) internal returns (uint256 affectedLPAmount) {
         affectedLPAmount = __redeem(account, amount);
-        IERC20Upgradeable(erc20Token).transfer(account, affectedLPAmount);
+        IERC20Upgradeable(stakingToken).transfer(account, affectedLPAmount);
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -129,7 +129,7 @@ contract CommunityStakingPool is CommunityStakingPoolBase, ICommunityStakingPool
         // transfer and burn moved to upper level
         // #dev strange way to point to burn tokens. means need to set lpFraction == 0 and lpFractionBeneficiary should not be address(0) so just setup as `producedBy`
         amount2Redeem = _fractionAmountSend(
-            erc20Token,
+            stakingToken,
             amount,
             0, // lpFraction,
             stakingProducedBy, //lpFractionBeneficiary == address(0) ? stakingProducedBy : lpFractionBeneficiary,

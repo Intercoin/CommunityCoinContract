@@ -28,11 +28,12 @@ interface ICommunityCoin {
     }
 
     function initialize(
+        string calldata name,
+        string calldata symbol,
         address poolImpl,
         address hook,
         address instancesImpl,
         uint256 discountSensitivity,
-        address tradedToken,
         IStructs.CommunitySettings calldata communitySettings,
         address costManager,
         address producedBy

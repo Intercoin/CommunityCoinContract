@@ -20,7 +20,7 @@ import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol"
 
 import "./libs/PoolStakesLib.sol";
 
-//import "hardhat/console.sfol";
+import "hardhat/console.sol";
 
 abstract contract CommunityCoinBase is
     OwnableUpgradeable,
@@ -62,8 +62,6 @@ abstract contract CommunityCoinBase is
     // // means totalReserves = SUM(pools.totalSupply)
     // uint256 internal totalReserves;
     IStructs.Total internal total;
-
-    address internal tradedToken;
 
     //      instance
     mapping(address => InstanceStruct) internal _instances;
@@ -116,7 +114,6 @@ abstract contract CommunityCoinBase is
      * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
      * @param stakingPoolFactory address of contract that managed and cloned pools
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-     * @param tradedToken_ address of traded token. usual it intercoin investor token
      * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
      * @param costManager_ costManager address
      * @param producedBy_ address that produced instance by factory
@@ -124,13 +121,12 @@ abstract contract CommunityCoinBase is
      * @custom:shortd initializing contract. called by StakingFactory contract
      */
     function CommunityCoinBase__init(
-        string memory tokenName,
-        string memory tokenSymbol,
+        string calldata tokenName,
+        string calldata tokenSymbol,
         address impl,
         address hook_,
         address stakingPoolFactory,
         uint256 discountSensitivity_,
-        address tradedToken_,
         IStructs.CommunitySettings calldata communitySettings,
         address costManager_,
         address producedBy_
@@ -155,8 +151,6 @@ abstract contract CommunityCoinBase is
         discountSensitivity = discountSensitivity_;
 
         __RolesManagement_init(communitySettings);
-
-        tradedToken = tradedToken_;
 
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
@@ -595,8 +589,8 @@ abstract contract CommunityCoinBase is
             
 
 
-        // console.log("_unstake#2");
-        // console.log("len =",len);
+        console.log("_unstake#2");
+        console.log("len =",len);
         for (uint256 i = 0; i < len; i++) {
             // console.log("i =",i);
             // console.log("amounts[i] =",amounts[i]);

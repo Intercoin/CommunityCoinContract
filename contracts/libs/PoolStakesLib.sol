@@ -6,7 +6,7 @@ import "../interfaces/ICommunityStakingPoolFactory.sol";
 import "../interfaces/ICommunityStakingPool.sol";
 import "../interfaces/IHook.sol";
 
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 library PoolStakesLib {
     using MinimumsLib for MinimumsLib.UserStruct;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
@@ -306,6 +306,8 @@ library PoolStakesLib {
             uint256 affectedAmount,
             uint64 rewardsRateFraction
         ) {
+console.log("proceedPool");
+console.log(account, amount);
             if (
                 (hook != address(0)) &&
                 (strategy == ICommunityCoin.Strategy.UNSTAKE)

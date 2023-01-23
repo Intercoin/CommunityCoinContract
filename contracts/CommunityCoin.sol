@@ -76,7 +76,8 @@ contract CommunityCoin is CommunityCoinBase {
      * @param hook_ address of contract implemented IHook interface and uses to accumulation bonus tokens amount
      * @param communityCoinInstanceAddr address of contract that managed and cloned pools
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-     * @param tradedToken_ address of traded token. usual it intercoin investor token
+     * @param name name of intercoin community coin
+     * @param symbol symbol of intercoin community coin
      * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
      * @param costManager_ costManager address
      * @param producedBy_ address that produced instance by factory
@@ -84,11 +85,12 @@ contract CommunityCoin is CommunityCoinBase {
      * @custom:shortd initializing contract. called by StakingFactory contract
      */
     function initialize(
+        string calldata name,
+        string calldata symbol,
         address impl,
         address hook_,
         address communityCoinInstanceAddr,
         uint256 discountSensitivity_,
-        address tradedToken_,
         IStructs.CommunitySettings calldata communitySettings,
         address costManager_,
         address producedBy_
@@ -96,13 +98,14 @@ contract CommunityCoin is CommunityCoinBase {
         CommunityCoinBase__init(
             // string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), " commnunity")),
             // string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), " c")),
-            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), bytes32(0x20636f6d6d6e756e697479000000000000000000000000000000000000000000))),
-            string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), bytes32(0x2063000000000000000000000000000000000000000000000000000000000000))),
+            // string(abi.encodePacked(IERC777Upgradeable(tradedToken_).name(), bytes32(0x20636f6d6d6e756e697479000000000000000000000000000000000000000000))),
+            // string(abi.encodePacked(IERC777Upgradeable(tradedToken_).symbol(), bytes32(0x2063000000000000000000000000000000000000000000000000000000000000))),
+            name,
+            symbol,
             impl,
             hook_,
             communityCoinInstanceAddr,
             discountSensitivity_,
-            tradedToken_,
             communitySettings,
             costManager_,
             producedBy_
