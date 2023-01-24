@@ -625,8 +625,8 @@ contract CommunityCoin is
             
 
 
-        console.log("_unstake#2");
-        console.log("len =",len);
+        // console.log("_unstake#2");
+        // console.log("len =",len);
         for (uint256 i = 0; i < len; i++) {
             // console.log("i =",i);
             // console.log("amounts[i] =",amounts[i]);

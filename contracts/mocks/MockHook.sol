@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../interfaces/IHook.sol";
-contract MockHook is IHook {
+import "../interfaces/IRewards.sol";
+contract MockHook is IRewards {
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
 
     // caller which can call methods `bonus`
@@ -58,4 +58,13 @@ contract MockHook is IHook {
         // return hAmount;
     }
 
+    function initialize(
+        address sellingToken,
+        uint256[] memory timestamps,
+        uint256[] memory prices,
+        uint256[] memory thresholds,
+        uint256[] memory bonuses
+    ) external override {
+
+    }
 }
