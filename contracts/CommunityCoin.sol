@@ -213,7 +213,7 @@ contract CommunityCoin is
         address account,
         uint256 amount,
         uint256 priceBeforeStake,
-        bool donation
+        uint256 donatedAmount
     ) external override {
         address instance = msg.sender; //here need a msg.sender as a real sender.
 
@@ -225,8 +225,8 @@ contract CommunityCoin is
         require(instanceInfo.exists == true);
 
         // just call hook if setup before and that's all
-        if (donation) {
-            IDonationRewards(donationRewardsHook).onDonate(instance, account, amount);
+        if (donatedAmount > 0 && donationRewardsHook != address(0)) {
+            IDonationRewards(donationRewardsHook).onDonate(instanceInfo.tokenErc20, account, donatedAmount);
             return;
         }
 

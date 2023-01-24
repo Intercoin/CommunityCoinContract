@@ -297,19 +297,16 @@ contract CommunityStakingPool is Initializable,
             for (uint256 i = 0; i < donations.length; i++) {
                 tmpAmount = (amount * donations[i].amount) / FRACTION;
                 if (tmpAmount > 0) {
-                    ICommunityCoin(stakingProducedBy).issueWalletTokens(
-                        donations[i].account,
-                        tmpAmount,
-                        priceBeforeStake,
-                        true // donation
-                    );
+
+                    IERC20Upgradeable(stakingToken).transfer(donations[i].account, tmpAmount);
+
                     emit Donated(addr, donations[i].account, tmpAmount);
                     left -= tmpAmount;
                 }
             }
         }
 
-        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, left, priceBeforeStake, false);
+        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, left, priceBeforeStake, amount-left);
     }
 
     ////////////////////////////////////////////////////////////////////////

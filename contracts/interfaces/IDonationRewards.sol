@@ -8,6 +8,6 @@ interface IDonationRewards is IHook {
     function claim() external;
     // methods above will be refactored 
 
-    function onDonate(address instance, address account, uint256 amount) external;
+    function onDonate(address token, address who, uint256 amount) external;
  
 }

@@ -268,6 +268,50 @@ describe("Staking contract tests", function () {
         expect(newInvitedByFraction).to.be.eq(toSetInvitedByFraction);
     });
 
+    it.only("donate tests: (donations:50% and 25%. left for sender)", async () => {
+        var communityStakingPool;
+
+    
+        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
+
+        let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64,uint64)"](
+            erc20.address,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            DONATIONS,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        );
+        
+
+        const rc = await tx.wait(); // 0ms, as tx is already confirmed
+        const event = rc.events.find(event => event.event === 'InstanceCreated');
+        const [erc20token, instance] = event.args;
+        
+        communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
+
+        const shares = ONE_ETH.mul(ONE);
+        await erc20.mint(bob.address, shares);
+        await erc20.connect(bob).approve(communityStakingPool.address, shares);
+
+        const bobCommunityCoinTokensBefore = await CommunityCoin.balanceOf(bob.address);
+        const davidERC20TokensBefore = await erc20.balanceOf(david.address);
+        const frankERC20TokensBefore = await erc20.balanceOf(frank.address);
+
+        await communityStakingPool.connect(bob).stake(shares, bob.address);
+        
+        const bobCommunityCoinTokensAfter = await CommunityCoin.balanceOf(bob.address);
+        const davidERC20TokensAfter = await erc20.balanceOf(david.address);
+        const frankERC20TokensAfter = await erc20.balanceOf(frank.address);
+
+        // donates 50% and 25% and left for Bob
+        expect(bobCommunityCoinTokensAfter.sub(bobCommunityCoinTokensBefore)).to.be.eq(shares.mul(FRACTION*25/100).div(FRACTION));
+        expect(davidERC20TokensAfter.sub(davidERC20TokensBefore)).to.be.eq(shares.mul(FRACTION*50/100).div(FRACTION));
+        expect(frankERC20TokensAfter.sub(frankERC20TokensBefore)).to.be.eq(shares.mul(FRACTION*25/100).div(FRACTION));
+
+        
+    });  
 
     describe("tariff tests", function () {
         var communityStakingPool;
@@ -459,63 +503,6 @@ describe("Staking contract tests", function () {
         });
 
     });
-
-    describe("donate tests", function () {   
-
-        var communityStakingPool;
-
-        
-        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
-        beforeEach("deploying", async() => {
-
-            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
-                lockupIntervalCount,
-                NO_BONUS_FRACTIONS,
-                DONATIONS,
-                rewardsRateFraction,
-                numerator,
-                denominator
-            );
-            
-
-            const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.events.find(event => event.event === 'InstanceCreated');
-            const [erc20token, instance] = event.args;
-            
-            communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
-            
-        });
-
-        it("buyAddLiquidityAndStake (donations:50% and 25%. left for sender)", async () => {
-            
-            await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-            await erc20.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
-            await communityStakingPool.connect(bob).stake(ONE_ETH.mul(ONE), bob.address);
-            
-            let bobWalletTokens = await CommunityCoin.balanceOf(bob.address);
-            
-            let davidWalletTokens = await CommunityCoin.balanceOf(david.address);
-            let frankWalletTokens = await CommunityCoin.balanceOf(frank.address);
-
-            expect(bobWalletTokens).not.to.be.eq(ZERO);
-            expect(davidWalletTokens).not.to.be.eq(ZERO);
-            expect(frankWalletTokens).not.to.be.eq(ZERO);
-
-            //expect(poolLptokens).not.to.be.eq(ZERO);
-            // expect(
-            //     poolLptokens.mul(numerator).div(denominator).div(10).mul(10)
-            // ).to.be.eq(
-            //     davidWalletTokens.add(frankWalletTokens).add(bobWalletTokens).div(10).mul(10)
-            // );
-
-            // donates 50% and 25% and left for Bob
-            expect(davidWalletTokens).to.be.eq(frankWalletTokens.add(bobWalletTokens));
-            
-        });  
-
-    });
-
  
     describe("Snapshots tests", function () {
         
