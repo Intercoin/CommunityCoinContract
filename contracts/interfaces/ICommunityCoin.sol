@@ -28,23 +28,20 @@ interface ICommunityCoin {
     }
 
     function initialize(
+        string calldata name,
+        string calldata symbol,
         address poolImpl,
-        address poolErc20Impl,
         address hook,
         address instancesImpl,
         uint256 discountSensitivity,
-        address reserveToken,
-        address tradedToken,
         IStructs.CommunitySettings calldata communitySettings,
         address costManager,
         address producedBy
     ) external;
 
-    enum Strategy{ UNSTAKE, UNSTAKE_AND_REMOVE_LIQUIDITY, REDEEM, REDEEM_AND_REMOVE_LIQUIDITY } 
+    enum Strategy{ UNSTAKE, REDEEM} 
 
-    event InstanceCreated(address indexed tokenA, address indexed tokenB, address instance);
-    event InstanceErc20Created(address indexed erc20token, address instance);
-
+    event InstanceCreated(address indexed erc20token, address instance);
     
     error InsufficientBalance(address account, uint256 amount);
     error InsufficientAmount(address account, uint256 amount);
