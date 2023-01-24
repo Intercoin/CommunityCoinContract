@@ -316,7 +316,12 @@ library PoolStakesLib {
                 IRewards(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
             }
         } catch {
-            revert ICommunityCoin.UNSTAKE_ERROR();
+            if (strategy == ICommunityCoin.Strategy.UNSTAKE) {
+                revert ICommunityCoin.UNSTAKE_ERROR();
+            } else if (strategy == ICommunityCoin.Strategy.REDEEM) {
+                revert ICommunityCoin.REDEEM_ERROR();
+            }
+            
         }
         
     }

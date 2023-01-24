@@ -10,4 +10,9 @@ contract MockCommunityStakingPool is CommunityStakingPool {
     // function setUniswapPair(address addr) public {
     //     uniswapV2Pair = IUniswapV2Pair(addr);
     // }
+
+    function setStakingToken(address stakingToken_) public {
+        stakingToken = stakingToken_;
+    }
+
 }

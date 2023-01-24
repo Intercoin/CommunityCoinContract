@@ -94,6 +94,14 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         return ret;
     }
 
+    function getInstanceInfo(
+        address tokenErc20,
+        uint64 duration
+    ) public view returns (InstanceInfo memory) {
+        address instance = getInstance[tokenErc20][duration];
+        return _instanceInfos[instance];
+    }
+
     function produce(
         address tokenErc20,
         uint64 duration,
@@ -139,7 +147,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function _createInstanceValidate(
         address tokenErc20,
         uint64 duration,
-        uint64 bonusTokenFraction
+        uint64 /*bonusTokenFraction*/
     ) internal view {
         address instance = getInstance[tokenErc20][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
