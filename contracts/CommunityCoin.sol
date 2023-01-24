@@ -482,7 +482,7 @@ contract CommunityCoin is
     function claim() public {
         _accountForOperation(OPERATION_CLAIM << OPERATION_SHIFT_BITS, uint256(uint160(_msgSender())), 0);
         if (hook != address(0)) {
-            IHook(hook).onClaim(_msgSender());
+            IRewards(hook).onClaim(_msgSender());
         }
     }
 

@@ -4,9 +4,9 @@ pragma solidity ^0.8.11;
 import "../interfaces/ICommunityCoin.sol";
 import "../interfaces/ICommunityStakingPoolFactory.sol";
 import "../interfaces/ICommunityStakingPool.sol";
-import "../interfaces/IHook.sol";
+import "../interfaces/IRewards.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 library PoolStakesLib {
     using MinimumsLib for MinimumsLib.UserStruct;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
@@ -306,14 +306,14 @@ library PoolStakesLib {
             uint256 affectedAmount,
             uint64 rewardsRateFraction
         ) {
-console.log("proceedPool");
-console.log(account, amount);
+// console.log("proceedPool");
+// console.log(account, amount);
             if (
                 (hook != address(0)) &&
                 (strategy == ICommunityCoin.Strategy.UNSTAKE)
             ) {
                 require(instanceInfo.exists == true);
-                IHook(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
+                IRewards(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
             }
         } catch {
             revert ICommunityCoin.UNSTAKE_ERROR();
