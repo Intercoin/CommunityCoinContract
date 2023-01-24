@@ -55,6 +55,6 @@ interface ICommunityCoin {
     error AmountExceedsAllowance(address account,uint256 amount);
     error AmountExceedsMaxTariff();
     
-    function issueWalletTokens(address account, uint256 amount, uint256 priceBeforeStake) external;
+    function issueWalletTokens(address account, uint256 amount, uint256 priceBeforeStake, uint256 donatedAmount) external;
 
 }

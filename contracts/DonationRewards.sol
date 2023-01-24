@@ -330,6 +330,10 @@ contract DonationRewards is Initializable, ContextUpgradeable, OwnableUpgradeabl
 
     }
 
+    function onDonate(address token, address who, uint256 amount) external {
+         // to be implemented
+    }
+
     function _donate(
         address sender,
         address token, 
@@ -634,11 +638,6 @@ contract DonationRewards is Initializable, ContextUpgradeable, OwnableUpgradeabl
 
         }
 
-    }
-
-
-    function compareStrings(string memory a, string memory b) internal view returns (bool) {
-        return (keccak256(abi.encodePacked((a))) == keccak256(abi.encodePacked((b))));
     }
 
     /**
