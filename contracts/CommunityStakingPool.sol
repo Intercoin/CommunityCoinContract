@@ -300,7 +300,8 @@ contract CommunityStakingPool is Initializable,
                     ICommunityCoin(stakingProducedBy).issueWalletTokens(
                         donations[i].account,
                         tmpAmount,
-                        priceBeforeStake
+                        priceBeforeStake,
+                        true // donation
                     );
                     emit Donated(addr, donations[i].account, tmpAmount);
                     left -= tmpAmount;
@@ -308,7 +309,7 @@ contract CommunityStakingPool is Initializable,
             }
         }
 
-        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, left, priceBeforeStake);
+        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, left, priceBeforeStake, false);
     }
 
     ////////////////////////////////////////////////////////////////////////

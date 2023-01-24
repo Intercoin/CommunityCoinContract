@@ -38,6 +38,8 @@ All disputes related to this agreement shall be governed by and interpreted in a
 pragma solidity ^0.8.11;
 //import "./interfaces/IHook.sol"; exists in PoolStakesLib
 import "./interfaces/ITaxes.sol";
+import "./interfaces/IDonationRewards.sol";
+
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 
@@ -87,6 +89,7 @@ contract CommunityCoin is
     uint64 public unstakeTariff;
 
     address public hook; // hook used to bonus calculation
+    address public donationRewardsHook; // donation hook rewards
 
     ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
 
@@ -209,7 +212,8 @@ contract CommunityCoin is
     function issueWalletTokens(
         address account,
         uint256 amount,
-        uint256 priceBeforeStake
+        uint256 priceBeforeStake,
+        bool donation
     ) external override {
         address instance = msg.sender; //here need a msg.sender as a real sender.
 
@@ -219,6 +223,13 @@ contract CommunityCoin is
         );
 
         require(instanceInfo.exists == true);
+
+        // just call hook if setup before and that's all
+        if (donation) {
+            IDonationRewards(donationRewardsHook).onDonate(instance, account, amount);
+            return;
+        }
+
 
         // calculate bonusAmount
         uint256 bonusAmount = (amount * instanceInfo.bonusTokenFraction) / FRACTION;
@@ -553,6 +564,16 @@ contract CommunityCoin is
     function setupTaxAddress(address taxAddress) public onlyOwner {
         require(taxHook == address(0));
         taxHook = taxAddress;
+    }
+
+    /**
+    * @notice set donations contract, triggered when someone donate funds ina pool
+    * @param addr address of donationRewardsHook
+    * @custom:shortd set donations hook contract address
+    * @custom:calledby owner
+    */
+    function setupDonationHookAddress(address addr) public onlyOwner {
+        donationRewardsHook = addr;
     }
 
     ////////////////////////////////////////////////////////////////////////
