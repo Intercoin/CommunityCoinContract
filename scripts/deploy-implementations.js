@@ -71,30 +71,27 @@ async function main() {
 
   	const CommunityStakingPoolFactoryF = await ethers.getContractFactory("CommunityStakingPoolFactory");
   	const CommunityStakingPoolF = await ethers.getContractFactory("CommunityStakingPool");
-	const CommunityStakingPoolERC20F = await ethers.getContractFactory("CommunityStakingPoolERC20");
-	
+	const RewardsF = await ethers.getContractFactory("Rewards");
+
 	let communityCoin         		= await CommunityCoinF.connect(deployer).deploy();
 	let communityStakingPoolFactory = await CommunityStakingPoolFactoryF.connect(deployer).deploy();
 	let communityStakingPool    	= await CommunityStakingPoolF.connect(deployer).deploy();
-	let communityStakingPoolERC20  	= await CommunityStakingPoolERC20F.connect(deployer).deploy();
+	let rewards         			= await RewardsF.connect(deployer).deploy();
 	//let communityRolesManagement    = await CommunityRolesManagementF.connect(deployer).deploy();
 
 	console.log("Implementations:");
 	console.log("  communityCoin deployed at:               ", communityCoin.address);
 	console.log("  communityStakingPoolFactory deployed at: ", communityStakingPoolFactory.address);
 	console.log("  communityStakingPool deployed at:        ", communityStakingPool.address);
-	console.log("  communityStakingPoolERC20 deployed at:   ", communityStakingPoolERC20.address);
-	//console.log("  communityRolesManagement deployed at:    ", communityRolesManagement.address);
 	console.log("Libraries:");
 	console.log("  poolStakesLib deployed at:    ", poolStakesLib.address);
 
 	data_object.communityCoin 				= communityCoin.address;
 	data_object.communityStakingPoolFactory	= communityStakingPoolFactory.address;
 	data_object.communityStakingPool		= communityStakingPool.address;
-	data_object.communityStakingPoolERC20	= communityStakingPoolERC20.address;
-	//data_object.communityRolesManagement	= communityRolesManagement.address;
 	data_object.poolStakesLib				= poolStakesLib.address;
-	data_object.releaseManager                  = RELEASE_MANAGER;
+	data_object.releaseManager              = RELEASE_MANAGER;
+	data_object.rewards						= rewards.address;
 
 	//---
 	const ts_updated = Date.now();
