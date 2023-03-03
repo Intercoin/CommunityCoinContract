@@ -21,6 +21,7 @@ import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/ITrustedForwarder.sol";
 import "./interfaces/IStructs.sol";
 import "./interfaces/ICommunityStakingPool.sol";
+import "./interfaces/IPresale.sol";
 
 import "./libs/SwapSettingsLib.sol";
 
