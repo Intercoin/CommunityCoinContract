@@ -216,17 +216,15 @@ contract CommunityStakingPool is Initializable,
     }
 
     /**
-     * @param tokenAddress token that will swap to `stakingToken`
-     * @param tokenAmount amount of `tokenAddress` token
-     * @param beneficiary wallet which obtain LP tokens
-     * @notice method will receive `tokenAmount` of token `tokenAddress` then will swap all to `stakingToken` and finally stake it. Beneficiary will obtain shares
-     * @custom:shortd  the way to receive `tokenAmount` of token `tokenAddress` then will swap all to `stakingToken` and finally stake it. Beneficiary will obtain shares
+     * @param presaleAddress presaleAddress
+     * @notice method buyInPresaleAndStake
+     * @custom:shortd buyInPresaleAndStake
      */
     function buyInPresaleAndStake(
         address presaleAddress
     ) public payable nonReentrant {
         IPresale(presaleAddress).buy{value: msg.value}(); // should cause the contract to receive tokens
-        _stake(beneficiary, stakingTokenAmount, 0);
+        _stake(msg.sender, msg.value, 0);
     }
 
     ////////////////////////////////////////////////////////////////////////
