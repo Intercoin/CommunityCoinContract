@@ -37,8 +37,8 @@ contract CommunityStakingPool is Initializable,
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
     /**
-     * @custom:shortd address of ERC20 token.
-     * @notice address of ERC20 token. ie investor token - ITR
+     * @custom:shortd address of token to be staked
+     * @notice address of token that would be staked in the contract
      */
     address public stakingToken;
 
@@ -104,7 +104,7 @@ contract CommunityStakingPool is Initializable,
     /**
      * @notice initialize method. Called once by the factory at time of deployment
      * @param stakingProducedBy_ address of Community Coin token.
-     * @param stakingToken_ address of ERC20 token.
+     * @param stakingToken_ address of token that can be staked
      * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
      * @custom:shortd initialize method. Called once by the factory at time of deployment
      */
@@ -169,7 +169,7 @@ contract CommunityStakingPool is Initializable,
      * @param account account address will redeemed from
      * @param amount The number of shares that will be redeemed
      * @custom:calledby staking contract
-     * @custom:shortd redeem erc20 tokens
+     * @custom:shortd redeem stakingToken
      */
     function redeem(address account, uint256 amount)
         external
@@ -192,11 +192,11 @@ contract CommunityStakingPool is Initializable,
     }
 
     /**
-     * @param tokenAddress token that will swap to `erc20Address` token
+     * @param tokenAddress token that will swap to `stakingToken`
      * @param tokenAmount amount of `tokenAddress` token
      * @param beneficiary wallet which obtain LP tokens
-     * @notice method will receive `tokenAmount` of token `tokenAddress` then will swap all to `erc20address` and finally stake it. Beneficiary will obtain shares
-     * @custom:shortd  the way to receive `tokenAmount` of token `tokenAddress` then will swap all to `erc20address` and finally stake it. Beneficiary will obtain shares
+     * @notice method will receive `tokenAmount` of token `tokenAddress` then will swap all to `stakingToken` and finally stake it. Beneficiary will obtain shares
+     * @custom:shortd  the way to receive `tokenAmount` of token `tokenAddress` then will swap all to `stakingToken` and finally stake it. Beneficiary will obtain shares
      */
     function buyAndStake(
         address tokenAddress,
