@@ -223,8 +223,16 @@ contract CommunityStakingPool is Initializable,
     function buyInPresaleAndStake(
         address presaleAddress
     ) public payable nonReentrant {
+        uint256 balanceBefore = IERC20Upgradeable(stakingToken).balanceOf(address(this));
         IPresale(presaleAddress).buy{value: msg.value}(); // should cause the contract to receive tokens
-        _stake(msg.sender, msg.value, 0);
+        uint256 balanceAfter = IERC20Upgradeable(stakingToken).balanceOf(address(this));
+        uint256 balanceDiff = balanceAfter - balanceBefore;
+
+        require(balanceDiff > 0, "insufficient amount");
+
+        IERC20Upgradeable(stakingToken).transfer(msg.sender, balanceDiff);
+
+        _stake(msg.sender, balanceDiff, 0);
     }
 
     ////////////////////////////////////////////////////////////////////////

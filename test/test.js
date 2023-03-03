@@ -268,7 +268,7 @@ describe("Staking contract tests", function () {
         expect(newInvitedByFraction).to.be.eq(toSetInvitedByFraction);
     });
 
-    it.only("donate tests: (donations:50% and 25%. left for sender)", async () => {
+    it("donate tests: (donations:50% and 25%. left for sender)", async () => {
         var communityStakingPool;
 
     
