@@ -180,9 +180,9 @@ contract CommunityStakingPool is Initializable,
         external
         //override
         onlyStaking
-        returns (uint256 affectedLPAmount, uint64 rewardsRate)
+        returns (uint256 amountToRedeem, uint64 rewardsRate)
     {
-        affectedLPAmount = _redeem(account, amount);
+        amountToRedeem = _redeem(account, amount);
         rewardsRate = rewardsRateFraction;
     }
     ////////////////////////////////////////////////////////////////////////
@@ -244,9 +244,9 @@ contract CommunityStakingPool is Initializable,
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    function _redeem(address account, uint256 amount) internal returns (uint256 affectedLPAmount) {
-        affectedLPAmount = __redeem(account, amount);
-        IERC20Upgradeable(stakingToken).transfer(account, affectedLPAmount);
+    function _redeem(address account, uint256 amount) internal returns (uint256 amountToRedeem) {
+        amountToRedeem = __redeem(account, amount);
+        IERC20Upgradeable(stakingToken).transfer(account, amountToRedeem);
     }
 
     function doSwapOnUniswap(
@@ -320,7 +320,7 @@ contract CommunityStakingPool is Initializable,
 
     function _stake(
         address addr,
-        uint256 amount, //lpAmount
+        uint256 amount,
         uint256 priceBeforeStake
     ) internal virtual {
         uint256 left = amount;
