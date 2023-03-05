@@ -61,6 +61,7 @@ contract CommunityStakingPool is Initializable,
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
+    address popularToken;
 
     IUniswapV2Router02 internal UniswapV2Router02;
 
@@ -112,6 +113,7 @@ contract CommunityStakingPool is Initializable,
     function initialize(
         address stakingProducedBy_,
         address stakingToken_,
+        address popularToken_,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 rewardsRateFraction_
     ) external override initializer {
@@ -119,6 +121,7 @@ contract CommunityStakingPool is Initializable,
 
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
         stakingToken = stakingToken_;
+        popularToken = popularToken_;
         rewardsRateFraction = rewardsRateFraction_;
 
         //donations = donations_;
@@ -257,7 +260,12 @@ contract CommunityStakingPool is Initializable,
             require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
             address[] memory path = new address[](2);
             path[0] = address(tokenIn);
-            path[1] = address(tokenOut);
+            if (popularToken != address(0) && tokenIn === popularToken) {
+                path[1] = address(tokenOut);
+            } else {
+                path[1] = popularToken;
+                path[2] = address(tokenOut);
+            }
             // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
             uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
                 amountIn,
