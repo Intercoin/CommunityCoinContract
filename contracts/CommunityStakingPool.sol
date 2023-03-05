@@ -107,6 +107,7 @@ contract CommunityStakingPool is Initializable,
      * @notice initialize method. Called once by the factory at time of deployment
      * @param stakingProducedBy_ address of Community Coin token.
      * @param stakingToken_ address of token that can be staked
+     * @param popularToken address of the other token in the main liquidity pool against which stakingToken is traded
      * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
      * @custom:shortd initialize method. Called once by the factory at time of deployment
      */
@@ -219,12 +220,14 @@ contract CommunityStakingPool is Initializable,
     }
 
     /**
-     * @param presaleAddress presaleAddress
+     * @param presaleAddress presaleAddress smart contract conducting a presale
+     * @param address beneficiary who will receive the CommunityCoin tokens
      * @notice method buyInPresaleAndStake
      * @custom:shortd buyInPresaleAndStake
      */
     function buyInPresaleAndStake(
-        address presaleAddress
+        address presaleAddress,
+        address beneficiary
     ) public payable nonReentrant {
         uint256 balanceBefore = IERC20Upgradeable(stakingToken).balanceOf(address(this));
         IPresale(presaleAddress).buy{value: msg.value}(); // should cause the contract to receive tokens
@@ -235,7 +238,7 @@ contract CommunityStakingPool is Initializable,
 
         IERC20Upgradeable(stakingToken).transfer(msg.sender, balanceDiff);
 
-        _stake(msg.sender, balanceDiff, 0);
+        _stake(beneficiary, balanceDiff, 0);
     }
 
     ////////////////////////////////////////////////////////////////////////
