@@ -344,13 +344,13 @@ contract CommunityStakingPool is Initializable,
     ////////////////////////////////////////////////////////////////////////
     // private section /////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    function __redeem(address sender, uint256 amount) private returns (uint256 amount2Redeem) {
+    function __redeem(address sender, uint256 amount) private returns (uint256 amountToRedeem) {
         emit Redeemed(sender, amount);
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
         // transfer and burn moved to upper level
         // #dev strange way to point to burn tokens. means need to set lpFraction == 0 and lpFractionBeneficiary should not be address(0) so just setup as `producedBy`
-        amount2Redeem = _fractionAmountSend(
+        amountToRedeem = _fractionAmountSend(
             stakingToken,
             amount,
             0, // lpFraction,
