@@ -740,21 +740,21 @@ contract CommunityCoin is
     }
 
     function __redeem(
-        address account2Burn,
-        address account2Redeem,
+        address accountToBurn,
+        address accountToRedeem,
         uint256 amount,
         address[] memory preferredInstances,
         Strategy strategy
     ) internal proceedBurnUnstakeRedeem {
 
         if (amount > total.totalRedeemable) {
-            revert InsufficientBalance(account2Redeem, amount);
+            revert InsufficientBalance(accountToRedeem, amount);
         }
 
-        uint256 totalSupplyBefore = _burn(account2Burn, amount);
+        uint256 totalSupplyBefore = _burn(accountToBurn, amount);
 
         (address[] memory instancesToRedeem, uint256[] memory valuesToRedeem, uint256[] memory amounts, uint256 len, /*uint256 newAmount*/) = _poolStakesAvailable(
-            account2Redeem,
+            accountToRedeem,
             amount,
             preferredInstances,
             strategy, /*Strategy.REDEEM*/
@@ -771,8 +771,8 @@ contract CommunityCoin is
                 total.totalRedeemable -= amounts[i];
                 total.totalReserves -= amounts[i];
 
-                //proceedPool(account2Redeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
-                PoolStakesLib.proceedPool(instanceManagment, hook, account2Redeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
+                //proceedPool(accountToRedeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
+                PoolStakesLib.proceedPool(instanceManagment, hook, accountToRedeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
             }
         }
 
