@@ -10,6 +10,7 @@ interface ICommunityStakingPoolFactory {
         uint64 duration;
         bool exists;
         uint64 bonusTokenFraction;
+        address popularToken;
         uint64 rewardsRateFraction;
         uint64 numerator;
         uint64 denominator;
@@ -22,7 +23,7 @@ interface ICommunityStakingPoolFactory {
     function instancesByIndex(uint index) external view returns (address instance);
     function instances() external view returns (address[] memory instances);
     function instancesCount() external view returns (uint);
-    function produce(address tokenErc20, uint64 duration, uint64 bonusTokenFraction, IStructs.StructAddrUint256[] memory donations, uint64 rewardsRateFraction, uint64 numerator, uint64 denominator) external returns (address instance);
+    function produce(address tokenErc20, uint64 duration, uint64 bonusTokenFraction, address popularToken, IStructs.StructAddrUint256[] memory donations, uint64 rewardsRateFraction, uint64 numerator, uint64 denominator) external returns (address instance);
     function getInstanceInfoByPoolAddress(address addr) external view returns(InstanceInfo memory);
 
 }

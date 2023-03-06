@@ -106,6 +106,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address tokenErc20,
         uint64 duration,
         uint64 bonusTokenFraction,
+        address popularToken,
         IStructs.StructAddrUint256[] memory donations,
         uint64 rewardsRateFraction,
         uint64 numerator,
@@ -119,6 +120,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             tokenErc20,
             duration,
             bonusTokenFraction,
+            popularToken,
             rewardsRateFraction,
             numerator,
             denominator
@@ -135,6 +137,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         ICommunityStakingPool(instanceCreated).initialize(
             creator,
             tokenErc20,
+            popularToken,
             donations,
             rewardsRateFraction
         );
@@ -161,6 +164,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address tokenErc20,
         uint64 duration,
         uint64 bonusTokenFraction,
+        address popularToken,
         uint64 rewardsRateFraction,
         uint64 numerator,
         uint64 denominator
@@ -180,6 +184,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             duration,
             true,
             bonusTokenFraction,
+            popularToken,
             rewardsRateFraction,
             numerator,
             denominator

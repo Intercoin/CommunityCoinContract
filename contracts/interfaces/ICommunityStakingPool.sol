@@ -7,6 +7,7 @@ interface ICommunityStakingPool {
     function initialize(
         address stakingProducedBy_,
         address token_,
+        address popularToken_,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 rewardsRateFraction_
     ) external;

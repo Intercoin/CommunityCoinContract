@@ -107,7 +107,7 @@ contract CommunityStakingPool is Initializable,
      * @notice initialize method. Called once by the factory at time of deployment
      * @param stakingProducedBy_ address of Community Coin token.
      * @param stakingToken_ address of token that can be staked
-     * @param popularToken address of the other token in the main liquidity pool against which stakingToken is traded
+     * @param popularToken_ address of the other token in the main liquidity pool against which stakingToken is traded
      * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
      * @custom:shortd initialize method. Called once by the factory at time of deployment
      */
@@ -221,7 +221,7 @@ contract CommunityStakingPool is Initializable,
 
     /**
      * @param presaleAddress presaleAddress smart contract conducting a presale
-     * @param address beneficiary who will receive the CommunityCoin tokens
+     * @param beneficiary who will receive the CommunityCoin tokens
      * @notice method buyInPresaleAndStake
      * @custom:shortd buyInPresaleAndStake
      */
@@ -263,12 +263,19 @@ contract CommunityStakingPool is Initializable,
             require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
             address[] memory path = new address[](2);
             path[0] = address(tokenIn);
-            if (popularToken != address(0) && tokenIn === popularToken) {
+            uint256 indexOut = 1;
+            if (
+                popularToken == address(0) ||
+                (tokenIn == popularToken) ||
+                (tokenOut == popularToken)
+            ) {
                 path[1] = address(tokenOut);
             } else {
                 path[1] = popularToken;
                 path[2] = address(tokenOut);
+                indexOut = 2;
             }
+            
             // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
             uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
                 amountIn,
@@ -277,7 +284,7 @@ contract CommunityStakingPool is Initializable,
                 address(this),
                 block.timestamp
             );
-            amountOut = outputAmounts[1];
+            amountOut = outputAmounts[indexOut];
         }
     }
 
