@@ -61,6 +61,7 @@ contract CommunityStakingPool is Initializable,
 
     address internal uniswapRouter;
     address internal uniswapRouterFactory;
+    address popularToken;
 
     IUniswapV2Router02 internal UniswapV2Router02;
 
@@ -106,12 +107,14 @@ contract CommunityStakingPool is Initializable,
      * @notice initialize method. Called once by the factory at time of deployment
      * @param stakingProducedBy_ address of Community Coin token.
      * @param stakingToken_ address of token that can be staked
+     * @param popularToken address of the other token in the main liquidity pool against which stakingToken is traded
      * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
      * @custom:shortd initialize method. Called once by the factory at time of deployment
      */
     function initialize(
         address stakingProducedBy_,
         address stakingToken_,
+        address popularToken_,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 rewardsRateFraction_
     ) external override initializer {
@@ -119,6 +122,7 @@ contract CommunityStakingPool is Initializable,
 
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
         stakingToken = stakingToken_;
+        popularToken = popularToken_;
         rewardsRateFraction = rewardsRateFraction_;
 
         //donations = donations_;
@@ -176,9 +180,9 @@ contract CommunityStakingPool is Initializable,
         external
         //override
         onlyStaking
-        returns (uint256 affectedLPAmount, uint64 rewardsRate)
+        returns (uint256 amountToRedeem, uint64 rewardsRate)
     {
-        affectedLPAmount = _redeem(account, amount);
+        amountToRedeem = _redeem(account, amount);
         rewardsRate = rewardsRateFraction;
     }
     ////////////////////////////////////////////////////////////////////////
@@ -216,12 +220,14 @@ contract CommunityStakingPool is Initializable,
     }
 
     /**
-     * @param presaleAddress presaleAddress
+     * @param presaleAddress presaleAddress smart contract conducting a presale
+     * @param address beneficiary who will receive the CommunityCoin tokens
      * @notice method buyInPresaleAndStake
      * @custom:shortd buyInPresaleAndStake
      */
     function buyInPresaleAndStake(
-        address presaleAddress
+        address presaleAddress,
+        address beneficiary
     ) public payable nonReentrant {
         uint256 balanceBefore = IERC20Upgradeable(stakingToken).balanceOf(address(this));
         IPresale(presaleAddress).buy{value: msg.value}(); // should cause the contract to receive tokens
@@ -232,15 +238,15 @@ contract CommunityStakingPool is Initializable,
 
         IERC20Upgradeable(stakingToken).transfer(msg.sender, balanceDiff);
 
-        _stake(msg.sender, balanceDiff, 0);
+        _stake(beneficiary, balanceDiff, 0);
     }
 
     ////////////////////////////////////////////////////////////////////////
     // internal section ////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    function _redeem(address account, uint256 amount) internal returns (uint256 affectedLPAmount) {
-        affectedLPAmount = __redeem(account, amount);
-        IERC20Upgradeable(stakingToken).transfer(account, affectedLPAmount);
+    function _redeem(address account, uint256 amount) internal returns (uint256 amountToRedeem) {
+        amountToRedeem = __redeem(account, amount);
+        IERC20Upgradeable(stakingToken).transfer(account, amountToRedeem);
     }
 
     function doSwapOnUniswap(
@@ -257,7 +263,12 @@ contract CommunityStakingPool is Initializable,
             require(IERC20Upgradeable(tokenIn).approve(address(uniswapRouter), amountIn), "APPROVE_FAILED");
             address[] memory path = new address[](2);
             path[0] = address(tokenIn);
-            path[1] = address(tokenOut);
+            if (popularToken != address(0) && tokenIn === popularToken) {
+                path[1] = address(tokenOut);
+            } else {
+                path[1] = popularToken;
+                path[2] = address(tokenOut);
+            }
             // amountOutMin is set to 0, so only do this with pairs that have deep liquidity
             uint256[] memory outputAmounts = UniswapV2Router02.swapExactTokensForTokens(
                 amountIn,
@@ -309,7 +320,7 @@ contract CommunityStakingPool is Initializable,
 
     function _stake(
         address addr,
-        uint256 amount, //lpAmount
+        uint256 amount,
         uint256 priceBeforeStake
     ) internal virtual {
         uint256 left = amount;
@@ -333,13 +344,13 @@ contract CommunityStakingPool is Initializable,
     ////////////////////////////////////////////////////////////////////////
     // private section /////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
-    function __redeem(address sender, uint256 amount) private returns (uint256 amount2Redeem) {
+    function __redeem(address sender, uint256 amount) private returns (uint256 amountToRedeem) {
         emit Redeemed(sender, amount);
 
         // validate free amount to redeem was moved to method _beforeTokenTransfer
         // transfer and burn moved to upper level
         // #dev strange way to point to burn tokens. means need to set lpFraction == 0 and lpFractionBeneficiary should not be address(0) so just setup as `producedBy`
-        amount2Redeem = _fractionAmountSend(
+        amountToRedeem = _fractionAmountSend(
             stakingToken,
             amount,
             0, // lpFraction,
