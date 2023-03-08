@@ -83,9 +83,10 @@ async function main() {
 	console.log("  communityCoin deployed at:               ", communityCoin.address);
 	console.log("  communityStakingPoolFactory deployed at: ", communityStakingPoolFactory.address);
 	console.log("  communityStakingPool deployed at:        ", communityStakingPool.address);
+	console.log("  rewards deployed at:                     ", rewards.address);
 	console.log("Libraries:");
 	console.log("  poolStakesLib deployed at:    ", poolStakesLib.address);
-
+    
 	data_object.communityCoin 				= communityCoin.address;
 	data_object.communityStakingPoolFactory	= communityStakingPoolFactory.address;
 	data_object.communityStakingPool		= communityStakingPool.address;
