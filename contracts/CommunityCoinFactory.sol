@@ -145,7 +145,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      * @param tokenSymbol internal token symbol.
      * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
      * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
-     * @param communitySettings tuple of community settings (address of contract and roles(admin,redeem,circulate))
+     * @param communitySettings tuple of community settings (address of contract and roles(redeem,circulate,tariff))
      * @return instance address of created instance pool `CommunityCoin`
      * @custom:shortd creation instance
      */
