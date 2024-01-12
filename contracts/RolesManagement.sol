@@ -4,7 +4,7 @@ pragma solidity ^0.8.11;
 import "./interfaces/IStructs.sol";
 import "./maps/CommunityAccessMap.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@artman325/community/contracts/interfaces/ICommunity.sol";
+import "@intercoin/community/contracts/interfaces/ICommunity.sol";
 
 /*ICommunityRolesManagement, */
 abstract contract RolesManagement is Initializable {

@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/IStructs.sol";
 
-import "@artman325/releasemanager/contracts/CostManagerFactoryHelper.sol";
-import "@artman325/releasemanager/contracts/ReleaseManagerHelper.sol";
+import "@intercoin/releasemanager/contracts/CostManagerFactoryHelper.sol";
+import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
 
 /**
 ****************

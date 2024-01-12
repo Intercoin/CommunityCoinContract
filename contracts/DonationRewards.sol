@@ -2,8 +2,7 @@
 pragma solidity ^0.8.11;
 
 import "./ImpactCoin.sol";
-import "@artman325/nonfungibletokencontract/contracts/NFT.sol";
-//import "@artman325/community/contracts/Community.sol";
+import "@intercoin/nonfungibletokencontract/contracts/NFT.sol";
 
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";

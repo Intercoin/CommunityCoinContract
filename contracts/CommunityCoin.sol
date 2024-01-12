@@ -53,8 +53,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgrade
 import "@openzeppelin/contracts-upgradeable/token/ERC777/ERC777Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import "@artman325/community/contracts/interfaces/ICommunity.sol";
-import "@artman325/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
+import "@intercoin/community/contracts/interfaces/ICommunity.sol";
+import "@intercoin/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 
 import "./libs/PoolStakesLib.sol";
 

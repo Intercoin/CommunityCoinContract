@@ -5,7 +5,7 @@ import "./RewardsBase.sol";
 import "./interfaces/IHook.sol";
 import "./interfaces/IRewards.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract Rewards is RewardsBase, IHook, IRewards {
     // caller which can call methods `bonus`
