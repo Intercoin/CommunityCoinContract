@@ -22,8 +22,11 @@ const ONE_ETH = ethers.utils.parseEther('1');
 //const TOTALSUPPLY = ethers.utils.parseEther('1000000000');    
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
-const UNISWAP_ROUTER_FACTORY_ADDRESS = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
-const UNISWAP_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
+
+// make hardcode for bsc. the same in MockCommunityStakingPool
+const UNISWAP_ROUTER_FACTORY_ADDRESS = '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73';
+const UNISWAP_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
+
 
 const INVITEDBY_FRACTION = 0;
 
@@ -1051,7 +1054,7 @@ describe("Staking contract tests", function () {
 
                 await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
                 await erc20Paying.connect(bob).approve(communityStakingPoolERC20.address, ONE_ETH.mul(ONE));
-                
+
                 await communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address);
 
                 charlieWalletTokensAfter = await CommunityCoin.balanceOf(charlie.address);

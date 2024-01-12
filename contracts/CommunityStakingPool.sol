@@ -18,14 +18,12 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 import "./interfaces/ICommunityCoin.sol";
-import "./interfaces/ITrustedForwarder.sol";
+//import "./interfaces/ITrustedForwarder.sol";
 import "./interfaces/IStructs.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/IPresale.sol";
 
-import "./libs/SwapSettingsLib.sol";
-
-//import "hardhat/console.sol";
+import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
 
 contract CommunityStakingPool is Initializable,
     ContextUpgradeable,
@@ -118,7 +116,6 @@ contract CommunityStakingPool is Initializable,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 rewardsRateFraction_
     ) external override initializer {
-        
 
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
         stakingToken = stakingToken_;
@@ -134,14 +131,18 @@ contract CommunityStakingPool is Initializable,
 
         __ReentrancyGuard_init();
 
-        // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
-        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
-
-        
+        setupExternalAddresses();
     }
 
-    
+    function setupExternalAddresses() internal virtual {
+        //attach deployed lib with uniswap addresses
+        ILiquidityLib liquidityLib = ILiquidityLib(0x1eA4C4613a4DfdAEEB95A261d11520c90D5d6252);
+        // setup swap addresses
+        (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
+                                                             
+        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
+    }
+
     // left when will be implemented
     // function tokensToSend(
     //     address operator,
@@ -215,6 +216,7 @@ contract CommunityStakingPool is Initializable,
         //uniswapV2Pair = IUniswapV2Pair(pair);
 
         uint256 stakingTokenAmount = doSwapOnUniswap(tokenAddress, stakingToken, tokenAmount);
+
         require(stakingTokenAmount != 0, "NO_TOKENS_RECEIVED_FROM_UNISWAP");
         _stake(beneficiary, stakingTokenAmount, 0);
     }
