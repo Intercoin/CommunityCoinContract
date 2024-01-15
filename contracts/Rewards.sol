@@ -79,7 +79,7 @@ contract Rewards is RewardsBase, IHook, IRewards {
         // here we didn't claim immediately. contract may not contains enough tokens and can revert all transactions.
         //_addBonus(account, inputAmount, false); 
         // BUT WE changed this. bonuses will accomulate successfully and if tokens are enough - try to send. if not - tx will NOT revert
-        _addBonus(
+        _addRewards(
             account, 
             inputAmount,
             tokenPrice
@@ -87,15 +87,16 @@ contract Rewards is RewardsBase, IHook, IRewards {
 
     }
 
-    // copy from FundContract Base with simple changes: WE dont need revert when trying to send bonus tokens, just add bonus, that's all
-    function _addBonus(
+    // copy from FundContract Base with simple changes: 
+    // - WE dont need revert when trying to send bonus tokens, just add bonus, that's all
+    // - renamed from _addBonus to _addRewards
+    function _addRewards(
         address addr, 
         uint256 ethAmount,
         uint256 tokenPrice
     ) 
         internal 
         virtual
-        override
     {
 
         if (participants[addr].exists == true) {
