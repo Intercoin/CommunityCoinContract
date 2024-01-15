@@ -306,14 +306,15 @@ library PoolStakesLib {
             uint256 affectedAmount,
             uint64 rewardsRateFraction
         ) {
-// console.log("proceedPool");
-// console.log(account, amount);
+
             if (
                 (hook != address(0)) &&
                 (strategy == ICommunityCoin.Strategy.UNSTAKE)
             ) {
+
                 require(instanceInfo.exists == true);
                 IRewards(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
+
             }
         } catch {
             if (strategy == ICommunityCoin.Strategy.UNSTAKE) {

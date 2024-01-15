@@ -38,7 +38,7 @@ const FRACTION = BigNumber.from('100000');
 
 const NO_DONATIONS = [];
 
-const NO_BONUS_FRACTIONS = ZERO; // no bonus. means amount*NO_BONUS_FRACTIONS/FRACTION = X*0/100000 = 0
+const NO_BONUS_FRACTIONS = ZERO; // no bonus. means amount*NO_BONUS_FRACTIONS/FRACTION = X*0/10000 = 0
 const BONUS_FRACTIONS = 50000; // 50%
 
 const PRICE_DENOM = 100_000_000; // 1e8
@@ -151,17 +151,18 @@ describe("Staking contract tests", function () {
         rewardsHook = await RewardsF.deploy();
 
         const PRICE_REWARDS = PRICE_DENOM;
+        const amoutnRaisedVal = THOUSAND.mul(THOUSAND).mul(THOUSAND).mul(ONE_ETH);
         let timeLatest = await time.latest();
 
         await rewardsHook.connect(owner).initialize(
             erc20Reward.address,                    //address sellingToken,
             [timeLatest.toString()],                //uint256[] memory timestamps,
             [PRICE_REWARDS],                        // uint256[] memory _prices,
+            [amoutnRaisedVal],                      // uint256[] memory _amountRaised,
+            timeLatest.add(timeLatest).toString(),//make a huge ts //uint64 _endTs,
             [ethers.utils.parseEther("0.00001")],   // uint256[] memory thresholds,
-            [rewardsTenPercentBonus]   // 10%                           // uint256[] memory bonuses
+            [rewardsTenPercentBonus]   // 10%       // uint256[] memory bonuses
         )
-        
-
 
         mockCommunity = await MockCommunityF.deploy();
 
@@ -673,10 +674,12 @@ describe("Staking contract tests", function () {
                 frank.address, //address sellingToken,
                 [], //uint256[] memory timestamps,
                 [], //uint256[] memory prices,
+                [], //uint256[] memory _amountRaised,
+                999999999, //uint64 _endTs,
                 [], //uint256[] memory thresholds,
                 [], //uint256[] memory bonuses
             );
-
+            
         });
 
         it("should be empty after init", async() => {
@@ -699,7 +702,7 @@ describe("Staking contract tests", function () {
         });
 
         it("shouldnt become owner and trusted forwarder", async() => {
-            await expect(rewards.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith("FORWARDER_CAN_NOT_BE_OWNER");
+            await expect(rewards.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith("ForwarderCanNotBeOwner");
         });
 
     });
@@ -747,6 +750,7 @@ describe("Staking contract tests", function () {
 
             await erc20.mint(bob.address, ONE_ETH.mul(ONE));
             await erc20.connect(bob).approve(communityStakingPoolWithHook.address, ONE_ETH.mul(ONE));
+            
             await communityStakingPoolWithHook.connect(bob).stake(ONE_ETH.mul(ONE), bob.address);
 
             let shares = await CommunityCoinWithRewardsHook.balanceOf(bob.address);
@@ -755,15 +759,26 @@ describe("Staking contract tests", function () {
             await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
             await CommunityCoinWithRewardsHook.connect(bob).approve(CommunityCoinWithRewardsHook.address, shares);
+
+            let oldBobBalanceBeforeUnstake = await erc20Reward.balanceOf(bob.address);
             await CommunityCoinWithRewardsHook.connect(bob)["unstake(uint256)"](shares);
+            let newBobBalanceBeforeUnstake = await erc20Reward.balanceOf(bob.address);
+            let erc20RewardTotalSupply = await erc20Reward.totalSupply();
+            expect(erc20RewardTotalSupply).to.be.eq(ZERO);
+            expect(oldBobBalanceBeforeUnstake).to.be.eq(ZERO);
+            expect(newBobBalanceBeforeUnstake).to.be.eq(ZERO);
+            // there are no revert when erc20 haven't tokens to rewards
 
             const newGroupBonus = await rewardsHook.getGroupBonus(GroupName);
             expect(newGroupBonus).not.to.be.eq(ZERO);
             expect(newGroupBonus).to.be.eq(rewardsTenPercentBonus);
-
+            
+            // but if try to claim from chain CommunityCoins->[claim]->RewardHook->[onClaim] we will revert
             await expect(CommunityCoinWithRewardsHook.connect(bob).claim()).to.be.revertedWith('Amount exceeds allowed balance');
-
+            
+            //now mint smth 
             await erc20Reward.mint(rewardsHook.address, HUNDRED.mul(ONE_ETH));
+            //and try again
             let oldBobBalance = await erc20Reward.balanceOf(bob.address);
             await CommunityCoinWithRewardsHook.connect(bob).claim();
             let newBobBalance = await erc20Reward.balanceOf(bob.address);
