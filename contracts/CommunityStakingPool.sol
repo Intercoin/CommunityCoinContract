@@ -347,7 +347,7 @@ contract CommunityStakingPool is Initializable,
             }
         }
 
-        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, left, priceBeforeStake, amount-left);
+        ICommunityCoin(stakingProducedBy).issueCommunityCoins(addr, left, priceBeforeStake, amount-left);
     }
 
     ////////////////////////////////////////////////////////////////////////

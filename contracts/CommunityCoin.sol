@@ -113,9 +113,9 @@ contract CommunityCoin is
 
     // Constants representing operations
     uint8 internal constant OPERATION_INITIALIZE = 0x0;
-    uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS = 0x1;
-    uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS_BONUS = 0x2;
-    uint8 internal constant OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE = 0x3;
+    uint8 internal constant OPERATION_ISSUE_COMMUNITY_COINS = 0x1;
+    uint8 internal constant OPERATION_ISSUE_COMMUNITY_COINS_BONUS = 0x2;
+    uint8 internal constant OPERATION_ISSUE_COMMUNITY_COINS_BY_INVITE = 0x3;
     uint8 internal constant OPERATION_ADD_TO_CIRCULATION = 0x4;
     uint8 internal constant OPERATION_REMOVE_FROM_CIRCULATION = 0x5;
     uint8 internal constant OPERATION_PRODUCE = 0x6;
@@ -209,7 +209,7 @@ contract CommunityCoin is
      * @custom:calledby staking-pool
      * @custom:shortd distribute wallet tokens
      */
-    function issueWalletTokens(
+    function issueCommunityCoins(
         address account,
         uint256 amount,
         uint256 priceBeforeStake,
@@ -283,7 +283,7 @@ contract CommunityCoin is
         MinimumsLib._minimumsAdd(users[account].tokensLocked, amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
 
         _accountForOperation(
-            OPERATION_ISSUE_WALLET_TOKENS << OPERATION_SHIFT_BITS,
+            OPERATION_ISSUE_COMMUNITY_COINS << OPERATION_SHIFT_BITS,
             uint256(uint160(account)),
             amount + bonusAmount
         );
@@ -293,7 +293,7 @@ contract CommunityCoin is
             //users[account].tokensBonus._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             MinimumsLib._minimumsAdd(users[account].tokensBonus, bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             _accountForOperation(
-                OPERATION_ISSUE_WALLET_TOKENS_BONUS << OPERATION_SHIFT_BITS,
+                OPERATION_ISSUE_COMMUNITY_COINS_BONUS << OPERATION_SHIFT_BITS,
                 uint256(uint160(account)),
                 bonusAmount
             );
@@ -304,7 +304,7 @@ contract CommunityCoin is
             //users[invitedBy].tokensBonus._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             MinimumsLib._minimumsAdd(users[invitedBy].tokensBonus, invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             _accountForOperation(
-                OPERATION_ISSUE_WALLET_TOKENS_BY_INVITE << OPERATION_SHIFT_BITS,
+                OPERATION_ISSUE_COMMUNITY_COINS_BY_INVITE << OPERATION_SHIFT_BITS,
                 uint256(uint160(invitedBy)),
                 invitedAmount
             );
