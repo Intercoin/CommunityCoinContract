@@ -15,13 +15,15 @@ contract Rewards is RewardsBase, IHook, IRewards {
     error AlreadySetup();
 
     function initialize(
-        address sellingToken,
-        uint256[] memory timestamps,
-        uint256[] memory prices,
-        uint256[] memory thresholds,
-        uint256[] memory bonuses
+        address _sellingToken,
+        uint64[] memory _timestamps,
+        uint256[] memory _prices,
+        uint256[] memory _amountRaised,
+        uint64 _endTs,
+        uint256[] memory _thresholds,
+        uint256[] memory _bonuses
     ) external initializer {
-        __Rewards_init(sellingToken, timestamps, prices, thresholds, bonuses);
+        __Rewards_init(_sellingToken, _timestamps, _prices, _amountRaised, _endTs, _thresholds, _bonuses);
     }
 
     modifier onlyCaller() {
@@ -41,7 +43,20 @@ contract Rewards is RewardsBase, IHook, IRewards {
     function onClaim(address account) external onlyCaller {
         //
         if (participants[account].exists == true) {
-            _claim(account, participants[account].groupName);
+            //_claim(account, participants[account].groupName);
+            //// send tokens
+            uint256 groupBonus = _getGroupBonus(participants[account].groupName);
+            uint256 tokenPrice = getTokenPrice();
+
+            uint256 participantTotalBonusTokens = (_getTokenAmount(participants[account].totalAmount, tokenPrice) *
+                groupBonus) / 1e2;
+
+            if (participantTotalBonusTokens > participants[account].contributed) {
+                uint256 amount2Send = participantTotalBonusTokens - participants[account].contributed;
+                participants[account].contributed = participantTotalBonusTokens;
+
+                _sendTokens(amount2Send, account);
+            }
         }
 
     }
@@ -57,10 +72,17 @@ contract Rewards is RewardsBase, IHook, IRewards {
         uint64 /*rewardsFraction*/
     ) external onlyCaller {
         // 
-        uint256 inputAmount = _getNeededInputAmount(amount, getTokenPrice());
+        uint256 tokenPrice = getTokenPrice();
+        uint256 inputAmount = _getNeededInputAmount(amount, tokenPrice);
 
         // here we didn't claim immediately. contract may not contains enough tokens and can revert all transactions.
-        _addBonus(account, inputAmount, false); 
+        //_addBonus(account, inputAmount, false); 
+        // bonus calculation
+        _addBonus(
+            account, 
+            inputAmount,
+            tokenPrice
+        );
     }
 
 

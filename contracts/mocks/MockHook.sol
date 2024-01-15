@@ -59,12 +59,15 @@ contract MockHook is IRewards {
     }
 
     function initialize(
-        address sellingToken,
-        uint256[] memory timestamps,
-        uint256[] memory prices,
-        uint256[] memory thresholds,
-        uint256[] memory bonuses
+        address _sellingToken,
+        uint64[] memory _timestamps,
+        uint256[] memory _prices,
+        uint256[] memory _amountRaised,
+        uint64 _endTs,
+        uint256[] memory _thresholds,
+        uint256[] memory _bonuses
     ) external override {
 
     }
+    
 }
