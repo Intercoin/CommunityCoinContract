@@ -232,15 +232,22 @@ contract CommunityStakingPool is Initializable,
         address beneficiary
     ) public payable nonReentrant {
         uint256 balanceBefore = IERC20Upgradeable(stakingToken).balanceOf(address(this));
+        ////additionally need to check PresaleContract. it should be in our ecosystem
+        // pseudo code is below but double check!!!
+        // stakingProducedBy is a communityCoin
+        // address addressCommunityCoinFactory = iCommunity(stakingProducedBy).deployer;
+        // address addressReleaseMaanger = ICommunityCoinFactory(addressCommunityCoinFactory).releaseManager();
+        // bool BoolIsPresaleCorrect = IReleaseManager(addressReleaseMaanger).checkInstance(presaleAddress);
+        // require(BoolIsPresaleCorrect == true);
+        //-----------
         IPresale(presaleAddress).buy{value: msg.value}(); // should cause the contract to receive tokens
         uint256 balanceAfter = IERC20Upgradeable(stakingToken).balanceOf(address(this));
         uint256 balanceDiff = balanceAfter - balanceBefore;
 
         require(balanceDiff > 0, "insufficient amount");
 
-        IERC20Upgradeable(stakingToken).transfer(msg.sender, balanceDiff);
-
         _stake(beneficiary, balanceDiff, 0);
+
     }
 
     ////////////////////////////////////////////////////////////////////////
