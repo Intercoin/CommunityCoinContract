@@ -293,7 +293,7 @@ library PoolStakesLib {
 
     function proceedPool(
         ICommunityStakingPoolFactory instanceManagment,
-        address hook,
+        address[] calldata hooks,
         address account,
         address pool,
         uint256 amount,
@@ -307,14 +307,24 @@ library PoolStakesLib {
             uint64 rewardsRateFraction
         ) {
 
+            // if (
+            //     (hook != address(0)) &&
+            //     (strategy == ICommunityCoin.Strategy.UNSTAKE)
+            // ) {
+
+            //     require(instanceInfo.exists == true);
+            //     IRewards(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
+
+            // }
+
             if (
-                (hook != address(0)) &&
                 (strategy == ICommunityCoin.Strategy.UNSTAKE)
             ) {
-
-                require(instanceInfo.exists == true);
-                IRewards(hook).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);
-
+                for(uint256 i = 0; i < hooks.length; i++) {
+                    if (hooks[i] != address(0) && instanceInfo.exists == true) {
+                        IRewards(hooks[i]).onUnstake(pool, account, instanceInfo.duration, affectedAmount, rewardsRateFraction);        
+                    }
+                }
             }
         } catch {
             if (strategy == ICommunityCoin.Strategy.UNSTAKE) {

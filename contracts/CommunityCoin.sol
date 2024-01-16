@@ -88,7 +88,7 @@ contract CommunityCoin is
     uint64 public redeemTariff;
     uint64 public unstakeTariff;
 
-    address public hook; // hook used to bonus calculation
+    address[] public hooks; // hooks used to bonus calculation
     address public donationRewardsHook; // donation hook rewards
 
     ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
@@ -149,29 +149,29 @@ contract CommunityCoin is
      * @notice initializing method. called by factory
      * @param tokenName internal token name 
      * @param tokenSymbol internal token symbol.
-     * @param impl address of StakingPool implementation. usual it's `${tradedToken}c`
-     * @param hook_ address of contract implemented IHook interface and used to calculation bonus tokens amount
-     * @param stakingPoolFactory address of contract that managed and cloned pools
+     
+     * @param hooks_ address of contract implemented IHook interface and used to calculation bonus tokens amount
+     
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
      * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
-     * @param costManager_ costManager address
-     * @param producedBy_ address that produced instance by factory
+     * @param factorySettings struct to packed variables belong to factory
+     *      factorySettings.poolImpl address of StakingPool implementation. usual it's `${tradedToken}c`
+     *      factorySettings.stakingPoolFactory address of contract that managed and cloned pools
+     *      factorySettings.costManager address
+     *      factorySettings.address that produced instance by factory
      * @custom:calledby StakingFactory contract
      * @custom:shortd initializing contract. called by StakingFactory contract
      */
     function initialize(
         string calldata tokenName,
         string calldata tokenSymbol,
-        address impl,
-        address hook_,
-        address stakingPoolFactory,
+        address[] calldata hooks_,
         uint256 discountSensitivity_,
         IStructs.CommunitySettings calldata communitySettings,
-        address costManager_,
-        address producedBy_
+        FactorySettings calldata factorySettings
     ) external virtual override initializer {
         __CostManagerHelper_init(_msgSender());
-        _setCostManager(costManager_);
+        _setCostManager(factorySettings.costManager);
 
         __Ownable_init();
 
@@ -179,13 +179,16 @@ contract CommunityCoin is
 
         __ReentrancyGuard_init();
 
-        instanceManagment = ICommunityStakingPoolFactory(stakingPoolFactory); //new ICommunityStakingPoolFactory(impl);
-        instanceManagment.initialize(impl);
+        instanceManagment = ICommunityStakingPoolFactory(factorySettings.stakingPoolFactory); //new ICommunityStakingPoolFactory(impl);
+        instanceManagment.initialize(factorySettings.poolImpl);
 
-        hook = hook_;
-        if (hook_ != address(0)) {
-            IHook(hook).setupCaller();
+        hooks = hooks_;
+        for(uint256 i = 0; i < hooks_.length; i++) {
+            if (hooks_[i] != address(0)) {
+                IHook(hooks_[i]).setupCaller();
+            }
         }
+        
 
         discountSensitivity = discountSensitivity_;
 
@@ -194,7 +197,7 @@ contract CommunityCoin is
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
 
-        _accountForOperation(OPERATION_INITIALIZE << OPERATION_SHIFT_BITS, uint256(uint160(producedBy_)), 0);
+        _accountForOperation(OPERATION_INITIALIZE << OPERATION_SHIFT_BITS, uint256(uint160(factorySettings.producedBy)), 0);
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -494,8 +497,13 @@ contract CommunityCoin is
     */
     function claim() public {
         _accountForOperation(OPERATION_CLAIM << OPERATION_SHIFT_BITS, uint256(uint160(_msgSender())), 0);
-        if (hook != address(0)) {
-            IRewards(hook).onClaim(_msgSender());
+        // if (hook != address(0)) {
+        //     IRewards(hook).onClaim(_msgSender());
+        // }
+        for(uint256 i = 0; i < hooks.length; i++) {
+            if (hooks[i] != address(0)) {
+                IRewards(hooks[i]).onClaim(_msgSender());
+            }
         }
     }
 
@@ -669,7 +677,7 @@ contract CommunityCoin is
             //console.log(4);
 
             //proceedPool(account, instancesList[i], values[i], strategy);
-            PoolStakesLib.proceedPool(instanceManagment, hook, account, instancesList[i], values[i], strategy);
+            PoolStakesLib.proceedPool(instanceManagment, hooks, account, instancesList[i], values[i], strategy);
             //console.log(5);
         }
         //console.log(6);
@@ -776,7 +784,7 @@ contract CommunityCoin is
                 total.totalReserves -= amounts[i];
 
                 //proceedPool(accountToRedeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
-                PoolStakesLib.proceedPool(instanceManagment, hook, accountToRedeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
+                PoolStakesLib.proceedPool(instanceManagment, hooks, accountToRedeem, instancesToRedeem[i], valuesToRedeem[i], strategy);
             }
         }
 

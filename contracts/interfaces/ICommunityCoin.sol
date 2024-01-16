@@ -27,16 +27,20 @@ interface ICommunityCoin {
         
     }
 
+    struct FactorySettings{
+        address poolImpl;
+        address stakingPoolFactory;
+        address costManager;
+        address producedBy;
+    }
+
     function initialize(
         string calldata name,
         string calldata symbol,
-        address poolImpl,
-        address hook,
-        address instancesImpl,
+        address[] calldata hooks,
         uint256 discountSensitivity,
         IStructs.CommunitySettings calldata communitySettings,
-        address costManager,
-        address producedBy
+        FactorySettings calldata factorySettings
     ) external;
 
     enum Strategy{ UNSTAKE, REDEEM} 
