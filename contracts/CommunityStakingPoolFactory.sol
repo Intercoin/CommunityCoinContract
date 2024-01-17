@@ -26,7 +26,6 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 import "./interfaces/ICommunityStakingPoolFactory.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol";
-import "./libs/SwapSettingsLib.sol";
 
 //------------------------------------------------------------------------------
 
@@ -36,10 +35,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     using ClonesUpgradeable for address;
 
     uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
-
-    // vars will setup in method `initialize`
-    address internal uniswapRouter;
-    address internal uniswapRouterFactory;
 
     mapping(address => mapping(uint256 => address)) public override getInstance;
 
@@ -56,9 +51,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     mapping(address => InstanceInfo) public _instanceInfos;
 
     function initialize(address impl) external initializer {
-        // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
-
+        
         implementation = impl;
         creator = msg.sender;
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
-import "@artman325/community/contracts/interfaces/ICommunity.sol";
+import "@intercoin/community/contracts/interfaces/ICommunity.sol";
 import "../maps/CommunityAccessMap.sol";
 
 contract MockCommunity is CommunityAccessMap, ICommunity {
@@ -73,5 +73,42 @@ contract MockCommunity is CommunityAccessMap, ICommunity {
         }
         return false;
     }
-    
+
+
+    ////////////////////////////////////////////////////////////
+
+     function initialize(
+        address hook,
+        address invitedHook,
+        address costManager,
+        address authorizedInviteManager,
+        string memory name,
+        string memory symbol,
+        string memory contractUri
+    ) external {
+        
+    }
+
+    function getRolesWhichAccountCanGrant(
+        address accountWhichWillGrant,
+        string[] memory roleNames
+    ) external view returns (uint8[] memory) {
+        // just method
+    }
+
+
+    function grantRoles(
+        address[] memory accounts,
+        uint8[] memory roleIndexes
+    ) external {
+        // just method
+    }
+
+    function revokeRoles(
+        address[] memory accounts,
+        uint8[] memory roleIndexes
+    ) external {
+        // just method
+    }
+    ////////////////////////////////////////////
 }

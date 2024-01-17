@@ -112,20 +112,22 @@ contract RewardsFactory is Ownable {
     ////////////////////////////////////////////////////////////////////////
 
     /**
-     * @param sellingToken address of selling token. usual it intercoin investor token
-     * @param timestamps array of timestamps. represents point of time when need to apply another token price. should be the same length with `prices`.
-     * @param prices array of prices multiplied by priceDenom = 100_000_000. represented price of token which should be calculated at some point or time. should be the same length with `timestamps`.
-     * @param thresholds array of thresholds. when group of people reach threshhold then all group will obtain `bonuses`. should be the same length with `bonuses`.
-     * @param bonuses array of bonuses in percents (mul by 100)
+     * @param _sellingToken address of selling token. usual it intercoin investor token
+     * @param _timestamps array of timestamps. represents point of time when need to apply another token price. should be the same length with `prices`.
+     * @param _prices array of prices multiplied by priceDenom = 100_000_000. represented price of token which should be calculated at some point or time. should be the same length with `timestamps`.
+     * @param _thresholds array of thresholds. when group of people reach threshhold then all group will obtain `bonuses`. should be the same length with `bonuses`.
+     * @param _bonuses array of bonuses in percents (mul by 100)
      * @return instance address of created instance pool `Rewards`
      * @custom:shortd creation instance
      */
     function produce(
-        address sellingToken,
-        uint256[] memory timestamps,
-        uint256[] memory prices,
-        uint256[] memory thresholds,
-        uint256[] memory bonuses
+        address _sellingToken,
+        uint64[] memory _timestamps,
+        uint256[] memory _prices,
+        uint256[] memory _amountRaised,
+        uint64 _endTs,
+        uint256[] memory _thresholds,
+        uint256[] memory _bonuses
     ) public onlyOwner returns (address instance) {
         instance = rewardsImplementation.clone();
 
@@ -137,12 +139,16 @@ contract RewardsFactory is Ownable {
 
         emit InstanceCreated(instance, instances.length);
 
+        
+        
         IRewards(instance).initialize(
-            sellingToken,
-            timestamps,
-            prices,
-            thresholds,
-            bonuses
+            _sellingToken,
+            _timestamps,
+            _prices,
+            _amountRaised,
+            _endTs,
+            _thresholds,
+            _bonuses
         );
 
         Ownable(instance).transferOwnership(_msgSender());

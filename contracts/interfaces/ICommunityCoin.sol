@@ -27,16 +27,20 @@ interface ICommunityCoin {
         
     }
 
+    struct FactorySettings{
+        address poolImpl;
+        address stakingPoolFactory;
+        address costManager;
+        address producedBy;
+    }
+
     function initialize(
         string calldata name,
         string calldata symbol,
-        address poolImpl,
-        address hook,
-        address instancesImpl,
+        address[] calldata hooks,
         uint256 discountSensitivity,
         IStructs.CommunitySettings calldata communitySettings,
-        address costManager,
-        address producedBy
+        FactorySettings calldata factorySettings
     ) external;
 
     enum Strategy{ UNSTAKE, REDEEM} 
@@ -55,6 +59,6 @@ interface ICommunityCoin {
     error AmountExceedsAllowance(address account,uint256 amount);
     error AmountExceedsMaxTariff();
     
-    function issueWalletTokens(address account, uint256 amount, uint256 priceBeforeStake, uint256 donatedAmount) external;
+    function issueCommunityCoins(address account, uint256 amount, uint256 priceBeforeStake, uint256 donatedAmount) external;
 
 }

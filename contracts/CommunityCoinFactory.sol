@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ICommunityCoin.sol";
 import "./interfaces/IStructs.sol";
 
-import "@artman325/releasemanager/contracts/CostManagerFactoryHelper.sol";
-import "@artman325/releasemanager/contracts/ReleaseManagerHelper.sol";
+import "@intercoin/releasemanager/contracts/CostManagerFactoryHelper.sol";
+import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
 
 /**
 ****************
@@ -143,7 +143,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     /**
      * @param tokenName internal token name 
      * @param tokenSymbol internal token symbol.
-     * @param hook address of contract implemented IHook interface and used to calculation bonus tokens amount
+     * @param hooks addresses of contract implemented IHook interface and used to calculation bonus tokens amount
      * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
      * @param communitySettings tuple of community settings (address of contract and roles(redeem,circulate,tariff))
      * @return instance address of created instance pool `CommunityCoin`
@@ -152,7 +152,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     function produce(
         string calldata tokenName,
         string calldata tokenSymbol,
-        address hook,
+        address[] calldata hooks,
         uint256 discountSensitivity,
         IStructs.CommunitySettings memory communitySettings
     ) public onlyOwner returns (address instance) {
@@ -165,16 +165,20 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
 
         emit InstanceCreated(instance, instances.length);
 
+        ICommunityCoin.FactorySettings memory factorySettings = ICommunityCoin.FactorySettings(
+            stakingPoolImplementation,
+            coinInstancesClone,
+            costManager,
+            _msgSender()
+        );
+
         ICommunityCoin(instance).initialize(
             tokenName,
             tokenSymbol,
-            stakingPoolImplementation,
-            hook,
-            coinInstancesClone,
+            hooks,
             discountSensitivity,
             communitySettings,
-            costManager,
-            _msgSender()
+            factorySettings
         );
 
         Ownable(instance).transferOwnership(_msgSender());

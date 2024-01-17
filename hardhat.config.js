@@ -35,8 +35,18 @@ module.exports = {
     hardhat: {
       allowUnlimitedContractSize: false,
       forking: {
-        url: mainnetURL,
-        blockNumber: 14667052
+        //url: mainnetURL,
+        // blockNumber: 14667052
+        //---------------------------
+        
+        url: bscURL
+        
+        // @dev 
+        // 1. there are no way to override chainid. in EVM on assembly section we will have 0x7a69 (local ganache id) whatever you write here or use any RPC urls
+        // so if set url for BSC to be sure that libLiquidity supports
+        // 2. set hardcoded "latest" block number on node. Else got an error "ProviderError: missing trie node" and happens only in BSC
+        //-------------------------
+        
       }
     },
     kovan: {

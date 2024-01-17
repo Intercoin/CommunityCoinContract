@@ -18,15 +18,17 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 import "./interfaces/ICommunityCoin.sol";
-import "./interfaces/ITrustedForwarder.sol";
+//import "./interfaces/ITrustedForwarder.sol";
 import "./interfaces/IStructs.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/IPresale.sol";
 
-import "./libs/SwapSettingsLib.sol";
+import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
 
-//import "hardhat/console.sol";
-
+import "@intercoin/releasemanager/contracts/CostManagerBase.sol";
+import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
+import "@intercoin/releasemanager/contracts/interfaces/IReleaseManager.sol";
+import "hardhat/console.sol";
 contract CommunityStakingPool is Initializable,
     ContextUpgradeable,
     IERC777RecipientUpgradeable,
@@ -74,6 +76,11 @@ contract CommunityStakingPool is Initializable,
     }
 
     error Denied();
+    error NotInIntercoinEcosystem();
+    error EndTimeAlreadyPassed();
+    error NoUniswapV2Pair();
+    error NoTokensReceivedFromUniswap();
+    error InsufficientAmount();
 
     event Redeemed(address indexed account, uint256 amount);
     event Donated(address indexed from, address indexed to, uint256 amount);
@@ -118,7 +125,6 @@ contract CommunityStakingPool is Initializable,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 rewardsRateFraction_
     ) external override initializer {
-        
 
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
         stakingToken = stakingToken_;
@@ -134,14 +140,18 @@ contract CommunityStakingPool is Initializable,
 
         __ReentrancyGuard_init();
 
-        // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = SwapSettingsLib.netWorkSettings();
-        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
-
-        
+        setupExternalAddresses();
     }
 
-    
+    function setupExternalAddresses() internal virtual {
+        //attach deployed lib with uniswap addresses
+        ILiquidityLib liquidityLib = ILiquidityLib(0x1eA4C4613a4DfdAEEB95A261d11520c90D5d6252);
+        // setup swap addresses
+        (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
+                                                             
+        UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
+    }
+
     // left when will be implemented
     // function tokensToSend(
     //     address operator,
@@ -211,11 +221,12 @@ contract CommunityStakingPool is Initializable,
         IERC20Upgradeable(tokenAddress).transferFrom(_msgSender(), address(this), tokenAmount);
 
         address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(stakingToken, tokenAddress);
-        require(pair != address(0), "NO_UNISWAP_V2_PAIR");
+        if (pair == address(0)) revert NoUniswapV2Pair();
         //uniswapV2Pair = IUniswapV2Pair(pair);
 
         uint256 stakingTokenAmount = doSwapOnUniswap(tokenAddress, stakingToken, tokenAmount);
-        require(stakingTokenAmount != 0, "NO_TOKENS_RECEIVED_FROM_UNISWAP");
+
+        if (stakingTokenAmount == 0) { revert NoTokensReceivedFromUniswap(); }
         _stake(beneficiary, stakingTokenAmount, 0);
     }
 
@@ -229,16 +240,28 @@ contract CommunityStakingPool is Initializable,
         address presaleAddress,
         address beneficiary
     ) public payable nonReentrant {
+        //additionally need to check PresaleContract. it should be in our ecosystem
+        // stakingProducedBy is a communityCoin
+        address addressCommunityCoinFactory = CostManagerBase(stakingProducedBy).deployer();
+        address addressReleaseManager = ReleaseManagerHelper(addressCommunityCoinFactory).releaseManager();
+        bool boolIsPresaleCorrect = IReleaseManager(addressReleaseManager).checkInstance(presaleAddress);
+        if (boolIsPresaleCorrect != true) {
+            revert NotInIntercoinEcosystem();
+        }
+        uint64 endTime = IPresale(presaleAddress).endTime();
+        if (endTime < block.timestamp) {
+            revert EndTimeAlreadyPassed();
+        }
+        //-----------
         uint256 balanceBefore = IERC20Upgradeable(stakingToken).balanceOf(address(this));
         IPresale(presaleAddress).buy{value: msg.value}(); // should cause the contract to receive tokens
         uint256 balanceAfter = IERC20Upgradeable(stakingToken).balanceOf(address(this));
         uint256 balanceDiff = balanceAfter - balanceBefore;
 
-        require(balanceDiff > 0, "insufficient amount");
-
-        IERC20Upgradeable(stakingToken).transfer(msg.sender, balanceDiff);
+        if (balanceDiff == 0) {revert InsufficientAmount(); }
 
         _stake(beneficiary, balanceDiff, 0);
+
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -345,7 +368,7 @@ contract CommunityStakingPool is Initializable,
             }
         }
 
-        ICommunityCoin(stakingProducedBy).issueWalletTokens(addr, left, priceBeforeStake, amount-left);
+        ICommunityCoin(stakingProducedBy).issueCommunityCoins(addr, left, priceBeforeStake, amount-left);
     }
 
     ////////////////////////////////////////////////////////////////////////
