@@ -78,6 +78,9 @@ contract CommunityStakingPool is Initializable,
     error Denied();
     error NotInIntercoinEcosystem();
     error EndTimeAlreadyPassed();
+    error NoUniswapV2Pair();
+    error NoTokensReceivedFromUniswap();
+    error InsufficientAmount();
 
     event Redeemed(address indexed account, uint256 amount);
     event Donated(address indexed from, address indexed to, uint256 amount);
@@ -218,12 +221,12 @@ contract CommunityStakingPool is Initializable,
         IERC20Upgradeable(tokenAddress).transferFrom(_msgSender(), address(this), tokenAmount);
 
         address pair = IUniswapV2Factory(uniswapRouterFactory).getPair(stakingToken, tokenAddress);
-        require(pair != address(0), "NO_UNISWAP_V2_PAIR");
+        if (pair == address(0)) revert NoUniswapV2Pair();
         //uniswapV2Pair = IUniswapV2Pair(pair);
 
         uint256 stakingTokenAmount = doSwapOnUniswap(tokenAddress, stakingToken, tokenAmount);
 
-        require(stakingTokenAmount != 0, "NO_TOKENS_RECEIVED_FROM_UNISWAP");
+        if (stakingTokenAmount == 0) { revert NoTokensReceivedFromUniswap(); }
         _stake(beneficiary, stakingTokenAmount, 0);
     }
 
@@ -255,7 +258,7 @@ contract CommunityStakingPool is Initializable,
         uint256 balanceAfter = IERC20Upgradeable(stakingToken).balanceOf(address(this));
         uint256 balanceDiff = balanceAfter - balanceBefore;
 
-        require(balanceDiff > 0, "insufficient amount");
+        if (balanceDiff == 0) {revert InsufficientAmount(); }
 
         _stake(beneficiary, balanceDiff, 0);
 

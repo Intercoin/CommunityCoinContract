@@ -1055,7 +1055,7 @@ describe("Staking contract tests", function () {
             await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
             await erc20Paying.connect(bob).approve(communityStakingPoolERC20.address, ONE_ETH.mul(ONE));
             
-            await expect(communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address)).to.be.revertedWith("NO_UNISWAP_V2_PAIR");
+            await expect(communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address)).to.be.revertedWith("NoUniswapV2Pair");
         }); 
 
         it("shouldnt buy in presale and stake if presale contract doesn't contain buy method", async () => {
@@ -1115,7 +1115,7 @@ describe("Staking contract tests", function () {
             await expect(
                 communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale3.address, charlie.address, {value: ONE_ETH.mul(ONE)})
             ).to.be.revertedWith('function returned an unexpected amount of data');
-            //).to.be.revertedWith("insufficient amount");
+            //).to.be.revertedWith("InsufficientAmount");
 
             await expect(
                 communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address, {value: ONE_ETH.mul(ONE)})
@@ -1125,10 +1125,10 @@ describe("Staking contract tests", function () {
 
             await expect(
                 communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address)
-            ).to.be.revertedWith("insufficient amount");
+            ).to.be.revertedWith("InsufficientAmount");
             await expect(
                 communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address, {value: ONE_ETH.mul(ONE)})
-            ).to.be.revertedWith("insufficient amount");
+            ).to.be.revertedWith("InsufficientAmount");
 
         }); 
         it("shouldnt buy in presale and stake if presale contract is not in intercoin ecosystem", async () => {
