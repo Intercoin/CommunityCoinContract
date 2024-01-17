@@ -25,6 +25,10 @@ import "./interfaces/IPresale.sol";
 
 import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
 
+import "@intercoin/releasemanager/contracts/CostManagerBase.sol";
+import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
+import "@intercoin/releasemanager/contracts/interfaces/IReleaseManager.sol";
+import "hardhat/console.sol";
 contract CommunityStakingPool is Initializable,
     ContextUpgradeable,
     IERC777RecipientUpgradeable,
@@ -72,6 +76,8 @@ contract CommunityStakingPool is Initializable,
     }
 
     error Denied();
+    error NotInIntercoinEcosystem();
+    error EndTimeAlreadyPassed();
 
     event Redeemed(address indexed account, uint256 amount);
     event Donated(address indexed from, address indexed to, uint256 amount);
@@ -231,15 +237,20 @@ contract CommunityStakingPool is Initializable,
         address presaleAddress,
         address beneficiary
     ) public payable nonReentrant {
-        uint256 balanceBefore = IERC20Upgradeable(stakingToken).balanceOf(address(this));
-        ////additionally need to check PresaleContract. it should be in our ecosystem
-        // pseudo code is below but double check!!!
+        //additionally need to check PresaleContract. it should be in our ecosystem
         // stakingProducedBy is a communityCoin
-        // address addressCommunityCoinFactory = iCommunity(stakingProducedBy).deployer;
-        // address addressReleaseMaanger = ICommunityCoinFactory(addressCommunityCoinFactory).releaseManager();
-        // bool BoolIsPresaleCorrect = IReleaseManager(addressReleaseMaanger).checkInstance(presaleAddress);
-        // require(BoolIsPresaleCorrect == true);
+        address addressCommunityCoinFactory = CostManagerBase(stakingProducedBy).deployer();
+        address addressReleaseManager = ReleaseManagerHelper(addressCommunityCoinFactory).releaseManager();
+        bool boolIsPresaleCorrect = IReleaseManager(addressReleaseManager).checkInstance(presaleAddress);
+        if (boolIsPresaleCorrect != true) {
+            revert NotInIntercoinEcosystem();
+        }
+        uint64 endTime = IPresale(presaleAddress).endTime();
+        if (endTime < block.timestamp) {
+            revert EndTimeAlreadyPassed();
+        }
         //-----------
+        uint256 balanceBefore = IERC20Upgradeable(stakingToken).balanceOf(address(this));
         IPresale(presaleAddress).buy{value: msg.value}(); // should cause the contract to receive tokens
         uint256 balanceAfter = IERC20Upgradeable(stakingToken).balanceOf(address(this));
         uint256 balanceDiff = balanceAfter - balanceBefore;

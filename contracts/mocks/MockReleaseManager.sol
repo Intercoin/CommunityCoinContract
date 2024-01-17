@@ -4,5 +4,8 @@ pragma solidity ^0.8.11;
 import "@intercoin/releasemanager/contracts/ReleaseManager.sol";
 
 contract MockReleaseManager is ReleaseManager {
-    
+
+    function customRegisterInstance(address instanceAddress, address factoryAddress) public {
+        instances[instanceAddress] = InstanceInfo(factoryAddress);
+    }
 }

@@ -103,7 +103,12 @@ describe("Staking contract tests", function () {
     var erc20Reward;
     var fakeUSDT;
     var fakeMiddle;
-    
+
+    var releaseManager;
+    var snapId;
+    before("deploying", async() => {
+        snapId = await ethers.provider.send('evm_snapshot', []);
+    });
     beforeEach("deploying", async() => {
         const ReleaseManagerFactoryF = await ethers.getContractFactory("MockReleaseManagerFactory");
         const ReleaseManagerF = await ethers.getContractFactory("MockReleaseManager");
@@ -135,7 +140,7 @@ describe("Staking contract tests", function () {
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceProduced');
         [instance, instancesCount] = event.args;
-        let releaseManager = await ethers.getContractAt("MockReleaseManager",instance);
+        releaseManager = await ethers.getContractAt("MockReleaseManager",instance);
 
         erc20 = await ERC20Factory.deploy("ERC20 Token", "ERC20");
         erc20Paying = await ERC20Factory.deploy("ERC20 Token Paying", "ERC20Paying");
@@ -323,8 +328,12 @@ describe("Staking contract tests", function () {
 
     describe("tariff tests", function () {
         var communityStakingPool;
-
+        before("deploying", async() => {
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });
         beforeEach("deploying", async() => {
+
             let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
                 erc20.address,
                 lockupIntervalCount,
@@ -519,6 +528,11 @@ describe("Staking contract tests", function () {
         
         var func;
 
+        before("deploying", async() => {
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });
+
         beforeEach("deploying", async() => {
 
             func = async (param_bonus_fractions) => {
@@ -666,6 +680,12 @@ describe("Staking contract tests", function () {
         var rewards;
         
         const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
+                
+        before("deploying", async() => {
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });
+
         beforeEach("deploying", async() => {
 
             const RewardsF = await ethers.getContractFactory("Rewards");
@@ -714,6 +734,11 @@ describe("Staking contract tests", function () {
 
         var walletTokens;
         var lptokens;
+        
+        before("deploying", async() => {
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });
 
         beforeEach("deploying", async() => {
 
@@ -788,11 +813,15 @@ describe("Staking contract tests", function () {
     });
 
     describe("Taxes tests", function () {   
-        
         var communityStakingPoolWithHook;
 
         var walletTokens;
         var lptokens;
+        
+        before("deploying", async() => {
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });
 
         beforeEach("deploying", async() => {
 
@@ -947,6 +976,12 @@ describe("Staking contract tests", function () {
 
     describe("ERC20 pool tests", function () { 
         var communityStakingPoolERC20; 
+        
+        before("deploying", async() => {
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });
+
         beforeEach("deploying", async() => { 
             let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
                 erc20.address,
@@ -1023,6 +1058,109 @@ describe("Staking contract tests", function () {
             await expect(communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address)).to.be.revertedWith("NO_UNISWAP_V2_PAIR");
         }); 
 
+        it("shouldnt buy in presale and stake if presale contract doesn't contain buy method", async () => {
+            const badPresale1F = await ethers.getContractFactory("MockPresaleBad1"); //empty contract
+            const badPresale2F = await ethers.getContractFactory("MockPresaleBad2"); //with only none payable fallback method
+            const badPresale3F = await ethers.getContractFactory("MockPresaleBad3"); //with only payable fallback method
+            const badPresale4F = await ethers.getContractFactory("MockPresaleBad4"); //with payable fallback method and endTime
+            const badPresale1 = await badPresale1F.deploy();
+            const badPresale2 = await badPresale2F.deploy();
+            const badPresale3 = await badPresale3F.deploy();
+            const badPresale4 = await badPresale4F.deploy();
+            
+            // any contract should be registered in ecosystem. it will be the first error
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale1.address, charlie.address)
+            ).to.be.revertedWith("NotInIntercoinEcosystem");
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale2.address, charlie.address)
+            ).to.be.revertedWith("NotInIntercoinEcosystem");
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale3.address, charlie.address)
+            ).to.be.revertedWith("NotInIntercoinEcosystem");
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address)
+            ).to.be.revertedWith("NotInIntercoinEcosystem");
+
+            // overwise we will check buy and fallback method
+
+            await releaseManager.customRegisterInstance(badPresale1.address, bob.address);
+            await releaseManager.customRegisterInstance(badPresale2.address, bob.address);
+            await releaseManager.customRegisterInstance(badPresale3.address, bob.address);
+            await releaseManager.customRegisterInstance(badPresale4.address, bob.address);
+
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale1.address, charlie.address)
+            ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale2.address, charlie.address)
+            ).to.be.revertedWith("function returned an unexpected amount of data");
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale3.address, charlie.address)
+            ).to.be.revertedWith("function returned an unexpected amount of data");
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address)
+            ).to.be.revertedWith("EndTimeAlreadyPassed");
+
+
+            // the same with some native coins
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale1.address, charlie.address, {value: ONE_ETH.mul(ONE)})
+            ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale2.address, charlie.address, {value: ONE_ETH.mul(ONE)})
+            ).to.be.revertedWith('function returned an unexpected amount of data');
+            //).to.be.revertedWith(`fallback function is not payable and was called with value ${ONE_ETH.mul(ONE)}`);
+            
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale3.address, charlie.address, {value: ONE_ETH.mul(ONE)})
+            ).to.be.revertedWith('function returned an unexpected amount of data');
+            //).to.be.revertedWith("insufficient amount");
+
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address, {value: ONE_ETH.mul(ONE)})
+            ).to.be.revertedWith('EndTimeAlreadyPassed');
+
+            await badPresale4.setEndTime(9999999999);
+
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address)
+            ).to.be.revertedWith("insufficient amount");
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address, {value: ONE_ETH.mul(ONE)})
+            ).to.be.revertedWith("insufficient amount");
+
+        }); 
+        it("shouldnt buy in presale and stake if presale contract is not in intercoin ecosystem", async () => {
+            const goodPresaleF = await ethers.getContractFactory("MockPresaleGood");
+            const goodPresale = await goodPresaleF.deploy();
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(goodPresale.address, charlie.address)
+            ).to.be.revertedWith("NotInIntercoinEcosystem");
+            
+            await goodPresale.setTokenAddress(erc20.address);
+            await erc20.mint(goodPresale.address, ONE_ETH.mul(ONE));
+            await releaseManager.customRegisterInstance(goodPresale.address, bob.address); // just trick with WRONG factory and custom registratation
+
+            await expect(
+                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(goodPresale.address, charlie.address)
+            ).to.be.revertedWith("EndTimeAlreadyPassed");
+
+            await goodPresale.setEndTime(9999999999);
+            
+            var charlieBalanceBefore = await CommunityCoin.balanceOf(charlie.address);
+            var poolBalanceBefore = await erc20.balanceOf(communityStakingPoolERC20.address);
+            await communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(goodPresale.address, charlie.address, {value: ONE_ETH.mul(ONE)})
+            var charlieBalanceAfter = await CommunityCoin.balanceOf(charlie.address);
+            var poolBalanceAfter = await erc20.balanceOf(communityStakingPoolERC20.address);
+
+            expect(charlieBalanceAfter.sub(charlieBalanceBefore)).to.be.eq(ONE_ETH.mul(ONE));
+            expect(poolBalanceAfter.sub(poolBalanceBefore)).to.be.eq(ONE_ETH.mul(ONE));
+
+        }); 
+        
+        //customRegisterInstance
+         
         describe("buy and stake", function() {
             var uniswapRouterFactoryInstance;
             var uniswapRouterInstance;
@@ -1154,7 +1292,7 @@ describe("Staking contract tests", function () {
             }); 
 
 
-        })
+        });
 
     });
 
@@ -1164,6 +1302,11 @@ describe("Staking contract tests", function () {
         var uniswapRouterInstance;
         var communityStakingPool;
         var pairInstance;
+        
+        before("deploying", async() => {
+            // restore snapshot
+            await ethers.provider.send('evm_revert', [snapId]);
+        });
 
         beforeEach("deploying", async() => {
 
