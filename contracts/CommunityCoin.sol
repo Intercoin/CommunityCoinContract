@@ -132,6 +132,7 @@ contract CommunityCoin is
     //      users
     mapping(address => UserData) internal users;
 
+    address public linkedContract;
     bool flagHookTransferReentrant;
     bool flagBurnUnstakeRedeem;
     modifier proceedBurnUnstakeRedeem() {
@@ -144,6 +145,8 @@ contract CommunityCoin is
 
     event MaxTaxExceeded();
     event MaxBoostExceeded();
+    
+    error ShouldBeFullDonations();
 
     /**
      * @notice initializing method. called by factory
@@ -158,7 +161,8 @@ contract CommunityCoin is
      *      factorySettings.poolImpl address of StakingPool implementation. usual it's `${tradedToken}c`
      *      factorySettings.stakingPoolFactory address of contract that managed and cloned pools
      *      factorySettings.costManager address
-     *      factorySettings.address that produced instance by factory
+     *      factorySettings.producedBy address that produced instance by factory
+     *      factorySettings.linkedContract erc20/erc777 token's address
      * @custom:calledby StakingFactory contract
      * @custom:shortd initializing contract. called by StakingFactory contract
      */
@@ -198,6 +202,8 @@ contract CommunityCoin is
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
 
         _accountForOperation(OPERATION_INITIALIZE << OPERATION_SHIFT_BITS, uint256(uint160(factorySettings.producedBy)), 0);
+
+        linkedContract = factorySettings.linkedContract;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -370,7 +376,10 @@ contract CommunityCoin is
      * @param tokenErc20 address of erc20 token.
      * @param duration duration represented in amount of `LOCKUP_INTERVAL`
      * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
-     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
+     * @param donations array of tuples donations. address,uint256. 
+        if array empty when coins will obtain sender, 
+        overwise donation[i].account  will obtain proportionally by ration donation[i].amount
+        addresses should be EOA
      * @return instance address of created instance pool `CommunityStakingPoolErc20`
      * @custom:shortd creation erc20 instance with simple options
      */
@@ -384,6 +393,15 @@ contract CommunityCoin is
         uint64 numerator,
         uint64 denominator
     ) public onlyOwner returns (address instance) {
+        if (tokenErc20 != linkedContract) {
+            uint256 totalDonationsAmount = 0;
+            for(uint256 i = 0; i < donations.length; i++) {
+                totalDonationsAmount += donations[i].amount;
+            }
+            if (totalDonationsAmount != FRACTION) {
+                revert ShouldBeFullDonations();
+            }
+        }
         return _produce(
                 tokenErc20,
                 duration,

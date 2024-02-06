@@ -50,6 +50,11 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
     mapping(address => InstanceInfo) public _instanceInfos;
 
+    error InstanceCreationFailed();
+    error InvalidDonationAddress();
+    error ZeroDuration();
+    
+
     function initialize(address impl) external initializer {
         
         implementation = impl;
@@ -107,7 +112,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     ) external returns (address instance) {
         require(msg.sender == creator);
 
-        _createInstanceValidate(tokenErc20, duration, bonusTokenFraction);
+        _createInstanceValidate(tokenErc20, duration, donations);
 
         address instanceCreated = _createInstance(
             tokenErc20,
@@ -119,8 +124,9 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             denominator
         );
 
-        require(instanceCreated != address(0), "CommunityCoin: INSTANCE_CREATION_FAILED");
-        require(duration != 0, "cant be zero duration");
+        if (instanceCreated == address(0)) {
+            revert InstanceCreationFailed();
+        }
 
         // if (duration == 0) {
         //     IStakingTransferRules(instanceCreated).initialize(
@@ -143,14 +149,25 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function _createInstanceValidate(
         address tokenErc20,
         uint64 duration,
-        uint64 /*bonusTokenFraction*/
+        IStructs.StructAddrUint256[] memory donations
     ) internal view {
+        if (duration == 0) {
+            revert ZeroDuration();
+        }
         address instance = getInstance[tokenErc20][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
         require(
             typeProducedByFactory == InstanceType.NONE || typeProducedByFactory == InstanceType.ERC20,
             "CommunityCoin: INVALID_INSTANCE_TYPE"
         );
+
+        for(uint256 i = 0; i < donations.length; i++) {
+            //simple unsafe checking isContract 
+            if (donations[i].account.code.length > 0) {
+                revert InvalidDonationAddress();
+            }
+            
+        }
     }
 
     function _createInstance(
