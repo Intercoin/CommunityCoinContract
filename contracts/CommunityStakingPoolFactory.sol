@@ -50,6 +50,10 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
     mapping(address => InstanceInfo) public _instanceInfos;
 
+    error InstanceCreationFailed();
+    error ZeroDuration();
+    
+
     function initialize(address impl) external initializer {
         
         implementation = impl;
@@ -119,8 +123,9 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             denominator
         );
 
-        require(instanceCreated != address(0), "CommunityCoin: INSTANCE_CREATION_FAILED");
-        require(duration != 0, "cant be zero duration");
+        if (instanceCreated == address(0)) {
+            revert InstanceCreationFailed();
+        }
 
         // if (duration == 0) {
         //     IStakingTransferRules(instanceCreated).initialize(
@@ -145,6 +150,9 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         uint64 duration,
         uint64 /*bonusTokenFraction*/
     ) internal view {
+        if (duration == 0) {
+            revert ZeroDuration();
+        }
         address instance = getInstance[tokenErc20][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
         require(

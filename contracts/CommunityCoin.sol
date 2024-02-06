@@ -370,7 +370,10 @@ contract CommunityCoin is
      * @param tokenErc20 address of erc20 token.
      * @param duration duration represented in amount of `LOCKUP_INTERVAL`
      * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
-     * @param donations array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
+     * @param donations array of tuples donations. address,uint256. 
+        if array empty when coins will obtain sender, 
+        overwise donation[i].account  will obtain proportionally by ration donation[i].amount
+        addresses should be EOA
      * @return instance address of created instance pool `CommunityStakingPoolErc20`
      * @custom:shortd creation erc20 instance with simple options
      */
