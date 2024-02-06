@@ -51,6 +51,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     mapping(address => InstanceInfo) public _instanceInfos;
 
     error InstanceCreationFailed();
+    error InvalidDonationAddress();
     error ZeroDuration();
     
 
@@ -111,7 +112,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     ) external returns (address instance) {
         require(msg.sender == creator);
 
-        _createInstanceValidate(tokenErc20, duration, bonusTokenFraction);
+        _createInstanceValidate(tokenErc20, duration, donations);
 
         address instanceCreated = _createInstance(
             tokenErc20,
@@ -148,7 +149,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function _createInstanceValidate(
         address tokenErc20,
         uint64 duration,
-        uint64 /*bonusTokenFraction*/
+        IStructs.StructAddrUint256[] memory donations
     ) internal view {
         if (duration == 0) {
             revert ZeroDuration();
@@ -159,6 +160,14 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             typeProducedByFactory == InstanceType.NONE || typeProducedByFactory == InstanceType.ERC20,
             "CommunityCoin: INVALID_INSTANCE_TYPE"
         );
+
+        for(uint256 i = 0; i < donations.length; i++) {
+            //simple unsafe checking isContract 
+            if (donations[i].account.code.length > 0) {
+                revert InvalidDonationAddress();
+            }
+            
+        }
     }
 
     function _createInstance(

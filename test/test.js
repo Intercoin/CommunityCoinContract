@@ -373,6 +373,23 @@ describe("Staking contract tests", function () {
         
     });  
 
+    it("donate tests: (donations address should be EOA)", async () => {
+        const DONATIONS = [[CommunityCoin.address, FRACTION*50/100], [erc20.address, FRACTION*25/100]];
+
+        await expect(
+            CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+                erc20.address,
+                lockupIntervalCount,
+                NO_BONUS_FRACTIONS,
+                NO_POPULAR_TOKEN,
+                DONATIONS,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            )
+        ).to.be.revertedWith('InvalidDonationAddress');
+    });  
+
     describe("tariff tests", function () {
         var communityStakingPool;
         before("deploying", async() => {
@@ -1020,7 +1037,6 @@ describe("Staking contract tests", function () {
 
     });
 
-
     describe("ERC20 pool tests", function () { 
         var communityStakingPoolERC20; 
         
@@ -1342,7 +1358,6 @@ describe("Staking contract tests", function () {
         });
 
     });
-
 
     describe(`Instance tests with external community`, function () {
         var uniswapRouterFactoryInstance;
