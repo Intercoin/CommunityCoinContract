@@ -97,6 +97,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      */
     address public immutable stakingPoolImplementation;
 
+    address public linkedContract;
     address[] public instances;
 
     error EmptyAddress();
@@ -106,6 +107,10 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      * @param communityCoinImpl address of CommunityCoin implementation
      * @param communityStakingPoolFactoryImpl address of CommunityStakingPoolFactory implementation
      * @param stakingPoolImpl address of StakingPool implementation
+     * @param linkedContract_ address of ERC20/ERC777 contract token. 
+     *  when user will create pool in "communityCoin.produce" and specify donation.amount
+     *  then stakingToken should be not equal != linkedContract_.
+     *  Overwise donations.amount should be 100% (at single address or in summary)
      * @param costManager_ address of costmanager
      * @param releaseManager_ address of releaseManager
      */
@@ -113,15 +118,27 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
         address communityCoinImpl,
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
+        address linkedContract_,
         address costManager_,
         address releaseManager_
     ) 
         CostManagerFactoryHelper(costManager_) 
         ReleaseManagerHelper(releaseManager_)
     {
+        if (
+            address(0) == communityCoinImpl ||
+            address(0) == communityStakingPoolFactoryImpl ||
+            address(0) == stakingPoolImpl ||
+            address(0) == linkedContract_ ||
+            //address(0) == costManager_ ||   // cost manager can be zero 
+            address(0) == releaseManager_ 
+        ) {
+            revert EmptyAddress();
+        }
         communityCoinImplementation = communityCoinImpl;
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
+        linkedContract = linkedContract_;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -177,7 +194,8 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
             stakingPoolImplementation,
             coinInstancesClone,
             costManager,
-            _msgSender()
+            _msgSender(),
+            linkedContract
         );
 
         ICommunityCoin(instance).initialize(

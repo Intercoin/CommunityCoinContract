@@ -61,6 +61,9 @@ async function main() {
 		data_object.communityCoin,
 		data_object.communityStakingPoolFactory,
 		data_object.communityStakingPool,
+		//  REPLACE THIS. linkedContract CANNOT BE EMPTY
+		ZERO_ADDRESS, // linkedContract_,
+		///////////////////////////////////////
 		ZERO_ADDRESS, // costmanager
 		data_object.releaseManager
 	]

@@ -32,6 +32,7 @@ interface ICommunityCoin {
         address stakingPoolFactory;
         address costManager;
         address producedBy;
+        address linkedContract;
     }
 
     function initialize(

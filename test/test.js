@@ -185,6 +185,7 @@ describe("Staking contract tests", function () {
             implementationCommunityCoin.address, 
             implementationCommunityStakingPoolFactory.address, 
             implementationCommunityStakingPool.address, 
+            erc20.address, // as linkedContract
             NO_COSTMANAGER,
             releaseManager.address
         );
@@ -388,6 +389,46 @@ describe("Staking contract tests", function () {
                 denominator
             )
         ).to.be.revertedWith('InvalidDonationAddress');
+    });  
+
+    it("donate tests: (should be Full Donation if staking != INTER)", async () => {
+        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
+        const DONATIONS_FULL_SINGLE = [[david.address, FRACTION*100/100]];
+        const DONATIONS_FULL_MULTIPLE = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100], [charlie.address, FRACTION*25/100]];
+
+        await expect(
+            CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+                erc20Paying.address,
+                lockupIntervalCount,
+                NO_BONUS_FRACTIONS,
+                NO_POPULAR_TOKEN,
+                DONATIONS,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            )
+        ).to.be.revertedWith('ShouldBeFullDonations');
+
+        await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+            erc20Paying.address,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            DONATIONS_FULL_SINGLE,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        );
+        await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+            erc777.address,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            DONATIONS_FULL_MULTIPLE,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        )
     });  
 
     describe("tariff tests", function () {
