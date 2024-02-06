@@ -28,7 +28,7 @@ import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
 import "@intercoin/releasemanager/contracts/CostManagerBase.sol";
 import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
 import "@intercoin/releasemanager/contracts/interfaces/IReleaseManager.sol";
-import "hardhat/console.sol";
+
 contract CommunityStakingPool is Initializable,
     ContextUpgradeable,
     IERC777RecipientUpgradeable,

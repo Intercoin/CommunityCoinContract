@@ -55,7 +55,7 @@ contract Rewards is RewardsBase, IHook, IRewards {
                 uint256 amount2Send = participantTotalBonusTokens - participants[account].contributed;
                 participants[account].contributed = participantTotalBonusTokens;
 
-                _sendTokens(amount2Send, account);
+                _sendTokens(amount2Send, account, true);
             }
         }
 
@@ -87,7 +87,7 @@ contract Rewards is RewardsBase, IHook, IRewards {
 
     }
 
-    // copy from FundContract Base with simple changes: 
+    // copy from SalesBase with simple changes: 
     // - WE dont need revert when trying to send bonus tokens, just add bonus, that's all
     // - renamed from _addBonus to _addRewards
     function _addRewards(

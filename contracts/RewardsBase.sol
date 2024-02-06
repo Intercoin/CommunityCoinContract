@@ -4,10 +4,10 @@ pragma experimental ABIEncoderV2;
 
 //import "./access/TrustedForwarder.sol";
 import "@intercoin/trustedforwarder/contracts/TrustedForwarder.sol";
-import "@intercoin/fundcontract/contracts/FundContractBase.sol";
+import "@intercoin/sales/contracts/SalesBase.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-abstract contract RewardsBase is TrustedForwarder,  FundContractBase{
+abstract contract RewardsBase is TrustedForwarder, SalesBase{
 
     function __Rewards_init(
         address _sellingToken,
@@ -19,7 +19,7 @@ abstract contract RewardsBase is TrustedForwarder,  FundContractBase{
         uint256[] memory _bonuses
     ) internal onlyInitializing {
 
-        //need to call __FundContractBase__init directly but not need a release manager functionality. 
+        //need to call __SalesBase__init directly but not need a release manager functionality. 
  
         _setCostManager(address(0)); // no cost manager
         __TrustedForwarder_init(); // check need?
@@ -27,7 +27,7 @@ abstract contract RewardsBase is TrustedForwarder,  FundContractBase{
         __Ownable_init();
         __ReentrancyGuard_init();
         
-        require(_sellingToken != address(0), "FundContract: _sellingToken can not be zero");
+        require(_sellingToken != address(0), "Sales: _sellingToken can not be zero");
         
         sellingToken = _sellingToken;
         timestamps = _timestamps;
@@ -36,7 +36,7 @@ abstract contract RewardsBase is TrustedForwarder,  FundContractBase{
         _endTime = _endTs;
         thresholds = _thresholds;
         bonuses = _bonuses;
-        withdrawOption = IFundStructs.EnumWithdraw.afterEndTime;
+        withdrawOption = ISalesStructs.EnumWithdraw.afterEndTime;
 
         whitelistInit(IWhitelist.WhitelistStruct(
             address(0), //address contractAddress; // 160
@@ -53,10 +53,10 @@ abstract contract RewardsBase is TrustedForwarder,  FundContractBase{
         internal 
         view 
         virtual
-        override(FundContractBase, TrustedForwarder)
+        override(SalesBase, TrustedForwarder)
         returns (address signer) 
     {
-        return FundContractBase._msgSender();
+        return SalesBase._msgSender();
         
     }
 
@@ -66,10 +66,10 @@ abstract contract RewardsBase is TrustedForwarder,  FundContractBase{
     // function _exchange(uint256 inputAmount) internal {
     //     uint256 tokenPrice = getTokenPrice();
     //     uint256 amount2send = _getTokenAmount(inputAmount, tokenPrice);
-    //     require(amount2send > 0, "FundContract: Can not calculate amount of tokens");
+    //     require(amount2send > 0, "Sales: Can not calculate amount of tokens");
 
     //     uint256 tokenBalance = IERC20(sellingToken).balanceOf(address(this));
-    //     require(tokenBalance >= amount2send, "FundContract: Amount exceeds allowed balance");
+    //     require(tokenBalance >= amount2send, "Sales: Amount exceeds allowed balance");
 
     //     bool success = IERC20(sellingToken).transfer(_msgSender(), amount2send);
     //     require(success == true, "Transfer tokens were failed");

@@ -384,8 +384,7 @@ contract CommunityCoin is
         uint64 numerator,
         uint64 denominator
     ) public onlyOwner returns (address instance) {
-        return
-            _produce(
+        return _produce(
                 tokenErc20,
                 duration,
                 bonusTokenFraction,

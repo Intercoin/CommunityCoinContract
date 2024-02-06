@@ -799,7 +799,7 @@ describe("Staking contract tests", function () {
             expect(newGroupBonus).to.be.eq(rewardsTenPercentBonus);
             
             // but if try to claim from chain CommunityCoins->[claim]->RewardHook->[onClaim] we will revert
-            await expect(CommunityCoinWithRewardsHook.connect(bob).claim()).to.be.revertedWith('Amount exceeds allowed balance');
+            await expect(CommunityCoinWithRewardsHook.connect(bob).claim()).to.be.revertedWith('InsufficientAmount');
             
             //now mint smth 
             await erc20Reward.mint(rewardsHook.address, HUNDRED.mul(ONE_ETH));
