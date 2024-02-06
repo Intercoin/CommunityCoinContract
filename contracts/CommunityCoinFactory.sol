@@ -99,6 +99,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
 
     address[] public instances;
 
+    error EmptyAddress();
     event InstanceCreated(address instance, uint256 instancesCount);
 
     /**
@@ -154,12 +155,19 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
         string calldata tokenSymbol,
         address[] calldata hooks,
         uint256 discountSensitivity,
-        IStructs.CommunitySettings memory communitySettings
+        IStructs.CommunitySettings memory communitySettings,
+        address instanceOwner
     ) public onlyOwner returns (address instance) {
         instance = communityCoinImplementation.clone();
         address coinInstancesClone = communityStakingPoolFactoryImplementation.clone();
 
-        require(instance != address(0), "CommunityCoinFactory: INSTANCE_CREATION_FAILED");
+        if (
+            instanceOwner == address(0) ||
+            coinInstancesClone == address(0) ||
+            instance == address(0)
+        ) {
+            revert EmptyAddress();
+        }
 
         instances.push(instance);
 
@@ -181,7 +189,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
             factorySettings
         );
 
-        Ownable(instance).transferOwnership(_msgSender());
+        Ownable(instance).transferOwnership(instanceOwner);
 
         // register instance in release manager
         registerInstance(instance);

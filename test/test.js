@@ -202,19 +202,66 @@ describe("Staking contract tests", function () {
         await releaseManager.connect(owner).newRelease(factoriesList, factoryInfo);
 
         // without hook
-        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [ZERO_ADDRESS], discountSensitivity, COMMUNITY_SETTINGS);
+        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [ZERO_ADDRESS], discountSensitivity, COMMUNITY_SETTINGS, owner.address);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoin = await ethers.getContractAt("MockCommunityCoin",instance);
 
         // with hook
-        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [rewardsHook.address], discountSensitivity, COMMUNITY_SETTINGS);
+        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [rewardsHook.address], discountSensitivity, COMMUNITY_SETTINGS, owner.address);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoinWithRewardsHook = await ethers.getContractAt("CommunityCoin",instance);
         
+    });
+
+    it("The new community coin owner is not the sender, but rather the one pointed to in the parameters as instanceOwner.", async() => {
+        let tx = await CommunityCoinFactory.connect(owner).produce(
+            walletTokenName, 
+            walletTokenSymbol, 
+            [ZERO_ADDRESS], 
+            discountSensitivity, 
+            [
+                INVITEDBY_FRACTION,
+                mockCommunity.address, 
+                REDEEM_ROLE, 
+                CIRCULATE_ROLE,
+                TARIFF_ROLE
+            ], 
+            alice.address
+        );
+        let rc = await tx.wait(); // 0ms, as tx is already confirmed
+        let event = rc.events.find(event => event.event === 'InstanceCreated');
+        let instance;
+        [instance, ] = event.args;
+        var communityCoinContract = await ethers.getContractAt("MockCommunityCoin",instance);
+
+        await expect(
+            communityCoinContract.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+                erc20.address,
+                lockupIntervalCount,
+                NO_BONUS_FRACTIONS,
+                NO_POPULAR_TOKEN,
+                NO_DONATIONS,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            )
+        ).to.be.revertedWith("Ownable: caller is not the owner");
+
+        await communityCoinContract.connect(alice)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+            erc20.address,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            NO_DONATIONS,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        )
+
     });
 
     it("staking factory", async() => {
