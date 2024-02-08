@@ -101,6 +101,8 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     address[] public instances;
 
     error EmptyAddress();
+    error InvalidAddress();
+
     event InstanceCreated(address instance, uint256 instancesCount);
 
     /**
@@ -173,7 +175,8 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
         address[] calldata hooks,
         uint256 discountSensitivity,
         IStructs.CommunitySettings memory communitySettings,
-        address instanceOwner
+        address instanceOwner,
+        address[] calldata whitelistedTokens
     ) public onlyOwner returns (address instance) {
         instance = communityCoinImplementation.clone();
         address coinInstancesClone = communityStakingPoolFactoryImplementation.clone();
@@ -186,6 +189,15 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
             revert EmptyAddress();
         }
 
+        for(uint256 i = 0; i < whitelistedTokens.length; i++) {
+            if (whitelistedTokens[i] == address(0)) {
+                revert EmptyAddress();
+            }
+            if (whitelistedTokens[i].code.length == 0) {
+                revert InvalidAddress();
+            }
+        }
+
         instances.push(instance);
 
         emit InstanceCreated(instance, instances.length);
@@ -195,7 +207,8 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
             coinInstancesClone,
             costManager,
             _msgSender(),
-            linkedContract
+            linkedContract,
+            whitelistedTokens
         );
 
         ICommunityCoin(instance).initialize(

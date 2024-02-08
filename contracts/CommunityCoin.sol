@@ -105,6 +105,8 @@ contract CommunityCoin is
     //      instance
     mapping(address => InstanceStruct) internal _instances;
 
+    mapping(address => bool) public whitelistedTokens;
+
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
     bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
 
@@ -147,6 +149,8 @@ contract CommunityCoin is
     event MaxBoostExceeded();
     
     error ShouldBeFullDonations();
+    error TokenNotInWhitelist();
+    
 
     /**
      * @notice initializing method. called by factory
@@ -193,6 +197,11 @@ contract CommunityCoin is
             }
         }
         
+        linkedContract = factorySettings.linkedContract;
+
+        for(uint256 i = 0; i < factorySettings.whitelistedTokens.length; i++) {
+            whitelistedTokens[factorySettings.whitelistedTokens[i]] = true;
+        }
 
         discountSensitivity = discountSensitivity_;
 
@@ -203,7 +212,9 @@ contract CommunityCoin is
 
         _accountForOperation(OPERATION_INITIALIZE << OPERATION_SHIFT_BITS, uint256(uint160(factorySettings.producedBy)), 0);
 
-        linkedContract = factorySettings.linkedContract;
+        
+
+
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -393,6 +404,9 @@ contract CommunityCoin is
         uint64 numerator,
         uint64 denominator
     ) public onlyOwner returns (address instance) {
+        if (whitelistedTokens[tokenErc20] == false) {
+            revert TokenNotInWhitelist();
+        }
         if (tokenErc20 != linkedContract) {
             uint256 totalDonationsAmount = 0;
             for(uint256 i = 0; i < donations.length; i++) {
