@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "./IStructs.sol";
-import "../minimums/libs/MinimumsLib.sol";
+import "@intercoin/minimums/contracts/MinimumsLib.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 interface ICommunityCoin {
     
