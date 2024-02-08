@@ -33,6 +33,7 @@ interface ICommunityCoin {
         address costManager;
         address producedBy;
         address linkedContract;
+        address[] whitelistedTokens;
     }
 
     function initialize(

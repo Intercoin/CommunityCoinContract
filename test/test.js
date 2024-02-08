@@ -203,14 +203,14 @@ describe("Staking contract tests", function () {
         await releaseManager.connect(owner).newRelease(factoriesList, factoryInfo);
 
         // without hook
-        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [ZERO_ADDRESS], discountSensitivity, COMMUNITY_SETTINGS, owner.address);
+        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [ZERO_ADDRESS], discountSensitivity, COMMUNITY_SETTINGS, owner.address, [erc20.address, erc20Paying.address, erc777.address]);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoin = await ethers.getContractAt("MockCommunityCoin",instance);
 
         // with hook
-        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [rewardsHook.address], discountSensitivity, COMMUNITY_SETTINGS, owner.address);
+        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [rewardsHook.address], discountSensitivity, COMMUNITY_SETTINGS, owner.address, [erc20.address, erc20Paying.address, erc777.address]);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
         event = rc.events.find(event => event.event === 'InstanceCreated');
         [instance, instancesCount] = event.args;
@@ -231,7 +231,8 @@ describe("Staking contract tests", function () {
                 CIRCULATE_ROLE,
                 TARIFF_ROLE
             ], 
-            alice.address
+            alice.address,
+            [erc20.address]
         );
         let rc = await tx.wait(); // 0ms, as tx is already confirmed
         let event = rc.events.find(event => event.event === 'InstanceCreated');
@@ -392,6 +393,7 @@ describe("Staking contract tests", function () {
     });  
 
     it("donate tests: (should be Full Donation if staking != INTER)", async () => {
+
         const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
         const DONATIONS_FULL_SINGLE = [[david.address, FRACTION*100/100]];
         const DONATIONS_FULL_MULTIPLE = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100], [charlie.address, FRACTION*25/100]];
@@ -408,6 +410,7 @@ describe("Staking contract tests", function () {
                 denominator
             )
         ).to.be.revertedWith('ShouldBeFullDonations');
+
 
         await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
             erc20Paying.address,
@@ -430,6 +433,22 @@ describe("Staking contract tests", function () {
             denominator
         )
     });  
+    it("donate tests: (tokens should be whitelisted)", async () => {
+        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
+
+        await expect(
+            CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+                erc20Reward.address,
+                lockupIntervalCount,
+                NO_BONUS_FRACTIONS,
+                NO_POPULAR_TOKEN,
+                DONATIONS,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            )
+        ).to.be.revertedWith('TokenNotInWhitelist');
+    });
 
     describe("tariff tests", function () {
         var communityStakingPool;
