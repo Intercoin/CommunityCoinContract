@@ -93,15 +93,15 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     }
 
     function getInstanceInfo(
-        address tokenErc20,
+        address reserveToken,
         uint64 duration
     ) public view returns (InstanceInfo memory) {
-        address instance = getInstance[tokenErc20][duration];
+        address instance = getInstance[reserveToken][duration];
         return _instanceInfos[instance];
     }
 
     function produce(
-        address tokenErc20,
+        address reserveToken,
         uint64 duration,
         uint64 bonusTokenFraction,
         address popularToken,
@@ -112,10 +112,10 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     ) external returns (address instance) {
         require(msg.sender == creator);
 
-        _createInstanceValidate(tokenErc20, duration, donations);
+        _createInstanceValidate(reserveToken, duration, donations);
 
         address instanceCreated = _createInstance(
-            tokenErc20,
+            reserveToken,
             duration,
             bonusTokenFraction,
             popularToken,
@@ -135,7 +135,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         // } else {
         ICommunityStakingPool(instanceCreated).initialize(
             creator,
-            tokenErc20,
+            reserveToken,
             popularToken,
             donations,
             rewardsRateFraction
@@ -147,14 +147,14 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     }
 
     function _createInstanceValidate(
-        address tokenErc20,
+        address reserveToken,
         uint64 duration,
         IStructs.StructAddrUint256[] memory donations
     ) internal view {
         if (duration == 0) {
             revert ZeroDuration();
         }
-        address instance = getInstance[tokenErc20][duration];
+        address instance = getInstance[reserveToken][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
         require(
             typeProducedByFactory == InstanceType.NONE || typeProducedByFactory == InstanceType.ERC20,
@@ -171,7 +171,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     }
 
     function _createInstance(
-        address tokenErc20,
+        address reserveToken,
         uint64 duration,
         uint64 bonusTokenFraction,
         address popularToken,
@@ -181,7 +181,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     ) internal returns (address instance) {
         instance = implementation.clone();
 
-        getInstance[tokenErc20][duration] = instance;
+        getInstance[reserveToken][duration] = instance;
 
         _instanceIndexes[instance] = _instances.length;
         _instances.push(instance);
@@ -190,7 +190,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
         _instanceCreators[instance] = msg.sender; // real sender or trusted forwarder need to store?
         _instanceInfos[instance] = InstanceInfo(
-            tokenErc20,
+            reserveToken,
             duration,
             true,
             bonusTokenFraction,
@@ -202,6 +202,6 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         if (typeProducedByFactory == InstanceType.NONE) {
             typeProducedByFactory = InstanceType.ERC20;
         }
-        emit InstanceCreated(tokenErc20, instance, _instances.length);
+        emit InstanceCreated(reserveToken, instance, _instances.length);
     }
 }

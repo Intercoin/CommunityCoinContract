@@ -1622,7 +1622,7 @@ describe("Staking contract tests", function () {
                 
                 let data = await instanceManagementInstance.connect(bob).getInstanceInfo(erc20.address, lockupIntervalCount);
                 
-                expect(data.tokenErc20).to.be.eq(erc20.address);
+                expect(data.reserveToken).to.be.eq(erc20.address);
                 expect(data.duration).to.be.eq(lockupIntervalCount);
                 
             }); 
@@ -1632,7 +1632,7 @@ describe("Staking contract tests", function () {
                 let data = await instanceManagementInstance.connect(bob).getInstancesInfo();
                 
                 
-                expect(data[0].tokenErc20).to.be.eq(erc20.address);
+                expect(data[0].reserveToken).to.be.eq(erc20.address);
                 expect(data[0].duration).to.be.eq(lockupIntervalCount);
                 expect(data[0].bonusTokenFraction).to.be.eq(NO_BONUS_FRACTIONS);
                 

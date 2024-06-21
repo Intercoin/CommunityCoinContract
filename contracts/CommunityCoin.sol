@@ -246,7 +246,7 @@ contract CommunityCoin is
 
         // just call hook if setup before and that's all
         if (donatedAmount > 0 && donationRewardsHook != address(0)) {
-            IDonationRewards(donationRewardsHook).onDonate(instanceInfo.tokenErc20, account, donatedAmount);
+            IDonationRewards(donationRewardsHook).onDonate(instanceInfo.reserveToken, account, donatedAmount);
             return;
         }
 
@@ -384,18 +384,18 @@ contract CommunityCoin is
 
     /**
      * @notice function for creation erc20 instance pool.
-     * @param tokenErc20 address of erc20 token.
+     * @param reserveToken address of erc20 token.
      * @param duration duration represented in amount of `LOCKUP_INTERVAL`
      * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
      * @param donations array of tuples donations. address,uint256. 
         if array empty when coins will obtain sender, 
         overwise donation[i].account  will obtain proportionally by ration donation[i].amount
-        addresses should be EOA
+        addresses should be EOA 
      * @return instance address of created instance pool `CommunityStakingPoolErc20`
      * @custom:shortd creation erc20 instance with simple options
      */
     function produce(
-        address tokenErc20,
+        address reserveToken,
         uint64 duration,
         uint64 bonusTokenFraction,
         address popularToken,
@@ -404,10 +404,10 @@ contract CommunityCoin is
         uint64 numerator,
         uint64 denominator
     ) public onlyOwner returns (address instance) {
-        if (whitelistedTokens[tokenErc20] == false) {
+        if (whitelistedTokens[reserveToken] == false) {
             revert TokenNotInWhitelist();
         }
-        if (tokenErc20 != linkedContract) {
+        if (reserveToken != linkedContract) {
             uint256 totalDonationsAmount = 0;
             for(uint256 i = 0; i < donations.length; i++) {
                 totalDonationsAmount += donations[i].amount;
@@ -417,7 +417,7 @@ contract CommunityCoin is
             }
         }
         return _produce(
-                tokenErc20,
+                reserveToken,
                 duration,
                 bonusTokenFraction,
                 popularToken,
@@ -639,7 +639,7 @@ contract CommunityCoin is
     }
 
     function _produce(
-        address tokenErc20,
+        address reserveToken,
         uint64 duration,
         uint64 bonusTokenFraction,
         address popularToken,
@@ -649,7 +649,7 @@ contract CommunityCoin is
         uint64 denominator
     ) internal returns (address instance) {
         instance = instanceManagment.produce(
-            tokenErc20,
+            reserveToken,
             duration,
             bonusTokenFraction,
             popularToken,
@@ -658,7 +658,7 @@ contract CommunityCoin is
             numerator,
             denominator
         );
-        emit InstanceCreated(tokenErc20, instance);
+        emit InstanceCreated(reserveToken, instance);
 
         _accountForOperation(
             OPERATION_PRODUCE_ERC20 << OPERATION_SHIFT_BITS,

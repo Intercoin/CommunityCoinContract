@@ -113,6 +113,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      *  when user will create pool in "communityCoin.produce" and specify donation.amount
      *  then stakingToken should be not equal != linkedContract_.
      *  Overwise donations.amount should be 100% (at single address or in summary)
+     *  in most cases it would be a "reservedToken" or "staking token"
      * @param costManager_ address of costmanager
      * @param releaseManager_ address of releaseManager
      */

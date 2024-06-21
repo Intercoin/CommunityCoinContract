@@ -113,7 +113,7 @@ contract CommunityStakingPool is Initializable,
     /**
      * @notice initialize method. Called once by the factory at time of deployment
      * @param stakingProducedBy_ address of Community Coin token.
-     * @param stakingToken_ address of token that can be staked
+     * @param stakingToken_ address of token that can be staked. it's reserve token from CommunityCoin
      * @param popularToken_ address of the other token in the main liquidity pool against which stakingToken is traded
      * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
      * @custom:shortd initialize method. Called once by the factory at time of deployment
