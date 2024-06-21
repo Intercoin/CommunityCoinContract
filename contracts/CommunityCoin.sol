@@ -74,14 +74,14 @@ contract CommunityCoin is
 
     uint64 internal constant LOCKUP_INTERVAL = 1 days;//24 * 60 * 60; // day in seconds
     uint64 internal constant LOCKUP_BONUS_INTERVAL = 52000 weeks;//1000 * 365 * 24 * 60 * 60; // 1000 years in seconds
-    uint64 public constant FRACTION = 100000; // fractions are expressed as portions of this
+    uint64 public constant FRACTION = 10000; // fractions are expressed as portions of this
 
-    uint64 public constant MAX_REDEEM_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
-    uint64 public constant MAX_UNSTAKE_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 public constant MAX_REDEEM_TARIFF = 1000; //10%*FRACTION = 0.1 * 10000 = 1000
+    uint64 public constant MAX_UNSTAKE_TARIFF = 1000; //10%*FRACTION = 0.1 * 10000 = 1000
 
     // max constants used in BeforeTransfer
-    uint64 public constant MAX_TAX = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
-    uint64 public constant MAX_BOOST = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 public constant MAX_TAX = 1000; //10%*FRACTION = 0.1 * 10000 = 1000
+    uint64 public constant MAX_BOOST = 1000; //10%*FRACTION = 0.1 * 10000 = 1000
 
     address public taxHook;
 
@@ -159,7 +159,7 @@ contract CommunityCoin is
      
      * @param hooks_ address of contract implemented IHook interface and used to calculation bonus tokens amount
      
-     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**4 by default)
      * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
      * @param factorySettings struct to packed variables belong to factory
      *      factorySettings.poolImpl address of StakingPool implementation. usual it's `${tradedToken}c`
@@ -257,7 +257,7 @@ contract CommunityCoin is
             //forward conversion( LP -> СС)
             liquidityAmount = (liquidityAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
             _instances[instance]._instanceStaked += liquidityAmount;
-            
+
             total.totalUnstakeable += liquidityAmount;
             total.totalReserves += liquidityAmount;
         }

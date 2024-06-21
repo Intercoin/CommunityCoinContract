@@ -34,7 +34,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol"
 contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory, IStructs {
     using ClonesUpgradeable for address;
 
-    uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+    uint64 internal constant FRACTION = 10000; // fractions are expressed as portions of this
 
     mapping(address => mapping(uint256 => address)) public override getInstance;
 

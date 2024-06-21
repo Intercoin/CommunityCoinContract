@@ -45,7 +45,7 @@ contract CommunityStakingPool is Initializable,
      */
     address public stakingToken;
 
-    uint64 public constant FRACTION = 100000;
+    uint64 public constant FRACTION = 10000;
 
     address public constant MAGIC_ADDRESS = 0x1000000000000000000000000000000000000000;
 
