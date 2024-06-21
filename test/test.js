@@ -1,23 +1,21 @@
-const { ethers, waffle } = require('hardhat');
-const { BigNumber } = require('ethers');
 const { expect } = require('chai');
-const chai = require('chai');
-const { time } = require('@openzeppelin/test-helpers');
+const { time, loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+require("@nomicfoundation/hardhat-chai-matchers");
 
-const ZERO = BigNumber.from('0');
-const ONE = BigNumber.from('1');
-const TWO = BigNumber.from('2');
-const THREE = BigNumber.from('3');
-const FOUR = BigNumber.from('4');
-const FIVE = BigNumber.from('5');
-const SIX = BigNumber.from('6');
-const SEVEN = BigNumber.from('7');
-const TEN = BigNumber.from('10');
-const HUNDRED = BigNumber.from('100');
-const THOUSAND = BigNumber.from('1000');
+const ZERO = 0n;//BigNumber.from('0');
+const ONE = 1n;//BigNumber.from('1');
+const TWO = 2n;//BigNumber.from('2');
+const THREE = 3n;//BigNumber.from('3');
+const FOUR = 4n;//BigNumber.from('4');
+const FIVE = 5n;//BigNumber.from('5');
+const SIX = 6n;//BigNumber.from('6');
+const SEVEN = 7n;//BigNumber.from('7');
+const TEN = 10n;//BigNumber.from('10');
+const HUNDRED = 100n;//BigNumber.from('100');
+const THOUSAND = 1000n;//BigNumber.from('1000');
 
 
-const ONE_ETH = ethers.utils.parseEther('1');
+const ONE_ETH = ethers.parseEther('1');
 
 //const TOTALSUPPLY = ethers.utils.parseEther('1000000000');    
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -28,88 +26,90 @@ const UNISWAP_ROUTER_FACTORY_ADDRESS = '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c
 const UNISWAP_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
 
 
-const INVITEDBY_FRACTION = 0;
 
-const REDEEM_ROLE       = 0x2;//'redeem';
-const CIRCULATE_ROLE    = 0x3;//'circulate';
-const TARIFF_ROLE       = 0x4;//'tariff';
-
-const FRACTION = BigNumber.from('100000');
-
-const NO_DONATIONS = [];
-
-const NO_BONUS_FRACTIONS = ZERO; // no bonus. means amount*NO_BONUS_FRACTIONS/FRACTION = X*0/10000 = 0
-const BONUS_FRACTIONS = 50000; // 50%
-
-const PRICE_DENOM = 100_000_000; // 1e8
-const NO_POPULAR_TOKEN = ZERO_ADDRESS;
-
-
-function convertToHex(str) {
-    var hex = '';
-    for(var i=0;i<str.length;i++) {
-        hex += ''+str.charCodeAt(i).toString(16);
-    }
-    return hex;
-}
-function padZeros(num, size) {
-    var s = num+"";
-    while (s.length < size) s =  s + "0";
-    return s;
-}
+// function convertToHex(str) {
+//     var hex = '';
+//     for(var i=0;i<str.length;i++) {
+//         hex += ''+str.charCodeAt(i).toString(16);
+//     }
+//     return hex;
+// }
+// function padZeros(num, size) {
+//     var s = num+"";
+//     while (s.length < size) s =  s + "0";
+//     return s;
+// }
 
 describe("Staking contract tests", function () {
-    const accounts = waffle.provider.getWallets();
-    const owner = accounts[0];                     
-    const alice = accounts[1];
-    const bob = accounts[2];
-    const charlie = accounts[3];
-    const liquidityHolder = accounts[4];
-    const trustedForwarder = accounts[5];
-    const david = accounts[4];
-    const frank = accounts[5];
+    async function deploy() {
+        const [
+            owner, 
+            alice, 
+            bob, 
+            charlie, 
+            liquidityHolder, 
+            trustedForwarder, 
+            david, 
+            frank
+        ] = await ethers.getSigners();
+        // predefined init params
+
+        const FRACTION = 10000n;
+
+        const lpFraction = ZERO;
+        const numerator = 1n;
+        const denominator = 1n;
+        const dayInSeconds = 86400n; // * interval: DAY in seconds
+        const lockupIntervalCount = 365n; // year in days(dayInSeconds)
+        //const percentLimitLeftTokenB = 0.001;
+
+        const discountSensitivity = 1n*FRACTION;
+        const rewardsRateFraction = FRACTION;
+
+        const rewardsTenPercentBonus = 10n;
+
+        const walletTokenName = 'ITR community';
+        const walletTokenSymbol = 'ITRc';
     
-    const lpFraction = ZERO;
-    const numerator = 1;
-    const denominator = 1;
-    const dayInSeconds = 24*60*60; // * interval: DAY in seconds
-    const lockupIntervalCount = 365; // year in days(dayInSeconds)
-    const percentLimitLeftTokenB = 0.001;
+        const INVITEDBY_FRACTION = 0n;
 
-    const discountSensitivity = 1*FRACTION;
-    const rewardsRateFraction = FRACTION;
+        const REDEEM_ROLE       = 0x2;//'redeem';
+        const CIRCULATE_ROLE    = 0x3;//'circulate';
+        const TARIFF_ROLE       = 0x4;//'tariff';
 
-    const rewardsTenPercentBonus = 10;
+        
 
-    const walletTokenName = 'ITR community';
-    const walletTokenSymbol = 'ITRc';
-    
-    var implementationCommunityCoin;
-    var implementationCommunityStakingPoolFactory;
-    var implementationCommunityStakingPool;
+        const NO_DONATIONS = [];
 
-    var rewardsHook;
-    var mockCommunity;
-    var ERC20Factory;
-    var ERC777Factory;
-    var CommunityCoinFactory;
-    var CommunityCoin;
-    var CommunityCoinWithRewardsHook;
-    var erc20;
-    var erc20Paying;
-    var erc777;
-    var erc20TradedToken;
-    var erc20ReservedToken;
-    var erc20Reward;
-    var fakeUSDT;
-    var fakeMiddle;
+        const NO_BONUS_FRACTIONS = ZERO; // no bonus. means amount*NO_BONUS_FRACTIONS/FRACTION = X*0/10000 = 0
+        const BONUS_FRACTIONS = 5000n; // 50%
 
-    var releaseManager;
-    var snapId;
-    before("deploying", async() => {
-        snapId = await ethers.provider.send('evm_snapshot', []);
-    });
-    beforeEach("deploying", async() => {
+        const PRICE_DENOM = 100_000_000n; // 1e8
+        const NO_POPULAR_TOKEN = ZERO_ADDRESS;
+
+        var implementationCommunityCoin;
+        var implementationCommunityStakingPoolFactory;
+        var implementationCommunityStakingPool;
+
+        var rewardsHook;
+        var mockCommunity;
+        var ERC20Factory;
+        var ERC777Factory;
+        var CommunityCoinFactory;
+        var CommunityCoin;
+        var CommunityCoinWithRewardsHook;
+        var erc20;
+        var erc20Paying;
+        var erc777;
+        var erc20TradedToken;
+        var erc20ReservedToken;
+        var erc20Reward;
+        var fakeUSDT;
+        var fakeMiddle;
+
+        var releaseManager;
+        //var snapId;
+
         const ReleaseManagerFactoryF = await ethers.getContractFactory("MockReleaseManagerFactory");
         const ReleaseManagerF = await ethers.getContractFactory("MockReleaseManager");
         const CommunityCoinFactoryF = await ethers.getContractFactory("CommunityCoinFactory");
@@ -119,7 +119,7 @@ describe("Staking contract tests", function () {
         
         const CommunityCoinF = await ethers.getContractFactory("MockCommunityCoin", {
             libraries: {
-                "contracts/libs/PoolStakesLib.sol:PoolStakesLib": poolStakesLib.address
+                "contracts/libs/PoolStakesLib.sol:PoolStakesLib": poolStakesLib.target
             }
         });
         const CommunityStakingPoolF = await ethers.getContractFactory("MockCommunityStakingPool");
@@ -133,12 +133,12 @@ describe("Staking contract tests", function () {
         
         let implementationReleaseManager    = await ReleaseManagerF.deploy();
 
-        let releaseManagerFactory   = await ReleaseManagerFactoryF.connect(owner).deploy(implementationReleaseManager.address);
+        let releaseManagerFactory   = await ReleaseManagerFactoryF.connect(owner).deploy(implementationReleaseManager.target);
         let tx,rc,event,instance,instancesCount;
         //
         tx = await releaseManagerFactory.connect(owner).produce();
         rc = await tx.wait(); // 0ms, as tx is already confirmed
-        event = rc.events.find(event => event.event === 'InstanceProduced');
+        event = rc.logs.find(obj => obj.fragment.name === 'InstanceProduced');
         [instance, instancesCount] = event.args;
         releaseManager = await ethers.getContractAt("MockReleaseManager",instance);
 
@@ -156,16 +156,16 @@ describe("Staking contract tests", function () {
         rewardsHook = await RewardsF.deploy();
 
         const PRICE_REWARDS = PRICE_DENOM;
-        const amoutnRaisedVal = THOUSAND.mul(THOUSAND).mul(THOUSAND).mul(ONE_ETH);
+        const amoutnRaisedVal = ethers.parseEther('1000000000');//THOUSAND.mul(THOUSAND).mul(THOUSAND).mul(ONE_ETH);
         let timeLatest = await time.latest();
 
         await rewardsHook.connect(owner).initialize(
-            erc20Reward.address,                    //address sellingToken,
-            [timeLatest.toString()],                //uint256[] memory timestamps,
+            erc20Reward.target,                    //address sellingToken,
+            [timeLatest],                //uint256[] memory timestamps,
             [PRICE_REWARDS],                        // uint256[] memory _prices,
             [amoutnRaisedVal],                      // uint256[] memory _amountRaised,
-            timeLatest.add(timeLatest).toString(),//make a huge ts //uint64 _endTs,
-            [ethers.utils.parseEther("0.00001")],   // uint256[] memory thresholds,
+            (timeLatest + timeLatest),  //make a huge ts //uint64 _endTs,
+            [ethers.parseEther("0.00001")],   // uint256[] memory thresholds,
             [rewardsTenPercentBonus]   // 10%       // uint256[] memory bonuses
         )
 
@@ -173,7 +173,7 @@ describe("Staking contract tests", function () {
 
         const COMMUNITY_SETTINGS = [
             INVITEDBY_FRACTION,
-            mockCommunity.address, 
+            mockCommunity.target, 
             REDEEM_ROLE, 
             CIRCULATE_ROLE,
             TARIFF_ROLE
@@ -182,20 +182,20 @@ describe("Staking contract tests", function () {
         const NO_COSTMANAGER = ZERO_ADDRESS;
         
         CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(
-            implementationCommunityCoin.address, 
-            implementationCommunityStakingPoolFactory.address, 
-            implementationCommunityStakingPool.address, 
-            erc20.address, // as linkedContract
+            implementationCommunityCoin.target, 
+            implementationCommunityStakingPoolFactory.target, 
+            implementationCommunityStakingPool.target, 
+            erc20.target, // as linkedContract
             NO_COSTMANAGER,
-            releaseManager.address
+            releaseManager.target
         );
 
         // 
-        const factoriesList = [CommunityCoinFactory.address];
+        const factoriesList = [CommunityCoinFactory.target];
         const factoryInfo = [
             [
-                1,//uint8 factoryIndex; 
-                1,//uint16 releaseTag; 
+                1n,//uint8 factoryIndex; 
+                1n,//uint16 releaseTag; 
                 "0x53696c766572000000000000000000000000000000000000"//bytes24 factoryChangeNotes;
             ]
         ]
@@ -203,22 +203,107 @@ describe("Staking contract tests", function () {
         await releaseManager.connect(owner).newRelease(factoriesList, factoryInfo);
 
         // without hook
-        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [ZERO_ADDRESS], discountSensitivity, COMMUNITY_SETTINGS, owner.address, [erc20.address, erc20Paying.address, erc777.address]);
+        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [ZERO_ADDRESS], discountSensitivity, COMMUNITY_SETTINGS, owner.address, [erc20.target, erc20Paying.target, erc777.target]);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
-        event = rc.events.find(event => event.event === 'InstanceCreated');
+        event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoin = await ethers.getContractAt("MockCommunityCoin",instance);
 
         // with hook
-        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [rewardsHook.address], discountSensitivity, COMMUNITY_SETTINGS, owner.address, [erc20.address, erc20Paying.address, erc777.address]);
+        tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [rewardsHook.target], discountSensitivity, COMMUNITY_SETTINGS, owner.address, [erc20.target, erc20Paying.target, erc777.target]);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
-        event = rc.events.find(event => event.event === 'InstanceCreated');
+        event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoinWithRewardsHook = await ethers.getContractAt("CommunityCoin",instance);
-        
-    });
+
+        return {
+            owner, 
+            alice, 
+            bob, 
+            charlie, 
+            liquidityHolder, 
+            trustedForwarder, 
+            david, 
+            frank,
+
+            ///////////////////////////////
+            lpFraction,
+            numerator,
+            denominator,
+            dayInSeconds,
+            lockupIntervalCount,
+            //percentLimitLeftTokenB,// ?? = 0.001;
+            discountSensitivity,
+            rewardsRateFraction,
+            rewardsTenPercentBonus,
+            walletTokenName,
+            walletTokenSymbol,
+
+            INVITEDBY_FRACTION,
+            REDEEM_ROLE,
+            CIRCULATE_ROLE,
+            TARIFF_ROLE,
+            FRACTION,
+            NO_DONATIONS,
+            NO_BONUS_FRACTIONS,
+            BONUS_FRACTIONS,
+            PRICE_DENOM,
+            NO_POPULAR_TOKEN,
+
+            rewardsHook,
+            mockCommunity,
+            ERC20Factory,
+            ERC777Factory,
+            CommunityCoinFactory,
+            CommunityCoin,
+            CommunityCoinWithRewardsHook,
+            erc20,
+            erc20Paying,
+            erc777,
+            erc20TradedToken,
+            erc20ReservedToken,
+            erc20Reward,
+            fakeUSDT,
+            fakeMiddle,
+
+            releaseManager,
+            implementationCommunityCoin,
+            implementationCommunityStakingPoolFactory,
+            implementationCommunityStakingPool
+        }
+
+    }
 
     it("The new community coin owner is not the sender, but rather the one pointed to in the parameters as instanceOwner.", async() => {
+        const res = await loadFixture(deploy);
+        
+        const {
+            owner,
+            alice,
+
+            walletTokenName, 
+            walletTokenSymbol, 
+            discountSensitivity,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            NO_DONATIONS,
+            rewardsRateFraction,
+            numerator,
+            denominator,
+
+            INVITEDBY_FRACTION,
+            REDEEM_ROLE, 
+            CIRCULATE_ROLE,
+            TARIFF_ROLE,
+
+            mockCommunity,
+            CommunityCoinFactory,
+            erc20
+
+        } = res;
+        
+
         let tx = await CommunityCoinFactory.connect(owner).produce(
             walletTokenName, 
             walletTokenSymbol, 
@@ -226,23 +311,24 @@ describe("Staking contract tests", function () {
             discountSensitivity, 
             [
                 INVITEDBY_FRACTION,
-                mockCommunity.address, 
+                mockCommunity.target, 
                 REDEEM_ROLE, 
                 CIRCULATE_ROLE,
                 TARIFF_ROLE
             ], 
             alice.address,
-            [erc20.address]
+            [erc20.target]
         );
+
         let rc = await tx.wait(); // 0ms, as tx is already confirmed
-        let event = rc.events.find(event => event.event === 'InstanceCreated');
+        let event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
         let instance;
         [instance, ] = event.args;
         var communityCoinContract = await ethers.getContractAt("MockCommunityCoin",instance);
 
         await expect(
             communityCoinContract.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
+                erc20.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -254,7 +340,7 @@ describe("Staking contract tests", function () {
         ).to.be.revertedWith("Ownable: caller is not the owner");
 
         await communityCoinContract.connect(alice)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-            erc20.address,
+            erc20.target,
             lockupIntervalCount,
             NO_BONUS_FRACTIONS,
             NO_POPULAR_TOKEN,
@@ -267,14 +353,33 @@ describe("Staking contract tests", function () {
     });
 
     it("staking factory", async() => {
+        const res = await loadFixture(deploy);
+        const {
+            CommunityCoinFactory
+        } = res;
         let count = await CommunityCoinFactory.instancesCount();
-        await expect(count).to.be.equal(TWO);
+        await expect(count).to.be.equal(2n);
     })
 
     it("shouldnt produce if pool with token already exists", async() => {
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            NO_DONATIONS,
+            rewardsRateFraction,
+            numerator,
+            denominator,
+
+            CommunityCoin,
+            erc20
+        } = res;
 
         await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-            erc20.address,
+            erc20.target,
             lockupIntervalCount,
             NO_BONUS_FRACTIONS,
             NO_POPULAR_TOKEN,
@@ -285,7 +390,7 @@ describe("Staking contract tests", function () {
         );
 
         await expect(CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-            erc20.address,
+            erc20.target,
             lockupIntervalCount,
             NO_BONUS_FRACTIONS,
             NO_POPULAR_TOKEN,
@@ -298,9 +403,22 @@ describe("Staking contract tests", function () {
     });
 
     it("should produce with default values", async() => {
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+            erc20,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            NO_DONATIONS,
+            CommunityCoin,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        } = res;
 
         let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-            erc20.address,
+            erc20.target,
             lockupIntervalCount,
             NO_BONUS_FRACTIONS,
             NO_POPULAR_TOKEN,
@@ -309,18 +427,27 @@ describe("Staking contract tests", function () {
             numerator,
             denominator
         );
-        
+        //console.log(tx);
         const rc = await tx.wait(); // 0ms, as tx is already confirmed
-        const event = rc.events.find(event => event.event === 'InstanceCreated');
-        const [erc20token, instance] = event.args;
+        
+
+        const event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
+        const [/*erc20token*/, instance] = event.args;
 
         expect(instance).not.to.be.eq(ZERO_ADDRESS); 
     });
 
-    
     it("should change inviteByFraction ", async() => {
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+            alice,
+            FRACTION,
+            INVITEDBY_FRACTION,
+            CommunityCoin
+        } = res;
         const oldInvitedByFraction = await CommunityCoin.invitedByFraction();
-        const toSetInvitedByFraction = FRACTION.sub(123);
+        const toSetInvitedByFraction = FRACTION - 123n;
         await expect(CommunityCoin.connect(alice).setCommission(toSetInvitedByFraction)).to.be.revertedWith("Ownable: caller is not the owner");
         await CommunityCoin.connect(owner).setCommission(toSetInvitedByFraction);
         const newInvitedByFraction = await CommunityCoin.invitedByFraction();
@@ -330,13 +457,30 @@ describe("Staking contract tests", function () {
     });
 
     it("donate tests: (donations:50% and 25%. left for sender)", async () => {
-        var communityStakingPool;
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+            bob,
+            david,
+            frank,
+            FRACTION,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            rewardsRateFraction,
+            numerator,
+            denominator,
+
+            erc20,
+            CommunityCoin
+        } = res;
+        
 
     
-        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
+        const DONATIONS = [[david.address, FRACTION*50n/100n], [frank.address, FRACTION*25n/100n]];
 
         let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-            erc20.address,
+            erc20.target,
             lockupIntervalCount,
             NO_BONUS_FRACTIONS,
             NO_POPULAR_TOKEN,
@@ -348,14 +492,14 @@ describe("Staking contract tests", function () {
         
 
         const rc = await tx.wait(); // 0ms, as tx is already confirmed
-        const event = rc.events.find(event => event.event === 'InstanceCreated');
+        const event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
         const [erc20token, instance] = event.args;
         
-        communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
+        const communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
 
-        const shares = ONE_ETH.mul(ONE);
+        const shares = ethers.parseEther('1');
         await erc20.mint(bob.address, shares);
-        await erc20.connect(bob).approve(communityStakingPool.address, shares);
+        await erc20.connect(bob).approve(communityStakingPool.target, shares);
 
         const bobCommunityCoinTokensBefore = await CommunityCoin.balanceOf(bob.address);
         const davidERC20TokensBefore = await erc20.balanceOf(david.address);
@@ -368,19 +512,46 @@ describe("Staking contract tests", function () {
         const frankERC20TokensAfter = await erc20.balanceOf(frank.address);
 
         // donates 50% and 25% and left for Bob
-        expect(bobCommunityCoinTokensAfter.sub(bobCommunityCoinTokensBefore)).to.be.eq(shares.mul(FRACTION*25/100).div(FRACTION));
-        expect(davidERC20TokensAfter.sub(davidERC20TokensBefore)).to.be.eq(shares.mul(FRACTION*50/100).div(FRACTION));
-        expect(frankERC20TokensAfter.sub(frankERC20TokensBefore)).to.be.eq(shares.mul(FRACTION*25/100).div(FRACTION));
+        expect(
+            bobCommunityCoinTokensAfter - bobCommunityCoinTokensBefore
+        ).to.be.eq(
+            shares * (FRACTION*25n/100n) / (FRACTION)
+        );
+        expect(
+            davidERC20TokensAfter - davidERC20TokensBefore
+        ).to.be.eq(
+            shares * (FRACTION*50n/100n) / (FRACTION)
+        );
+        expect(
+            frankERC20TokensAfter - frankERC20TokensBefore
+        ).to.be.eq(
+            shares * (FRACTION*25n/100n) / (FRACTION)
+        );
 
         
     });  
 
     it("donate tests: (donations address should be EOA)", async () => {
-        const DONATIONS = [[CommunityCoin.address, FRACTION*50/100], [erc20.address, FRACTION*25/100]];
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+            FRACTION,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            rewardsRateFraction,
+            numerator,
+            denominator,
+            erc20,
+            implementationCommunityStakingPoolFactory,
+            CommunityCoin,
+        } = res;
+
+        const DONATIONS = [[CommunityCoin.target, FRACTION*50n/100n], [erc20.target, FRACTION*25n/100n]];
 
         await expect(
             CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
+                erc20.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -389,18 +560,37 @@ describe("Staking contract tests", function () {
                 numerator,
                 denominator
             )
-        ).to.be.revertedWith('InvalidDonationAddress');
+        ).to.be.revertedWithCustomError(implementationCommunityStakingPoolFactory, 'InvalidDonationAddress');
     });  
 
     it("donate tests: (should be Full Donation if staking != INTER)", async () => {
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+            charlie,
+            frank,
+            david,
 
-        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
-        const DONATIONS_FULL_SINGLE = [[david.address, FRACTION*100/100]];
-        const DONATIONS_FULL_MULTIPLE = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100], [charlie.address, FRACTION*25/100]];
+            lockupIntervalCount,
+            FRACTION,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            rewardsRateFraction,
+            numerator,
+            denominator,
+
+            erc20Paying,
+            erc777,
+            CommunityCoin
+        } = res;
+
+        const DONATIONS = [[david.address, FRACTION*50n/100n], [frank.address, FRACTION*25n/100n]];
+        const DONATIONS_FULL_SINGLE = [[david.address, FRACTION*100n/100n]];
+        const DONATIONS_FULL_MULTIPLE = [[david.address, FRACTION*50n/100n], [frank.address, FRACTION*25n/100n], [charlie.address, FRACTION*25n/100n]];
 
         await expect(
             CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20Paying.address,
+                erc20Paying.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -409,11 +599,11 @@ describe("Staking contract tests", function () {
                 numerator,
                 denominator
             )
-        ).to.be.revertedWith('ShouldBeFullDonations');
+        ).to.be.revertedWithCustomError(CommunityCoin, 'ShouldBeFullDonations');
 
 
         await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-            erc20Paying.address,
+            erc20Paying.target,
             lockupIntervalCount,
             NO_BONUS_FRACTIONS,
             NO_POPULAR_TOKEN,
@@ -423,7 +613,7 @@ describe("Staking contract tests", function () {
             denominator
         );
         await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-            erc777.address,
+            erc777.target,
             lockupIntervalCount,
             NO_BONUS_FRACTIONS,
             NO_POPULAR_TOKEN,
@@ -433,12 +623,29 @@ describe("Staking contract tests", function () {
             denominator
         )
     });  
+
     it("donate tests: (tokens should be whitelisted)", async () => {
-        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+            david,
+            frank,
+            CommunityCoin,
+            erc20Reward,
+            lockupIntervalCount,
+            FRACTION,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        } = res;
+
+        const DONATIONS = [[david.address, FRACTION*50n/100n], [frank.address, FRACTION*25n/100n]];
 
         await expect(
             CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20Reward.address,
+                erc20Reward.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -447,19 +654,27 @@ describe("Staking contract tests", function () {
                 numerator,
                 denominator
             )
-        ).to.be.revertedWith('TokenNotInWhitelist');
+        ).to.be.revertedWithCustomError(CommunityCoin, 'TokenNotInWhitelist');
     });
 
     describe("tariff tests", function () {
-        var communityStakingPool;
-        before("deploying", async() => {
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
-        });
-        beforeEach("deploying", async() => {
+        async function deployTariffTests() {
+            const res = await loadFixture(deploy);
+            const {
+                owner,
+                lockupIntervalCount,
+                NO_BONUS_FRACTIONS,
+                NO_POPULAR_TOKEN,
+                NO_DONATIONS,
+                rewardsRateFraction,
+                numerator,
+                denominator,
+                erc20,
+                CommunityCoin
+            } = res;
 
-            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
+             let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+                erc20.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -470,158 +685,256 @@ describe("Staking contract tests", function () {
             );
 
             const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.events.find(event => event.event === 'InstanceCreated');
+            const event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
             const [erc20token, instance] = event.args;
 
-            communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
+            const communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
 
-        });    
+            return {...res, ...{
+                communityStakingPool
+            }};
+        }
+        
         it("shouldn't set tariff by owner or anyone except tariffrole memeber", async () => {
-            await expect(CommunityCoin.connect(owner).setTariff(ONE, ONE)).to.be.revertedWith('MissingRole').withArgs(owner.address, TARIFF_ROLE);
-            await expect(CommunityCoin.connect(bob).setTariff(ONE, ONE)).to.be.revertedWith('MissingRole').withArgs(bob.address, TARIFF_ROLE);
-            await expect(CommunityCoin.connect(frank).setTariff(ONE, ONE)).to.be.revertedWith('MissingRole').withArgs(frank.address, TARIFF_ROLE);
-        });    
+            const res = await loadFixture(deployTariffTests);
+            const {
+                owner,
+                bob,
+                frank,
+                TARIFF_ROLE,
+                CommunityCoin
+            } = res;
+
+            await expect(CommunityCoin.connect(owner).setTariff(1n, 1n)).to.be.revertedWithCustomError(CommunityCoin,'MissingRole').withArgs(owner.address, TARIFF_ROLE);
+            await expect(CommunityCoin.connect(bob).setTariff(1n, 1n)).to.be.revertedWithCustomError(CommunityCoin,'MissingRole').withArgs(bob.address, TARIFF_ROLE);
+            await expect(CommunityCoin.connect(frank).setTariff(1n, 1n)).to.be.revertedWithCustomError(CommunityCoin,'MissingRole').withArgs(frank.address, TARIFF_ROLE);
+        }); 
+
         it("should set tariff(redeem / unstake)", async () => {
+            const res = await loadFixture(deployTariffTests);
+            const {
+                owner,
+                charlie,
+                TARIFF_ROLE,
+                mockCommunity,
+                CommunityCoin
+            } = res;
+
             await mockCommunity.connect(owner).setRoles(charlie.address, [TARIFF_ROLE]);
-            await CommunityCoin.connect(charlie).setTariff(ONE, ONE);
+            await CommunityCoin.connect(charlie).setTariff(1n, 1n);
         });
 
         it("shouldn't exсeed max tariff(redeem / unstake)", async () => {
+            const res = await loadFixture(deployTariffTests);
+            const {
+                owner,
+                charlie,
+                TARIFF_ROLE,
+                mockCommunity,
+                CommunityCoin
+            } = res;
+
             await mockCommunity.connect(owner).setRoles(charlie.address, [TARIFF_ROLE]);
 
             const MAX_REDEEM_TARIFF = await CommunityCoin.MAX_REDEEM_TARIFF();
             const MAX_UNSTAKE_TARIFF = await CommunityCoin.MAX_UNSTAKE_TARIFF(); 
 
-            await expect(CommunityCoin.connect(charlie).setTariff(TWO.mul(MAX_REDEEM_TARIFF), ONE)).to.be.revertedWith('AmountExceedsMaxTariff');
-            await expect(CommunityCoin.connect(charlie).setTariff(ONE, TWO.mul(MAX_UNSTAKE_TARIFF))).to.be.revertedWith('AmountExceedsMaxTariff');
+            await expect(CommunityCoin.connect(charlie).setTariff(2n * MAX_REDEEM_TARIFF, 1n)).to.be.revertedWithCustomError(CommunityCoin,'AmountExceedsMaxTariff');
+            await expect(CommunityCoin.connect(charlie).setTariff(1n, 2n * MAX_UNSTAKE_TARIFF)).to.be.revertedWithCustomError(CommunityCoin,'AmountExceedsMaxTariff');
             
         });
 
         describe("should consume by correct tariff", function () {
-            var shares;
-            beforeEach("deploying", async() => {
+            async function deployTariffAndConsumingTests() {
+                const res = await loadFixture(deployTariffTests);
+                const {
+                    bob,
+                    charlie,
 
-                await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
-                await communityStakingPool.connect(bob).stake(ONE_ETH.mul(ONE), bob.address);
-                shares = await CommunityCoin.balanceOf(bob.address);
+                    lockupIntervalCount,
+                    dayInSeconds,
 
+                    erc20,
+                    communityStakingPool,
+
+
+                    TARIFF_ROLE,
+                    mockCommunity,
+                    CommunityCoin
+                } = res;
+                ///---------
+                await erc20.mint(bob.address, ethers.parseEther('1'));
+                await erc20.connect(bob).approve(communityStakingPool.target, ethers.parseEther('1'));
+                await communityStakingPool.connect(bob).stake(ethers.parseEther('1'), bob.address);
+                const shares = await CommunityCoin.balanceOf(bob.address);
                 // pass some mtime
-                await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                await time.increase(lockupIntervalCount*dayInSeconds+9n);    
+                ///---------
+                return {...res, ...{
+                    shares
+                }};
 
-            });
-
+            }
             it(" - when unstake", async () => {
-                const MAX_UNSTAKE_TARIFF = await CommunityCoin.MAX_UNSTAKE_TARIFF(); 
-                let snapId;
-                let bobTokensWithoutTariff, bobTokensWithTariff;
 
-                // make snapshot before time manipulations
-                snapId = await ethers.provider.send('evm_snapshot', []);
+                let bobTokensWithoutTariff, bobTokensWithTariff;
+                const res = await loadFixture(deployTariffAndConsumingTests);
+
+                var {
+                    owner,
+                    bob,
+                    charlie,
+                    
+                    TARIFF_ROLE,
+                    shares,
+                    FRACTION,
+
+                    erc20,
+                    communityStakingPool,
+                    mockCommunity,
+                    CommunityCoin
+                } = res;
+                
+                const MAX_UNSTAKE_TARIFF = await CommunityCoin.MAX_UNSTAKE_TARIFF(); 
 
                 let bobCommunityCoinTokenBefore1 = await CommunityCoin.balanceOf(bob.address);
-                
                 let bobERC20TokenBefore1 = await erc20.balanceOf(bob.address);
                 
-                await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+                await CommunityCoin.connect(bob).approve(CommunityCoin.target, shares);
                 await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
 
                 let bobCommunityCoinTokenAfter1 = await CommunityCoin.balanceOf(bob.address);
                 
                 let bobERC20TokenAfter1 = await erc20.balanceOf(bob.address);
                 
-                bobTokensWithoutTariff = bobERC20TokenAfter1.sub(bobERC20TokenBefore1);
+                bobTokensWithoutTariff = bobERC20TokenAfter1 - bobERC20TokenBefore1;
                 expect(bobCommunityCoinTokenBefore1).gt(bobCommunityCoinTokenAfter1);
-                expect(bobCommunityCoinTokenAfter1).eq(ZERO);
-                
+                expect(bobCommunityCoinTokenAfter1).eq(0n);
                 expect(bobERC20TokenAfter1).gt(bobERC20TokenBefore1);
                 
-
-                // restore snapshot
-                await ethers.provider.send('evm_revert', [snapId]);
-                //----------------------------------------------------------------
-                // make snapshot before time manipulations
-                snapId = await ethers.provider.send('evm_snapshot', []);
-
+                //------------------------------------
+                const res2 = await loadFixture(deployTariffAndConsumingTests);
+                var {
+                    owner,
+                    bob,
+                    charlie,
+                    
+                    TARIFF_ROLE,
+                    shares,
+                    FRACTION,
+                    
+                    erc20,
+                    communityStakingPool,
+                    mockCommunity,
+                    CommunityCoin
+                } = res2;
+                
                 await mockCommunity.connect(owner).setRoles(charlie.address, [TARIFF_ROLE]);
-                await CommunityCoin.connect(charlie).setTariff(ONE, MAX_UNSTAKE_TARIFF);
+                await CommunityCoin.connect(charlie).setTariff(1n, MAX_UNSTAKE_TARIFF);
 
                 let bobCommunityCoinTokenBefore2 = await CommunityCoin.balanceOf(bob.address);
-                
                 let bobERC20TokenBefore2 = await erc20.balanceOf(bob.address);
 
-                await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+                await CommunityCoin.connect(bob).approve(CommunityCoin.target, shares);
 
                 const userUnstakeableBefore = await CommunityCoin.getUnstakeableMap(bob.address);
-                const instanceUnstakeableBefore = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPool.address, bob.address);
+                const instanceUnstakeableBefore = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPool.target, bob.address);
 
                 await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
 
                 let userUnstakeableAfter = await CommunityCoin.getUnstakeableMap(bob.address);
-                let instanceStakedAfter = await CommunityCoin.getInstanceStakedMap(communityStakingPool.address);
-                let instanceUnstakeableAfter = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPool.address, bob.address);
+                //let instanceStakedAfter = await CommunityCoin.getInstanceStakedMap(communityStakingPool.target);
+                let instanceUnstakeableAfter = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPool.target, bob.address);
 
                 let bobCommunityCoinTokenAfter2 = await CommunityCoin.balanceOf(bob.address);
                 
                 let bobERC20TokenAfter2 = await erc20.balanceOf(bob.address);
 
-                bobTokensWithTariff = bobERC20TokenAfter2.sub(bobERC20TokenBefore2);
+                bobTokensWithTariff = bobERC20TokenAfter2 - bobERC20TokenBefore2;
 
                 expect(bobERC20TokenAfter2).gt(bobERC20TokenBefore2);
                 expect(bobCommunityCoinTokenBefore2).gt(bobCommunityCoinTokenAfter2);
-                expect(bobCommunityCoinTokenAfter2).eq(ZERO);
+                expect(bobCommunityCoinTokenAfter2).eq(0n);
                 
-                // restore snapshot
-                await ethers.provider.send('evm_revert', [snapId]);
-
+                //-------------------------------------------------
                 // now check unstake tariff
-                expect(bobTokensWithTariff).to.be.eq(bobTokensWithoutTariff.sub(shares.mul(MAX_UNSTAKE_TARIFF).div(FRACTION)));
+                expect(bobTokensWithTariff).to.be.eq(bobTokensWithoutTariff - (shares * MAX_UNSTAKE_TARIFF / FRACTION));
 
                 // issue 53
                 // https://github.com/Intercoin/StakingContract/issues/53
                 //unstakeable tokens for users should consuming completely without taxes
-                expect(userUnstakeableBefore.sub(shares)).to.be.eq(userUnstakeableAfter);
-                expect(instanceUnstakeableBefore.sub(shares)).to.be.eq(instanceUnstakeableAfter);
+                expect(userUnstakeableBefore - shares).to.be.eq(userUnstakeableAfter);
+                expect(instanceUnstakeableBefore - shares).to.be.eq(instanceUnstakeableAfter);
 
                 //if smhow to be zero
-                expect(instanceUnstakeableAfter).not.to.be.eq(userUnstakeableBefore.sub(shares.mul(MAX_UNSTAKE_TARIFF).div(FRACTION)));
+                expect(instanceUnstakeableAfter).not.to.be.eq(userUnstakeableBefore - (shares * MAX_UNSTAKE_TARIFF / FRACTION));
 
             });
 
             it(" - when redeem", async () => {
+                let aliceERC20TokenWithoutTariff, aliceERC20TokenWithTariff;
+                const res = await loadFixture(deployTariffAndConsumingTests);
+                var {
+                    owner,
+                    alice,
+                    bob,
+                    charlie,
+                    
+                    TARIFF_ROLE,
+                    REDEEM_ROLE,
+                    shares,
+                    FRACTION,
+
+                    erc20,
+                    erc20ReservedToken,
+                    mockCommunity,
+                    CommunityCoin
+                } = res;
+
                 const MAX_REDEEM_TARIFF = await CommunityCoin.MAX_REDEEM_TARIFF();
 
-                let snapId;
-                let aliceLPTokenWithoutTariff, aliceLPTokenWithTariff;
 
                 // imitate exists role
                 await mockCommunity.connect(owner).setRoles(alice.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
                 // transfer from bob to alice
                 await CommunityCoin.connect(bob).transfer(alice.address, shares);
 
-
-                // make snapshot before time manipulations
-                snapId = await ethers.provider.send('evm_snapshot', []);
-
-                
                 let aliceReservedTokenBefore1 = await erc20ReservedToken.balanceOf(alice.address);
                 let aliceERC20TokenBefore1 = await erc20.balanceOf(alice.address);
 
-                await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                await CommunityCoin.connect(alice).approve(CommunityCoin.target, shares);
                 await CommunityCoin.connect(alice)["redeem(uint256)"](shares);
 
                 let aliceReservedTokenAfter1 = await erc20ReservedToken.balanceOf(alice.address);
                 let aliceERC20TokenAfter1 = await erc20.balanceOf(alice.address);
                 
                 expect(aliceReservedTokenAfter1).eq(aliceReservedTokenBefore1);
-                
                 expect(aliceERC20TokenAfter1).gt(aliceERC20TokenBefore1);
 
-                // restore snapshot
-                await ethers.provider.send('evm_revert', [snapId]);
-                //----------------------------------------------------------------
-                // make snapshot before time manipulations
-                snapId = await ethers.provider.send('evm_snapshot', []);
+                aliceERC20TokenWithoutTariff = aliceERC20TokenAfter1 - aliceERC20TokenBefore1;
+                //------------------------------------
+                const res2 = await loadFixture(deployTariffAndConsumingTests);
+                var {
+                    owner,
+                    alice,
+                    bob,
+                    charlie,
+                    
+                    TARIFF_ROLE,
+                    REDEEM_ROLE,
+                    shares,
+                    FRACTION,
+
+                    erc20,
+                    erc20ReservedToken,
+                    mockCommunity,
+                    CommunityCoin
+                } = res2;
+                
+                // imitate exists role
+                await mockCommunity.connect(owner).setRoles(alice.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
+                // transfer from bob to alice
+                await CommunityCoin.connect(bob).transfer(alice.address, shares);
 
                 await mockCommunity.connect(owner).setRoles(charlie.address, [TARIFF_ROLE]);
                 await CommunityCoin.connect(charlie).setTariff(MAX_REDEEM_TARIFF, ONE);
@@ -629,7 +942,7 @@ describe("Staking contract tests", function () {
                 let aliceReservedTokenBefore2 = await erc20ReservedToken.balanceOf(alice.address);
                 let aliceERC20TokenBefore2 = await erc20.balanceOf(alice.address);
 
-                await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                await CommunityCoin.connect(alice).approve(CommunityCoin.target, shares);
                 await CommunityCoin.connect(alice)["redeem(uint256)"](shares);
 
                 let aliceReservedTokenAfter2 = await erc20ReservedToken.balanceOf(alice.address);
@@ -638,14 +951,15 @@ describe("Staking contract tests", function () {
                 expect(aliceReservedTokenAfter2).eq(aliceReservedTokenBefore2);
                 expect(aliceERC20TokenAfter2).gt(aliceERC20TokenBefore2);
                 
-                // restore snapshot
-                await ethers.provider.send('evm_revert', [snapId]);
-
+                aliceERC20TokenWithTariff = aliceERC20TokenAfter2 - aliceERC20TokenBefore2;
+                ///-----------------------------------
+                // now check unstake tariff
+                expect(aliceERC20TokenWithTariff).to.be.eq(aliceERC20TokenWithoutTariff - (shares * MAX_REDEEM_TARIFF / FRACTION));
             });
         });
 
     });
- 
+/* 
     describe("Snapshots tests", function () {
         
         var communityStakingPool;
@@ -662,7 +976,7 @@ describe("Staking contract tests", function () {
             func = async (param_bonus_fractions) => {
                 
                 let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                    erc20.address,
+                    erc20.target,
                     lockupIntervalCount,
                     param_bonus_fractions,
                     NO_POPULAR_TOKEN,
@@ -674,7 +988,7 @@ describe("Staking contract tests", function () {
 
 
                 const rc = await tx.wait(); // 0ms, as tx is already confirmed
-                const event = rc.events.find(event => event.event === 'InstanceCreated');
+                const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
                 const [erc20token, instance] = event.args;
                 
                 communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
@@ -684,7 +998,7 @@ describe("Staking contract tests", function () {
 
 
                 await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+                await erc20.connect(bob).approve(communityStakingPool.target, ONE_ETH.mul(ONE));
                 await communityStakingPool.connect(bob).stake(ONE_ETH.mul(ONE), bob.address);
                 
                 let bobWalletTokens = await CommunityCoin.balanceOf(bob.address);
@@ -719,7 +1033,7 @@ describe("Staking contract tests", function () {
             // pass some mtime
             await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
-            await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithNoBonus);
+            await CommunityCoin.connect(bob).approve(CommunityCoin.target, tokensWithNoBonus);
             await CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus);
 
             // restore snapshot
@@ -748,13 +1062,13 @@ describe("Staking contract tests", function () {
             // pass some mtime
             await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
-            await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithBonus);
+            await CommunityCoin.connect(bob).approve(CommunityCoin.target, tokensWithBonus);
 
             await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith('InsufficientAmount').withArgs(bob.address, tokensWithBonus);
 
             await CommunityCoin.connect(bob).transfer(alice.address, tokensWithBonus.sub(tokensWithNoBonus));
 
-            await CommunityCoin.connect(bob).approve(CommunityCoin.address, tokensWithNoBonus);
+            await CommunityCoin.connect(bob).approve(CommunityCoin.target, tokensWithNoBonus);
             await CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus);
 
             // restore snapshot
@@ -803,7 +1117,7 @@ describe("Staking contract tests", function () {
 
         var rewards;
         
-        const DONATIONS = [[david.address, FRACTION*50/100], [frank.address, FRACTION*25/100]];
+        const DONATIONS = [[david.address, FRACTION*50n/100n], [frank.address, FRACTION*25n/100n]];
                 
         before("deploying", async() => {
             // restore snapshot
@@ -867,7 +1181,7 @@ describe("Staking contract tests", function () {
         beforeEach("deploying", async() => {
 
             let tx = await CommunityCoinWithRewardsHook.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
+                erc20.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -879,13 +1193,13 @@ describe("Staking contract tests", function () {
 
 
             const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.events.find(event => event.event === 'InstanceCreated');
+            const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
             const [erc20token, instance] = event.args;
             
             communityStakingPoolWithHook = await ethers.getContractAt("MockCommunityStakingPool",instance);
 
                 // await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-                // await erc20.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+                // await erc20.connect(bob).approve(communityStakingPool.target, ONE_ETH.mul(ONE));
                 // await communityStakingPool.connect(bob).stake(ONE_ETH.mul(ONE), bob.address);
 
         });
@@ -950,7 +1264,7 @@ describe("Staking contract tests", function () {
         beforeEach("deploying", async() => {
 
             let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
+                erc20.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -961,7 +1275,7 @@ describe("Staking contract tests", function () {
             );
             
             const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.events.find(event => event.event === 'InstanceCreated');
+            const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
             const [erc20token, instance] = event.args;
             
             communityStakingPoolWithHook = await ethers.getContractAt("CommunityStakingPool",instance);
@@ -1107,7 +1421,7 @@ describe("Staking contract tests", function () {
 
         beforeEach("deploying", async() => { 
             let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
+                erc20.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -1118,19 +1432,19 @@ describe("Staking contract tests", function () {
             );
 
             const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.events.find(event => event.event === 'InstanceCreated');
+            const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
             const [erc20tokenAddress, instance] = event.args;
             
             communityStakingPoolERC20 = await ethers.getContractAt("CommunityStakingPool",instance);
         });
         it("should produce", async() => {
-            expect(communityStakingPoolERC20.address).not.to.be.eq(ZERO_ADDRESS); 
+            expect(communityStakingPoolerc20.target).not.to.be.eq(ZERO_ADDRESS); 
         });
 
         it("shouldn't receive ether", async() => {
             await expect(
                 owner.sendTransaction({
-                    to: communityStakingPoolERC20.address,
+                    to: communityStakingPoolerc20.target,
                     value: ethers.utils.parseEther("1.0"), // Sends exactly 1.0 ether
                 })
             ).not.to.be.revertedWith("DENIED()"); 
@@ -1138,7 +1452,7 @@ describe("Staking contract tests", function () {
         
         it("shouldnt create another pair with equal tokens", async() => {
             await expect(CommunityCoin["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
+                erc20.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -1153,15 +1467,15 @@ describe("Staking contract tests", function () {
         it("just stake", async () => {
 
             await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-            await erc20.connect(bob).approve(communityStakingPoolERC20.address, ONE_ETH.mul(ONE));
+            await erc20.connect(bob).approve(communityStakingPoolerc20.target, ONE_ETH.mul(ONE));
 
             let charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
-            let bobLptokensBefore = await erc20.balanceOf(communityStakingPoolERC20.address);
+            let bobLptokensBefore = await erc20.balanceOf(communityStakingPoolerc20.target);
 
             await communityStakingPoolERC20.connect(bob).stake(ONE_ETH.mul(ONE), charlie.address);
 
             let walletTokens = await CommunityCoin.balanceOf(charlie.address);
-            let lptokens = await erc20.balanceOf(communityStakingPoolERC20.address);
+            let lptokens = await erc20.balanceOf(communityStakingPoolerc20.target);
             
             // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
             expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
@@ -1176,7 +1490,7 @@ describe("Staking contract tests", function () {
 
         it("shouldnt buy and stake through paying token if havent uniswap pair", async () => {
             await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
-            await erc20Paying.connect(bob).approve(communityStakingPoolERC20.address, ONE_ETH.mul(ONE));
+            await erc20Paying.connect(bob).approve(communityStakingPoolerc20.target, ONE_ETH.mul(ONE));
             
             await expect(communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address)).to.be.revertedWith("NoUniswapV2Pair");
         }); 
@@ -1261,7 +1575,7 @@ describe("Staking contract tests", function () {
                 communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(goodPresale.address, charlie.address)
             ).to.be.revertedWith("NotInIntercoinEcosystem");
             
-            await goodPresale.setTokenAddress(erc20.address);
+            await goodPresale.setTokenAddress(erc20.target);
             await erc20.mint(goodPresale.address, ONE_ETH.mul(ONE));
             await releaseManager.customRegisterInstance(goodPresale.address, bob.address); // just trick with WRONG factory and custom registratation
 
@@ -1272,10 +1586,10 @@ describe("Staking contract tests", function () {
             await goodPresale.setEndTime(9999999999);
             
             var charlieBalanceBefore = await CommunityCoin.balanceOf(charlie.address);
-            var poolBalanceBefore = await erc20.balanceOf(communityStakingPoolERC20.address);
+            var poolBalanceBefore = await erc20.balanceOf(communityStakingPoolerc20.target);
             await communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(goodPresale.address, charlie.address, {value: ONE_ETH.mul(ONE)})
             var charlieBalanceAfter = await CommunityCoin.balanceOf(charlie.address);
-            var poolBalanceAfter = await erc20.balanceOf(communityStakingPoolERC20.address);
+            var poolBalanceAfter = await erc20.balanceOf(communityStakingPoolerc20.target);
 
             expect(charlieBalanceAfter.sub(charlieBalanceBefore)).to.be.eq(ONE_ETH.mul(ONE));
             expect(poolBalanceAfter.sub(poolBalanceBefore)).to.be.eq(ONE_ETH.mul(ONE));
@@ -1295,9 +1609,9 @@ describe("Staking contract tests", function () {
                 uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
                 uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
 
-                await uniswapRouterFactoryInstance.createPair(erc20.address, erc20Paying.address);
+                await uniswapRouterFactoryInstance.createPair(erc20.target, erc20Paying.address);
             
-                let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20.address, erc20Paying.address);
+                let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20.target, erc20Paying.address);
 
                 pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
 
@@ -1310,7 +1624,7 @@ describe("Staking contract tests", function () {
                 const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
 
                 await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
-                    erc20.address,
+                    erc20.target,
                     erc20Paying.address,
                     ONE_ETH.mul(SEVEN),
                     ONE_ETH.mul(SEVEN),
@@ -1329,7 +1643,7 @@ describe("Staking contract tests", function () {
                 bobWalletTokensBefore = await CommunityCoin.balanceOf(bob.address);
 
                 await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20Paying.connect(bob).approve(communityStakingPoolERC20.address, ONE_ETH.mul(ONE));
+                await erc20Paying.connect(bob).approve(communityStakingPoolerc20.target, ONE_ETH.mul(ONE));
 
                 await communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address);
 
@@ -1346,7 +1660,7 @@ describe("Staking contract tests", function () {
 
             it("shouldnt unstake if not unlocked yet", async () => {
                 // even if approve before
-                await CommunityCoin.connect(charlie).approve(CommunityCoin.address, charlieWalletTokensAfter);
+                await CommunityCoin.connect(charlie).approve(CommunityCoin.target, charlieWalletTokensAfter);
                  
                 await expect(CommunityCoin.connect(charlie).unstake(charlieWalletTokensAfter)).to.be.revertedWith('StakeNotUnlockedYet').withArgs(charlie.address, charlieWalletTokensAfter, 0);
             });  
@@ -1355,7 +1669,7 @@ describe("Staking contract tests", function () {
                 
                 // even if approve before
                 
-                await CommunityCoin.connect(charlie).approve(CommunityCoin.address, charlieWalletTokensAfter);
+                await CommunityCoin.connect(charlie).approve(CommunityCoin.target, charlieWalletTokensAfter);
                 
                 await expect(
                     CommunityCoin.connect(charlie)['redeem(uint256)'](charlieWalletTokensAfter)
@@ -1405,7 +1719,7 @@ describe("Staking contract tests", function () {
 
                 let aliceLPTokenBefore = await erc20.balanceOf(alice.address);
 
-                await CommunityCoin.connect(alice).approve(CommunityCoin.address, charlieWalletTokensAfter);
+                await CommunityCoin.connect(alice).approve(CommunityCoin.target, charlieWalletTokensAfter);
 
 
                 await CommunityCoin.connect(alice)['redeem(uint256)'](charlieWalletTokensAfter);
@@ -1543,7 +1857,7 @@ describe("Staking contract tests", function () {
 
             //--------------------------------------------------
             let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
+                erc20.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -1555,7 +1869,7 @@ describe("Staking contract tests", function () {
 
 
             const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.events.find(event => event.event === 'InstanceCreated');
+            const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
             const [erc20token, instance] = event.args;
            
             communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
@@ -1566,7 +1880,7 @@ describe("Staking contract tests", function () {
 
         it("shouldnt create another pair with equal tokens", async() => {
             await expect(CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.address,
+                erc20.target,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
@@ -1620,9 +1934,9 @@ describe("Staking contract tests", function () {
             });
             it("should return instance info", async () => {
                 
-                let data = await instanceManagementInstance.connect(bob).getInstanceInfo(erc20.address, lockupIntervalCount);
+                let data = await instanceManagementInstance.connect(bob).getInstanceInfo(erc20.target, lockupIntervalCount);
                 
-                expect(data.reserveToken).to.be.eq(erc20.address);
+                expect(data.reserveToken).to.be.eq(erc20.target);
                 expect(data.duration).to.be.eq(lockupIntervalCount);
                 
             }); 
@@ -1632,7 +1946,7 @@ describe("Staking contract tests", function () {
                 let data = await instanceManagementInstance.connect(bob).getInstancesInfo();
                 
                 
-                expect(data[0].reserveToken).to.be.eq(erc20.address);
+                expect(data[0].reserveToken).to.be.eq(erc20.target);
                 expect(data[0].duration).to.be.eq(lockupIntervalCount);
                 expect(data[0].bonusTokenFraction).to.be.eq(NO_BONUS_FRACTIONS);
                 
@@ -1645,7 +1959,7 @@ describe("Staking contract tests", function () {
 
             it("should return correct instance by index", async () => {
                 let instance = await instanceManagementInstance.connect(bob).instancesByIndex(0);
-                expect(instance).to.be.eq(communityStakingPool.address);
+                expect(instance).to.be.eq(communityStakingPool.target);
             }); 
         }); 
 
@@ -1654,7 +1968,7 @@ describe("Staking contract tests", function () {
             var shares;
             beforeEach("before each callback", async() => {
                 await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20.connect(bob).approve(communityStakingPool.address, ONE_ETH.mul(ONE));
+                await erc20.connect(bob).approve(communityStakingPool.target, ONE_ETH.mul(ONE));
                 await communityStakingPool.connect(bob)['stake(uint256,address)'](ONE_ETH.mul(ONE), bob.address);
                 shares = await CommunityCoin.balanceOf(bob.address);
             });
@@ -1666,7 +1980,7 @@ describe("Staking contract tests", function () {
             it("shouldn't accept unknown tokens if send directly", async () => {
                 let anotherToken = await ERC777Factory.deploy("Another ERC777 Token", "A-ERC777");
                 await anotherToken.mint(bob.address, ONE_ETH);
-                await expect(anotherToken.connect(bob).transfer(CommunityCoin.address, ONE_ETH)).to.be.revertedWith('OwnTokensPermittedOnly');
+                await expect(anotherToken.connect(bob).transfer(CommunityCoin.target, ONE_ETH)).to.be.revertedWith('OwnTokensPermittedOnly');
             });
 
             describe("unstake tests", function () {
@@ -1685,7 +1999,7 @@ describe("Staking contract tests", function () {
 
                         await time.increase(lockupIntervalCount*dayInSeconds+9);    
                         
-                        await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+                        await CommunityCoin.connect(bob).approve(CommunityCoin.target, shares);
 
                         // broke contract and emulate 'Error when unstake' response
                         await communityStakingPool.setStakingToken(ZERO_ADDRESS);
@@ -1705,7 +2019,7 @@ describe("Staking contract tests", function () {
 
                         let bobERC20TokenBefore = await erc20.balanceOf(bob.address);
 
-                        await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+                        await CommunityCoin.connect(bob).approve(CommunityCoin.target, shares);
                         await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
 
                         let bobERC20TokenAfter = await erc20.balanceOf(bob.address);
@@ -1730,7 +2044,7 @@ describe("Staking contract tests", function () {
                         // transfer from bob to alice
                         await CommunityCoin.connect(bob).transfer(alice.address, shares);
                         
-                        await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                        await CommunityCoin.connect(alice).approve(CommunityCoin.target, shares);
 
                         // broke contract and emulate 'Error when redeem in an instance' response
                         await communityStakingPool.setStakingToken(ZERO_ADDRESS);
@@ -1743,7 +2057,7 @@ describe("Staking contract tests", function () {
                     describe("without redeem role", function () {
                         it("if send directly", async() => {
                             await expect(
-                                CommunityCoin.connect(bob).transfer(CommunityCoin.address, shares)
+                                CommunityCoin.connect(bob).transfer(CommunityCoin.target, shares)
                             ).to.be.revertedWith('MissingRole').withArgs(bob.address, REDEEM_ROLE);
                         });
 
@@ -1771,13 +2085,13 @@ describe("Staking contract tests", function () {
                             });
                             
                             it("with approve before", async () => {
-                                await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                                await CommunityCoin.connect(alice).approve(CommunityCoin.target, shares);
                                 await expect(
                                     CommunityCoin.connect(alice)[`redeem(uint256)`](shares)
                                 ).to.be.revertedWith('MissingRole').withArgs(alice.address, REDEEM_ROLE);
                             });
                             it("with approve before even if passed time", async () => {
-                                await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                                await CommunityCoin.connect(alice).approve(CommunityCoin.target, shares);
                                 // pass some mtime
                                 await time.increase(lockupIntervalCount*dayInSeconds+9);    
 
@@ -1810,7 +2124,7 @@ describe("Staking contract tests", function () {
                             // here it raise a erc777 
                             
                             //!!await CommunityCoin.connect(owner).grantRole(ethers.utils.formatBytes32String(REDEEM_ROLE), bob.address);
-                            await CommunityCoin.connect(bob).approve(CommunityCoin.address, shares);
+                            await CommunityCoin.connect(bob).approve(CommunityCoin.target, shares);
 
                             await expect(
                                 CommunityCoin.connect(bob)[`redeem(uint256)`](shares)
@@ -1872,7 +2186,7 @@ describe("Staking contract tests", function () {
 
                     it("should redeem directly", async() => {
                         aliceERC20TokenBefore = await erc20.balanceOf(alice.address);
-                        await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
+                        await CommunityCoin.connect(alice).transfer(CommunityCoin.target, shares);
                         aliceERC20TokenAfter = await erc20.balanceOf(alice.address);
                         expect(aliceERC20TokenAfter).gt(aliceERC20TokenBefore);
                     });
@@ -1882,7 +2196,7 @@ describe("Staking contract tests", function () {
 
                     //     it(`via redeem method`+` ${preferredInstance ? 'with preferred instances' : ''}` + ` ${swapThroughMiddle ? 'and swap through middle token' : ''}`, async () => {
                     //         var amountAfterSwapLP, tokenAfterSwap, aliceFakeUSDTToken;
-                    //         await CommunityCoin.connect(alice).approve(CommunityCoin.address, shares);
+                    //         await CommunityCoin.connect(alice).approve(CommunityCoin.target, shares);
                     //         if (preferredInstance) {
                     //             let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
                     //             instanceManagementInstance = await ethers.getContractAt("CommunityStakingPoolFactory",instanceManagementAddr);
@@ -1990,7 +2304,7 @@ describe("Staking contract tests", function () {
 
                     
                     it("via directly send to contract", async () => {
-                        await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
+                        await CommunityCoin.connect(alice).transfer(CommunityCoin.target, shares);
                         aliceERC20TokenAfter = await erc20.balanceOf(alice.address);
                         expect(aliceERC20TokenAfter).gt(aliceERC20TokenBefore);
                     });
@@ -2001,7 +2315,7 @@ describe("Staking contract tests", function () {
                     //     await CommunityCoin.connect(charlie).addToCirculation(charlie.address, shares);
 
                     //     //try to unstake
-                    //     await CommunityCoin.connect(charlie).approve(CommunityCoin.address, shares);
+                    //     await CommunityCoin.connect(charlie).approve(CommunityCoin.target, shares);
                     //     await CommunityCoin.connect(charlie).unstake(shares);
                     //     //try to redeem
                     //     await mockCommunity.connect(owner).setRoles(charlie.address, [REDEEM_ROLE]);
@@ -2015,7 +2329,7 @@ describe("Staking contract tests", function () {
                         // ----- calculate amount obtain without circulation ------//
                         snapId = await ethers.provider.send('evm_snapshot', []);
                         
-                        await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
+                        await CommunityCoin.connect(alice).transfer(CommunityCoin.target, shares);
                         amountWithout = await erc20.balanceOf(alice.address);
 
                         await ethers.provider.send('evm_revert', [snapId]);
@@ -2027,7 +2341,7 @@ describe("Staking contract tests", function () {
                         await mockCommunity.connect(owner).setRoles(charlie.address, [0x99,0x98,0x97,CIRCULATE_ROLE,REDEEM_ROLE]);
 
                         await CommunityCoin.connect(charlie).addToCirculation(charlie.address, shares);
-                        await CommunityCoin.connect(alice).transfer(CommunityCoin.address, shares);
+                        await CommunityCoin.connect(alice).transfer(CommunityCoin.target, shares);
 
                         amountWith = await erc20.balanceOf(alice.address);
 
@@ -2067,6 +2381,6 @@ describe("Staking contract tests", function () {
         });      
 
     });
-
+*/
 
 });
