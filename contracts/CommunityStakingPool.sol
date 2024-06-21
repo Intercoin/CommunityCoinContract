@@ -47,6 +47,8 @@ contract CommunityStakingPool is Initializable,
 
     uint64 public constant FRACTION = 100000;
 
+    address public constant MAGIC_ADDRESS = 0x1000000000000000000000000000000000000000;
+
     /**
      * @custom:shortd rate of rewards that can be used on external tokens like RewardsContract (multiplied by `FRACTION`)
      * @notice rate of rewards calculated by formula amount = amount * rate.
@@ -347,28 +349,41 @@ contract CommunityStakingPool is Initializable,
             // }
         }
     }
-
+ 
     function _stake(
         address addr,
         uint256 amount,
         uint256 priceBeforeStake
     ) internal virtual {
-        uint256 left = amount;
+
+        uint256 toDonate;
+        uint256 toLiquidity;
+
         if (donations.length != 0) {
             uint256 tmpAmount;
             for (uint256 i = 0; i < donations.length; i++) {
                 tmpAmount = (amount * donations[i].amount) / FRACTION;
                 if (tmpAmount > 0) {
-
-                    IERC20Upgradeable(stakingToken).transfer(donations[i].account, tmpAmount);
-
+                    if (donations[i].account == MAGIC_ADDRESS) {
+                        //liquidity section
+                        toLiquidity += tmpAmount;
+                    } else {
+                        //donate section
+                        IERC20Upgradeable(stakingToken).transfer(donations[i].account, tmpAmount);
+                        toDonate += tmpAmount;
+                    }
                     emit Donated(addr, donations[i].account, tmpAmount);
-                    left -= tmpAmount;
                 }
             }
         }
 
-        ICommunityCoin(stakingProducedBy).issueCommunityCoins(addr, left, priceBeforeStake, amount-left);
+        ICommunityCoin(stakingProducedBy).issueCommunityCoins(
+            addr, 
+            amount - toDonate - toLiquidity, 
+            priceBeforeStake, 
+            toDonate,
+            toLiquidity
+        );
     }
 
     ////////////////////////////////////////////////////////////////////////

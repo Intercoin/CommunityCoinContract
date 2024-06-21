@@ -226,6 +226,8 @@ contract CommunityCoin is
      * @param account address of user that tokens will mint for
      * @param amount token's amount
      * @param priceBeforeStake price that was before adding liquidity in pool
+     * @param donatedAmount if positive and Donation hook was defined then just call onDonate method and that all
+     * @param liquidityAmount if positive then this amount need to be lest on pool.
      * @custom:calledby staking-pool
      * @custom:shortd distribute wallet tokens
      */
@@ -233,7 +235,8 @@ contract CommunityCoin is
         address account,
         uint256 amount,
         uint256 priceBeforeStake,
-        uint256 donatedAmount
+        uint256 donatedAmount,
+        uint256 liquidityAmount
     ) external override {
         address instance = msg.sender; //here need a msg.sender as a real sender.
 
@@ -250,84 +253,94 @@ contract CommunityCoin is
             return;
         }
 
+        if (liquidityAmount > 0) {
+            //forward conversion( LP -> СС)
+            liquidityAmount = (liquidityAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+            _instances[instance]._instanceStaked += liquidityAmount;
+            
+            total.totalUnstakeable += liquidityAmount;
+            total.totalReserves += liquidityAmount;
+        }
 
-        // calculate bonusAmount
-        uint256 bonusAmount = (amount * instanceInfo.bonusTokenFraction) / FRACTION;
+        if (amount > 0) {
+            // calculate bonusAmount
+            uint256 bonusAmount = (amount * instanceInfo.bonusTokenFraction) / FRACTION;
 
-        // calculate invitedAmount
-        address invitedBy = address(0);
-        uint256 invitedAmount = 0;
+            // calculate invitedAmount
+            address invitedBy = address(0);
+            uint256 invitedAmount = 0;
 
-        if (invitedByFraction != 0) {
-            invitedBy = _invitedBy(account);
+            if (invitedByFraction != 0) {
+                invitedBy = _invitedBy(account);
+
+                if (invitedBy != address(0)) {
+                    //do invite comission calculation here
+                    invitedAmount = (amount * invitedByFraction) / FRACTION;
+                }
+            }
+
+            //forward conversion( LP -> СС)
+            amount = (amount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+            bonusAmount = (bonusAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+            invitedAmount = (invitedAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+
+            // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
+            // also keep in mind that user can unstake only unstakeable[account].total which saved w/o bonusTokens, but minimums and mint with it.
+            // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
+            // amount += bonusAmount;
+
+            _instances[instance]._instanceStaked += amount; // + bonusAmount + invitedAmount;
+
+            _instances[instance].unstakeable[account] += amount;
+            users[account].unstakeable += amount;
+
+            // _instances[instance].unstakeableBonuses[account] += bonusAmount;
+            // users[account].unstakeableBonuses += bonusAmount;
+            _insertBonus(instance, account, bonusAmount);
+
+            total.totalUnstakeable += amount;
+            total.totalReserves += amount;
 
             if (invitedBy != address(0)) {
-                //do invite comission calculation here
-                invitedAmount = (amount * invitedByFraction) / FRACTION;
+                // _instances[instance].unstakeableBonuses[invitedBy] += invitedAmount;
+                // users[invitedBy].unstakeableBonuses += invitedAmount;
+                _insertBonus(instance, invitedBy, invitedAmount);
             }
-        }
 
-        //forward conversion( LP -> СС)
-        amount = (amount * (instanceInfo.numerator)) / (instanceInfo.denominator);
-        bonusAmount = (bonusAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
-        invitedAmount = (invitedAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+            // mint main part + bonus (@dev here bonus can be zero )
+            _mint(account, (amount + bonusAmount), "", "");
+            emit Staked(account, (amount + bonusAmount), priceBeforeStake);
+            // locked main
+            //users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+            MinimumsLib._minimumsAdd(users[account].tokensLocked, amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
 
-        // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
-        // also keep in mind that user can unstake only unstakeable[account].total which saved w/o bonusTokens, but minimums and mint with it.
-        // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
-        // amount += bonusAmount;
-
-        _instances[instance]._instanceStaked += amount; // + bonusAmount + invitedAmount;
-
-        _instances[instance].unstakeable[account] += amount;
-        users[account].unstakeable += amount;
-
-        // _instances[instance].unstakeableBonuses[account] += bonusAmount;
-        // users[account].unstakeableBonuses += bonusAmount;
-        _insertBonus(instance, account, bonusAmount);
-
-        total.totalUnstakeable += amount;
-        total.totalReserves += amount;
-
-        if (invitedBy != address(0)) {
-            // _instances[instance].unstakeableBonuses[invitedBy] += invitedAmount;
-            // users[invitedBy].unstakeableBonuses += invitedAmount;
-            _insertBonus(instance, invitedBy, invitedAmount);
-        }
-
-        // mint main part + bonus (@dev here bonus can be zero )
-        _mint(account, (amount + bonusAmount), "", "");
-        emit Staked(account, (amount + bonusAmount), priceBeforeStake);
-        // locked main
-        //users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
-        MinimumsLib._minimumsAdd(users[account].tokensLocked, amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
-
-        _accountForOperation(
-            OPERATION_ISSUE_COMMUNITY_COINS << OPERATION_SHIFT_BITS,
-            uint256(uint160(account)),
-            amount + bonusAmount
-        );
-
-        // locked main
-        if (bonusAmount > 0) {
-            //users[account].tokensBonus._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
-            MinimumsLib._minimumsAdd(users[account].tokensBonus, bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             _accountForOperation(
-                OPERATION_ISSUE_COMMUNITY_COINS_BONUS << OPERATION_SHIFT_BITS,
+                OPERATION_ISSUE_COMMUNITY_COINS << OPERATION_SHIFT_BITS,
                 uint256(uint160(account)),
-                bonusAmount
+                amount + bonusAmount
             );
-        }
 
-        if (invitedBy != address(0)) {
-            _mint(invitedBy, invitedAmount, "", "");
-            //users[invitedBy].tokensBonus._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
-            MinimumsLib._minimumsAdd(users[invitedBy].tokensBonus, invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
-            _accountForOperation(
-                OPERATION_ISSUE_COMMUNITY_COINS_BY_INVITE << OPERATION_SHIFT_BITS,
-                uint256(uint160(invitedBy)),
-                invitedAmount
-            );
+            // locked main
+            if (bonusAmount > 0) {
+                //users[account].tokensBonus._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+                MinimumsLib._minimumsAdd(users[account].tokensBonus, bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+                _accountForOperation(
+                    OPERATION_ISSUE_COMMUNITY_COINS_BONUS << OPERATION_SHIFT_BITS,
+                    uint256(uint160(account)),
+                    bonusAmount
+                );
+            }
+
+            if (invitedBy != address(0)) {
+                _mint(invitedBy, invitedAmount, "", "");
+                //users[invitedBy].tokensBonus._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+                MinimumsLib._minimumsAdd(users[invitedBy].tokensBonus, invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+                _accountForOperation(
+                    OPERATION_ISSUE_COMMUNITY_COINS_BY_INVITE << OPERATION_SHIFT_BITS,
+                    uint256(uint160(invitedBy)),
+                    invitedAmount
+                );
+            }
         }
     }
 
