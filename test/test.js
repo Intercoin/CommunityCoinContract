@@ -959,56 +959,58 @@ describe("Staking contract tests", function () {
         });
 
     });
-/* 
+
     describe("Snapshots tests", function () {
         
-        var communityStakingPool;
-        
-        var func;
+        var func = async (fixtures, param_bonus_fractions) => {
 
-        before("deploying", async() => {
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
-        });
+            const {
+                owner,
+                bob,
+                CommunityCoin,
+                erc20,
+                lockupIntervalCount,
+                NO_POPULAR_TOKEN,
+                NO_DONATIONS,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            } = fixtures;
 
-        beforeEach("deploying", async() => {
-
-            func = async (param_bonus_fractions) => {
-                
-                let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                    erc20.target,
-                    lockupIntervalCount,
-                    param_bonus_fractions,
-                    NO_POPULAR_TOKEN,
-                    NO_DONATIONS,
-                    rewardsRateFraction,
-                    numerator,
-                    denominator
-                );
-
-
-                const rc = await tx.wait(); // 0ms, as tx is already confirmed
-                const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
-                const [erc20token, instance] = event.args;
-                
-                communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
-                //console.log("before each №2");
-                
-                //--------------------------------------------------------
+            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+                erc20.target,
+                lockupIntervalCount,
+                param_bonus_fractions,
+                NO_POPULAR_TOKEN,
+                NO_DONATIONS,
+                rewardsRateFraction,
+                numerator,
+                denominator
+            );
 
 
-                await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20.connect(bob).approve(communityStakingPool.target, ONE_ETH.mul(ONE));
-                await communityStakingPool.connect(bob).stake(ONE_ETH.mul(ONE), bob.address);
-                
-                let bobWalletTokens = await CommunityCoin.balanceOf(bob.address);
-
-                return bobWalletTokens;
-
-            }
+            const rc = await tx.wait(); // 0ms, as tx is already confirmed
+            const event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
+            const [erc20token, instance] = event.args;
             
-        });
+            const communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
+            //console.log("before each №2");
+            
+            //--------------------------------------------------------
 
+            const amount = ethers.parseEther('1');
+            await erc20.mint(bob.address, amount);
+            await erc20.connect(bob).approve(communityStakingPool.target, amount);
+            await communityStakingPool.connect(bob).stake(amount, bob.address);
+            
+            const bobWalletTokens = await CommunityCoin.balanceOf(bob.address);
+
+            return {...fixtures, ...{
+                bobWalletTokens
+            }};
+
+        }
+          
         it("Bonus tests::stake (Bonus:50%)", async () => {
 
             // here we: 
@@ -1019,31 +1021,45 @@ describe("Staking contract tests", function () {
             // - store them in `tokensWithBonus`
             // - validate that bonus token shouldn't be unstaked even if duration pass
             // - validate that bonus token can be transfer and consuming in first order
+            //
+            // UPD remade to use fixture instead calling manual snapshot set and revert
+            const res = await loadFixture(deploy);
+            const {NO_BONUS_FRACTIONS} = res;
+            //---first
+            var x = await func(res, NO_BONUS_FRACTIONS);
+            var {
+                bob,
+                CommunityCoin,
+                FRACTION,
+                lockupIntervalCount,
+                dayInSeconds,
+            } = x;
+            var tokensWithNoBonus = x.bobWalletTokens;
 
-
-            let snapId;
-
-            // make snapshot before time manipulations
-            snapId = await ethers.provider.send('evm_snapshot', []);
-            let tokensWithNoBonus = await func(NO_BONUS_FRACTIONS);
-
-            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWith('StakeNotUnlockedYet').withArgs(bob.address, tokensWithNoBonus, 0);
-            
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWithCustomError(CommunityCoin, 'StakeNotUnlockedYet').withArgs(bob.address, tokensWithNoBonus, 0);
 
             // pass some mtime
-            await time.increase(lockupIntervalCount*dayInSeconds+9);    
+            await time.increase(lockupIntervalCount*dayInSeconds+9n);    
 
             await CommunityCoin.connect(bob).approve(CommunityCoin.target, tokensWithNoBonus);
             await CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus);
 
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
-            //--------------------------------------------------------------
-            snapId = await ethers.provider.send('evm_snapshot', []);
-            let tokensWithBonus = await func(BONUS_FRACTIONS, ZERO, ZERO_ADDRESS);
+            //---second
+            const res2 = await loadFixture(deploy);
+            const {BONUS_FRACTIONS} = res2;
+            var x2 = await func(res, BONUS_FRACTIONS);
+            var {
+                alice,
+                bob,
+                CommunityCoin,
+                FRACTION,
+                lockupIntervalCount,
+                dayInSeconds
+            } = x2;
+            var tokensWithBonus = x2.bobWalletTokens;
 
-            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWith('StakeNotUnlockedYet').withArgs(bob.address, tokensWithNoBonus, tokensWithNoBonus.div(TWO));
-            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith('StakeNotUnlockedYet').withArgs(bob.address, tokensWithNoBonus, 0);
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus)).to.be.revertedWithCustomError(CommunityCoin, 'StakeNotUnlockedYet').withArgs(bob.address, tokensWithNoBonus, tokensWithNoBonus / 2n);
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWithCustomError(CommunityCoin, 'StakeNotUnlockedYet').withArgs(bob.address, tokensWithNoBonus, 0n);
 
             ////// validate `viewLockedWalletTokens` and `viewLockedWalletTokensList`
             let bobSharesAfter = await CommunityCoin.balanceOf(bob.address);
@@ -1056,63 +1072,73 @@ describe("Staking contract tests", function () {
             expect(bobLockedBalanceAfter).to.be.eq(tokensWithBonus);
 
             expect(tokensWithNoBonus).to.be.eq(bobLockedListAfter[0][0]);
-            expect(tokensWithBonus.sub(tokensWithNoBonus)).to.be.eq(bobBonusesListAfter[0][0]);
+            expect(tokensWithBonus - tokensWithNoBonus).to.be.eq(bobBonusesListAfter[0][0]);
             ////// ENDOF validate `viewLockedWalletTokens` and `viewLockedWalletTokensList`
             
             // pass some mtime
-            await time.increase(lockupIntervalCount*dayInSeconds+9);    
-
+            await time.increase(lockupIntervalCount * dayInSeconds + 9n);    
             await CommunityCoin.connect(bob).approve(CommunityCoin.target, tokensWithBonus);
+            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWithCustomError(CommunityCoin, 'InsufficientAmount').withArgs(bob.address, tokensWithBonus);
 
-            await expect(CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithBonus)).to.be.revertedWith('InsufficientAmount').withArgs(bob.address, tokensWithBonus);
-
-            await CommunityCoin.connect(bob).transfer(alice.address, tokensWithBonus.sub(tokensWithNoBonus));
+            await CommunityCoin.connect(bob).transfer(alice.address, tokensWithBonus - tokensWithNoBonus);
 
             await CommunityCoin.connect(bob).approve(CommunityCoin.target, tokensWithNoBonus);
             await CommunityCoin.connect(bob)["unstake(uint256)"](tokensWithNoBonus);
 
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
+            ///////////////////////
 
             // finally check correct amount of bonuses
-            let expectedBonusAmount = tokensWithNoBonus.mul(BONUS_FRACTIONS).div(FRACTION);
-            expect(tokensWithBonus).to.be.eq(tokensWithNoBonus.add(expectedBonusAmount));
+            let expectedBonusAmount = tokensWithNoBonus * BONUS_FRACTIONS / FRACTION;
+            expect(tokensWithBonus).to.be.eq(tokensWithNoBonus + expectedBonusAmount);
 
         });  
 
         it("InvitedBy tests", async () => {
-            let snapId, bobTokens, aliceTokens;
+            let bobTokens, aliceTokens;
 
-            // make snapshot before time manipulations
-            snapId = await ethers.provider.send('evm_snapshot', []);
+            //await func(NO_BONUS_FRACTIONS, ZERO, ZERO_ADDRESS);
+            const res = await loadFixture(deploy);
+            var {NO_BONUS_FRACTIONS} = res;
+            //---first
+            var x = await func(res, NO_BONUS_FRACTIONS);
+            var {
+                alice,
+                bob,
+                CommunityCoin,
+                FRACTION
+            } = x;
 
-            await func(NO_BONUS_FRACTIONS, ZERO, ZERO_ADDRESS);
             bobTokens = await CommunityCoin.balanceOf(bob.address);
             aliceTokens = await CommunityCoin.balanceOf(alice.address);
 
             expect(bobTokens).not.to.be.eq(aliceTokens);
-
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
-
+            //-----------------------------------------------------
+            //second
+            const res2 = await loadFixture(deploy);
+            var {
+                owner,
+                alice,
+                bob,
+                mockCommunity,
+                CommunityCoin,
+                FRACTION,
+                NO_BONUS_FRACTIONS
+            } = res2;
+            //invited
             await CommunityCoin.connect(owner).setCommission(FRACTION);
             await mockCommunity.setInvitedBy(alice.address, bob.address);
-            
-            // make snapshot before time manipulations
-            snapId = await ethers.provider.send('evm_snapshot', []);
-            await func(NO_BONUS_FRACTIONS, ZERO, ZERO_ADDRESS);
+
+            await func(res, NO_BONUS_FRACTIONS);
 
             bobTokens = await CommunityCoin.balanceOf(bob.address);
             aliceTokens = await CommunityCoin.balanceOf(alice.address);
 
             expect(bobTokens).to.be.eq(aliceTokens); // invitedBy - 100%
-
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
+            //----------------------------------------------------------
         });  
   
     });
-
+/* 
     describe("TrustedForwarder Rewards", function () {
 
         var rewards;
