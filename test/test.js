@@ -216,6 +216,20 @@ describe("Staking contract tests", function () {
         [instance, instancesCount] = event.args;
         CommunityCoinWithRewardsHook = await ethers.getContractAt("CommunityCoin",instance);
 
+        const rewards = await RewardsF.deploy();
+        await rewards.initialize(
+            frank.address, //address sellingToken,
+            [], //uint256[] memory timestamps,
+            [], //uint256[] memory prices,
+            [], //uint256[] memory _amountRaised,
+            999999999, //uint64 _endTs,
+            [], //uint256[] memory thresholds,
+            [], //uint256[] memory bonuses
+        );
+
+        const MockTaxesF = await ethers.getContractFactory("MockTaxes");
+        const taxHook = await MockTaxesF.deploy();
+
         return {
             owner, 
             alice, 
@@ -251,12 +265,14 @@ describe("Staking contract tests", function () {
             NO_POPULAR_TOKEN,
 
             rewardsHook,
+            rewards,
             mockCommunity,
             ERC20Factory,
             ERC777Factory,
             CommunityCoinFactory,
             CommunityCoin,
             CommunityCoinWithRewardsHook,
+            taxHook,
             erc20,
             erc20Paying,
             erc777,
@@ -270,6 +286,84 @@ describe("Staking contract tests", function () {
             implementationCommunityCoin,
             implementationCommunityStakingPoolFactory,
             implementationCommunityStakingPool
+        }
+
+    }
+
+    async function deployStakingPoolWithRewardsHook() {
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+            CommunityCoinWithRewardsHook,
+            erc20,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            NO_DONATIONS,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        } = res;
+
+        let tx = await CommunityCoinWithRewardsHook.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+            erc20.target,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            NO_DONATIONS,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        );
+
+
+        const rc = await tx.wait(); // 0ms, as tx is already confirmed
+        const event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
+        const [erc20token, instance] = event.args;
+        
+        const communityStakingPoolWithHook = await ethers.getContractAt("MockCommunityStakingPool",instance);
+
+        return {
+            ...res,
+            ...{communityStakingPoolWithHook}
+        }
+    }
+
+    async function deployStakingPoolWithoutRewardsHook() {
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+            CommunityCoin,
+            erc20,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            NO_DONATIONS,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        } = res;
+
+        let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+            erc20.target,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            NO_DONATIONS,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        );
+        
+        const rc = await tx.wait(); // 0ms, as tx is already confirmed
+        const event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
+        const [erc20token, instance] = event.args;
+        
+        const communityStakingPoolWithoutRewardsHook = await ethers.getContractAt("CommunityStakingPool",instance);
+        
+        return {
+            ...res,
+            ...{communityStakingPoolWithoutRewardsHook}
         }
 
     }
@@ -1138,40 +1232,28 @@ describe("Staking contract tests", function () {
         });  
   
     });
-/* 
+
     describe("TrustedForwarder Rewards", function () {
 
-        var rewards;
-        
-        const DONATIONS = [[david.address, FRACTION*50n/100n], [frank.address, FRACTION*25n/100n]];
-                
-        before("deploying", async() => {
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
-        });
-
-        beforeEach("deploying", async() => {
-
-            const RewardsF = await ethers.getContractFactory("Rewards");
-            rewards = await RewardsF.deploy();
-            await rewards.initialize(
-                frank.address, //address sellingToken,
-                [], //uint256[] memory timestamps,
-                [], //uint256[] memory prices,
-                [], //uint256[] memory _amountRaised,
-                999999999, //uint64 _endTs,
-                [], //uint256[] memory thresholds,
-                [], //uint256[] memory bonuses
-            );
-            
-        });
-
         it("should be empty after init", async() => {
+            const res = await loadFixture(deploy);
+            const {
+                bob,
+                rewards
+            } = res;
             expect(await rewards.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
             
         });
 
         it("should be setup by owner", async() => {
+            const res = await loadFixture(deploy);
+            const {
+                owner,
+                bob,
+                charlie,
+                rewards
+            } = res;
+
             await expect(rewards.connect(bob).setTrustedForwarder(charlie.address)).to.be.revertedWith("Ownable: caller is not the owner");
             expect(await rewards.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
             await rewards.connect(owner).setTrustedForwarder(charlie.address);
@@ -1179,6 +1261,14 @@ describe("Staking contract tests", function () {
         });
         
         it("should drop trusted forward if trusted forward become owner ", async() => {
+            const res = await loadFixture(deploy);
+            const {
+                owner,
+                bob,
+                charlie,
+                rewards
+            } = res;
+
             await rewards.connect(owner).setTrustedForwarder(charlie.address);
             expect(await rewards.connect(bob).isTrustedForwarder(charlie.address)).to.be.true;
             await rewards.connect(owner).transferOwnership(charlie.address);
@@ -1186,68 +1276,51 @@ describe("Staking contract tests", function () {
         });
 
         it("shouldnt become owner and trusted forwarder", async() => {
-            await expect(rewards.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith("ForwarderCanNotBeOwner");
+            const res = await loadFixture(deploy);
+            const {
+                owner,
+                rewards
+            } = res;
+            await expect(rewards.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWithCustomError(rewards, "ForwarderCanNotBeOwner");
         });
 
     });
 
     describe("Rewards tests", function () {   
-        var uniswapRouterFactoryInstance;
-        var uniswapRouterInstance;
-        var communityStakingPoolWithHook;
-
-        var walletTokens;
-        var lptokens;
         
-        before("deploying", async() => {
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
-        });
-
-        beforeEach("deploying", async() => {
-
-            let tx = await CommunityCoinWithRewardsHook.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.target,
-                lockupIntervalCount,
-                NO_BONUS_FRACTIONS,
-                NO_POPULAR_TOKEN,
-                NO_DONATIONS,
-                rewardsRateFraction,
-                numerator,
-                denominator
-            );
-
-
-            const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
-            const [erc20token, instance] = event.args;
-            
-            communityStakingPoolWithHook = await ethers.getContractAt("MockCommunityStakingPool",instance);
-
-                // await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-                // await erc20.connect(bob).approve(communityStakingPool.target, ONE_ETH.mul(ONE));
-                // await communityStakingPool.connect(bob).stake(ONE_ETH.mul(ONE), bob.address);
-
-        });
 
         it("test rewards tokens", async() => {
+            const res = await loadFixture(deployStakingPoolWithRewardsHook);
+            const {
+                owner,
+                bob,
+                lockupIntervalCount,
+                dayInSeconds,
+                rewardsTenPercentBonus,
+                CommunityCoinWithRewardsHook,
+                erc20,
+                erc20Reward,
+                rewardsHook,
+                communityStakingPoolWithHook
+            } = res;
+
             const GroupName = "TestGroup";
           
             await rewardsHook.connect(owner).setGroup([bob.address], GroupName);
             const oldGroupBonus = await rewardsHook.getGroupBonus(GroupName);
             await expect(oldGroupBonus).to.be.eq(ZERO);
 
-            await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-            await erc20.connect(bob).approve(communityStakingPoolWithHook.address, ONE_ETH.mul(ONE));
+            await erc20.mint(bob.address, ethers.parseEther('1'));
+            await erc20.connect(bob).approve(communityStakingPoolWithHook.target, ethers.parseEther('1'));
             
-            await communityStakingPoolWithHook.connect(bob).stake(ONE_ETH.mul(ONE), bob.address);
+            await communityStakingPoolWithHook.connect(bob).stake(ethers.parseEther('1'), bob.address);
 
             let shares = await CommunityCoinWithRewardsHook.balanceOf(bob.address);
 
             // pass some mtime
-            await time.increase(lockupIntervalCount*dayInSeconds+9);    
+            await time.increase(lockupIntervalCount*dayInSeconds+9n);    
 
-            await CommunityCoinWithRewardsHook.connect(bob).approve(CommunityCoinWithRewardsHook.address, shares);
+            await CommunityCoinWithRewardsHook.connect(bob).approve(CommunityCoinWithRewardsHook.target, shares);
 
             let oldBobBalanceBeforeUnstake = await erc20Reward.balanceOf(bob.address);
             await CommunityCoinWithRewardsHook.connect(bob)["unstake(uint256)"](shares);
@@ -1263,10 +1336,10 @@ describe("Staking contract tests", function () {
             expect(newGroupBonus).to.be.eq(rewardsTenPercentBonus);
             
             // but if try to claim from chain CommunityCoins->[claim]->RewardHook->[onClaim] we will revert
-            await expect(CommunityCoinWithRewardsHook.connect(bob).claim()).to.be.revertedWith('InsufficientAmount');
+            await expect(CommunityCoinWithRewardsHook.connect(bob).claim()).to.be.revertedWithCustomError(rewardsHook, 'InsufficientAmount');
             
             //now mint smth 
-            await erc20Reward.mint(rewardsHook.address, HUNDRED.mul(ONE_ETH));
+            await erc20Reward.mint(rewardsHook.target, ethers.parseEther('100'));
             //and try again
             let oldBobBalance = await erc20Reward.balanceOf(bob.address);
             await CommunityCoinWithRewardsHook.connect(bob).claim();
@@ -1277,66 +1350,60 @@ describe("Staking contract tests", function () {
     });
 
     describe("Taxes tests", function () {   
-        var communityStakingPoolWithHook;
-
-        var walletTokens;
-        var lptokens;
         
-        before("deploying", async() => {
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
-        });
+        async function prepareTestWithTransferHook() {
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+            const {
+                owner,
+                bob,
+                CommunityCoin,
+                communityStakingPoolWithoutRewardsHook,
+                erc20,
+                taxHook
+            } = res;
 
-        beforeEach("deploying", async() => {
+            const amount = ethers.parseEther('1');
+            await erc20.mint(bob.address, amount);
+            await erc20.connect(bob).approve(communityStakingPoolWithoutRewardsHook.target, amount);
+            await communityStakingPoolWithoutRewardsHook.connect(bob).stake(amount, bob.address);
+            
+            const walletTokens = await CommunityCoin.balanceOf(bob.address);
+            
+            await CommunityCoin.connect(owner).setupTaxAddress(taxHook.target);
 
-            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.target,
-                lockupIntervalCount,
-                NO_BONUS_FRACTIONS,
-                NO_POPULAR_TOKEN,
-                NO_DONATIONS,
-                rewardsRateFraction,
-                numerator,
-                denominator
-            );
-            
-            const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
-            const [erc20token, instance] = event.args;
-            
-            communityStakingPoolWithHook = await ethers.getContractAt("CommunityStakingPool",instance);
-            
-
-        });
+            return {
+                ...res,
+                ...{walletTokens}
+            }
+        }
 
         describe("test transferHook ", function () {   
-            var taxHook;
-            beforeEach("before each", async() => {
-                
-                await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20.connect(bob).approve(communityStakingPoolWithHook.address, ONE_ETH.mul(ONE));
-                await communityStakingPoolWithHook.connect(bob).stake(ONE_ETH.mul(ONE), bob.address);
-                
-                walletTokens = await CommunityCoin.balanceOf(bob.address);
-                
-                const MockTaxesF = await ethers.getContractFactory("MockTaxes");
-                taxHook = await MockTaxesF.deploy();
-                
-                await CommunityCoin.connect(owner).setupTaxAddress(taxHook.address);
-                
-
-            }); 
 
             it("should prevent transfer if disabled via hook contract", async() => {
+                const res = await loadFixture(prepareTestWithTransferHook);
+                const {
+                    alice,
+                    bob,
+                    walletTokens,
+                    CommunityCoin,
+                    taxHook
+                } = res;
                 
-                await taxHook.setupVars(ZERO,false);
-
-                await expect(CommunityCoin.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWith('HookTransferPrevent').withArgs(bob.address, alice.address, walletTokens);
-                
+                await taxHook.setupVars(0n,false);
+                await expect(CommunityCoin.connect(bob).transfer(alice.address, walletTokens)).to.be.revertedWithCustomError(CommunityCoin,'HookTransferPrevent').withArgs(bob.address, alice.address, walletTokens);
             });
 
             it("should allow transfer if enabled via hook contract", async() => {
-                
+                const res = await loadFixture(prepareTestWithTransferHook);
+                const {
+                    alice,
+                    bob,
+                    walletTokens,
+                    FRACTION,
+                    CommunityCoin,
+                    taxHook
+                } = res;
+
                 await taxHook.setupVars(FRACTION,true);
                 
                 await expect(
@@ -1347,96 +1414,171 @@ describe("Staking contract tests", function () {
             });
 
             describe("test taxes ", function () {   
-                let tmp1,tmp2,tmp3,tmp4;
-                let obtainedTokensWithNoTax, obtainedTokensWithTax, senderTokensWithNoTax, senderTokensTokensWithTax;
 
-                const TokensToSend = ONE_ETH.div(20);
-                const PERCENTS_FRACTION = FIVE.mul(FRACTION).div(100); //5%*fraction
+                async function prepareTestWithTransferHookAndTaxes() {
+                    const res = await loadFixture(prepareTestWithTransferHook);
+                    const {
+                        alice,
+                        bob,
+                        FRACTION,
+                        CommunityCoin,
+                        taxHook
+                    } = res;
 
-                beforeEach("before each", async() => {
+                    const TokensToSend = ethers.parseEther('0.05');//ONE_ETH.div(20);
+                    const PERCENTS_FRACTION = FRACTION * 5n / 100n; //5%*fraction
+                    const TOO_MUCH_PERCENTS_FRACTION = FRACTION * 100n / 100n; // HUNDRED.mul(FRACTION).div(100); //100%*fraction
+
                     await taxHook.setupVars(FRACTION,true);
-                    tmp1 = await CommunityCoin.balanceOf(alice.address);
-                    tmp3 = await CommunityCoin.balanceOf(bob.address);
+                    let tmp1 = await CommunityCoin.balanceOf(alice.address);
+                    let tmp3 = await CommunityCoin.balanceOf(bob.address);
                     await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoin.balanceOf(alice.address);
-                    tmp4 = await CommunityCoin.balanceOf(bob.address);
+                    let tmp2 = await CommunityCoin.balanceOf(alice.address);
+                    let tmp4 = await CommunityCoin.balanceOf(bob.address);
 
-                    obtainedTokensWithNoTax = tmp2.sub(tmp1);
-                    senderTokensWithNoTax = tmp3.sub(tmp4);
-                    
-                });
+                    const obtainedTokensWithNoTax = tmp2 - tmp1;
+                    const senderTokensWithNoTax = tmp3 - tmp4;
+
+                    return {
+                        ...res,
+                        ...{
+                            TokensToSend,
+                            PERCENTS_FRACTION,
+                            TOO_MUCH_PERCENTS_FRACTION,
+                            obtainedTokensWithNoTax,
+                            senderTokensWithNoTax,
+                        }
+                    }
+                }
+
                 it("should reduce tokens while transfer if taxes used", async() => {
+                    const res = await loadFixture(prepareTestWithTransferHookAndTaxes);
+                    const {
+                        alice,
+                        bob,
+                        FRACTION,
+                        PERCENTS_FRACTION,
+                        TokensToSend,
+                        obtainedTokensWithNoTax,
+                        CommunityCoin,
+                        taxHook
+                    } = res;
 
-                    tmp1 = await CommunityCoin.balanceOf(alice.address);
-                    await taxHook.setupVars(FRACTION.sub(PERCENTS_FRACTION), true);
+                    let tmp1 = await CommunityCoin.balanceOf(alice.address);
+                    await taxHook.setupVars(FRACTION - PERCENTS_FRACTION, true);
                     await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoin.balanceOf(alice.address);
+                    let tmp2 = await CommunityCoin.balanceOf(alice.address);
 
-                    obtainedTokensWithTax = tmp2.sub(tmp1);
+                    const obtainedTokensWithTax = tmp2 - tmp1;
 
                     expect(obtainedTokensWithTax).to.be.lt(obtainedTokensWithNoTax);
 
-                    expect(obtainedTokensWithNoTax.sub(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
+                    expect(
+                        obtainedTokensWithNoTax - (obtainedTokensWithNoTax * PERCENTS_FRACTION / FRACTION)
+                    ).to.be.eq(obtainedTokensWithTax);
                     
                 });
 
                 it("shouldn't exceed maxTAX ", async() => {
+                    const res = await loadFixture(prepareTestWithTransferHookAndTaxes);
+                    const {
+                        alice,
+                        bob,
+                        FRACTION,
+                        PERCENTS_FRACTION,
+                        TOO_MUCH_PERCENTS_FRACTION,
+                        TokensToSend,
+                        obtainedTokensWithNoTax,
+                        CommunityCoin,
+                        taxHook
+                    } = res;
                     
-                    const TOO_MUCH_PERCENTS_FRACTION = HUNDRED.mul(FRACTION).div(100); //100%*fraction
-                    
-                    tmp1 = await CommunityCoin.balanceOf(alice.address);
-                    await taxHook.setupVars(FRACTION.sub(TOO_MUCH_PERCENTS_FRACTION), true);
+                    let tmp1 = await CommunityCoin.balanceOf(alice.address);
+                    await taxHook.setupVars(FRACTION - TOO_MUCH_PERCENTS_FRACTION, true);
                     await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoin.balanceOf(alice.address);
+                    let tmp2 = await CommunityCoin.balanceOf(alice.address);
 
-                    obtainedTokensWithTax = tmp2.sub(tmp1);
+                    const obtainedTokensWithTax = tmp2 - tmp1;
 
                     expect(obtainedTokensWithTax).to.be.lt(obtainedTokensWithNoTax);
 
-                    expect(obtainedTokensWithNoTax.sub(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).not.to.be.eq(obtainedTokensWithTax);
+                    expect(
+                        obtainedTokensWithNoTax - (obtainedTokensWithNoTax * PERCENTS_FRACTION / FRACTION)
+                    ).not.to.be.eq(obtainedTokensWithTax);
 
                     let MAX_TAX = await await CommunityCoin.MAX_TAX();
-                    expect(obtainedTokensWithNoTax.sub(obtainedTokensWithNoTax.mul(MAX_TAX).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
+                    expect(
+                        obtainedTokensWithNoTax - (obtainedTokensWithNoTax * MAX_TAX / FRACTION)
+                    ).to.be.eq(obtainedTokensWithTax);
                     
                 });
 
                 it("should mint extra tokens while transfer if taxes used ", async() => {
-                    tmp1 = await CommunityCoin.balanceOf(alice.address);
-                    await taxHook.setupVars(FRACTION.add(PERCENTS_FRACTION), true);
-                    await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoin.balanceOf(alice.address);
+                    const res = await loadFixture(prepareTestWithTransferHookAndTaxes);
+                    const {
+                        alice,
+                        bob,
+                        FRACTION,
+                        PERCENTS_FRACTION,
+                        TokensToSend,
+                        obtainedTokensWithNoTax,
+                        CommunityCoin,
+                        taxHook
+                    } = res;
+                    
 
-                    obtainedTokensWithTax = tmp2.sub(tmp1);
+                    let tmp1 = await CommunityCoin.balanceOf(alice.address);
+                    await taxHook.setupVars(FRACTION + PERCENTS_FRACTION, true);
+                    await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
+                    let tmp2 = await CommunityCoin.balanceOf(alice.address);
+
+                    const obtainedTokensWithTax = tmp2 - tmp1;
 
                     expect(obtainedTokensWithTax).to.be.gt(obtainedTokensWithNoTax);
 
-                    expect(obtainedTokensWithNoTax.add(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
+                    expect(
+                        obtainedTokensWithNoTax + (obtainedTokensWithNoTax * PERCENTS_FRACTION / FRACTION)
+                    ).to.be.eq(obtainedTokensWithTax);
                 });
                 
                 it("shouldn't exceed maxBOOST", async() => {
-                     
-                    const TOO_MUCH_PERCENTS_FRACTION = HUNDRED.mul(FRACTION).div(100); //100%*fraction
-                    
-                    tmp1 = await CommunityCoin.balanceOf(alice.address);
-                    await taxHook.setupVars(FRACTION.add(TOO_MUCH_PERCENTS_FRACTION), true);
-                    await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
-                    tmp2 = await CommunityCoin.balanceOf(alice.address);
+                    const res = await loadFixture(prepareTestWithTransferHookAndTaxes);
+                    const {
+                        alice,
+                        bob,
+                        FRACTION,
+                        PERCENTS_FRACTION,
+                        TOO_MUCH_PERCENTS_FRACTION,
+                        TokensToSend,
+                        obtainedTokensWithNoTax,
+                        CommunityCoin,
+                        taxHook
+                    } = res;
 
-                    obtainedTokensWithTax = tmp2.sub(tmp1);
+                    let tmp1 = await CommunityCoin.balanceOf(alice.address);
+                    await taxHook.setupVars(FRACTION + TOO_MUCH_PERCENTS_FRACTION, true);
+                    await CommunityCoin.connect(bob).transfer(alice.address, TokensToSend);
+                    let tmp2 = await CommunityCoin.balanceOf(alice.address);
+
+                    const obtainedTokensWithTax = tmp2 - tmp1;
 
                     expect(obtainedTokensWithTax).to.be.gt(obtainedTokensWithNoTax);
 
-                    expect(obtainedTokensWithNoTax.add(obtainedTokensWithNoTax.mul(PERCENTS_FRACTION).div(FRACTION))).not.to.be.eq(obtainedTokensWithTax);
+                    expect(
+                        obtainedTokensWithNoTax + (obtainedTokensWithNoTax * PERCENTS_FRACTION / FRACTION)
+                    ).not.to.be.eq(obtainedTokensWithTax);
 
                     let MAX_BOOST = await await CommunityCoin.MAX_BOOST();
-                    expect(obtainedTokensWithNoTax.add(obtainedTokensWithNoTax.mul(MAX_BOOST).div(FRACTION))).to.be.eq(obtainedTokensWithTax);
+                    expect(
+                        obtainedTokensWithNoTax + (obtainedTokensWithNoTax * MAX_BOOST / FRACTION)
+                    ).to.be.eq(obtainedTokensWithTax);
                 });
             });
-           
+
         }); 
 
     });
-
+/* 
     describe("ERC20 pool tests", function () { 
         var communityStakingPoolERC20; 
         
@@ -1734,7 +1876,7 @@ describe("Staking contract tests", function () {
 
             it("should redeem", async () => {
                 // pass some mtime
-                await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                await time.increase(lockupIntervalCount*dayInSeconds+9n);    
 
                 // grant role
                 // imitate exists role
@@ -2016,14 +2158,14 @@ describe("Staking contract tests", function () {
                     });
                     it("if amount more than balance", async () => {
                         // pass some mtime
-                        await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                        await time.increase(lockupIntervalCount*dayInSeconds+9n);    
 
                         await expect(CommunityCoin.connect(bob)["unstake(uint256)"](shares.add(ONE_ETH))).to.be.revertedWith('InsufficientBalance').withArgs(bob.address, shares.add(ONE_ETH));
                     });
                     
                     it("if happens smth unexpected with pool", async () => {
 
-                        await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                        await time.increase(lockupIntervalCount*dayInSeconds+9n);    
                         
                         await CommunityCoin.connect(bob).approve(CommunityCoin.target, shares);
 
@@ -2041,7 +2183,7 @@ describe("Staking contract tests", function () {
 
                     it("successfull ", async () => {
                         // pass some mtime
-                        await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                        await time.increase(lockupIntervalCount*dayInSeconds+9n);    
 
                         let bobERC20TokenBefore = await erc20.balanceOf(bob.address);
 
@@ -2062,7 +2204,7 @@ describe("Staking contract tests", function () {
                     it("if happens smth unexpected with pool", async () => {
 
                         // pass some mtime
-                        await time.increase(lockupIntervalCount*dayInSeconds+9);   
+                        await time.increase(lockupIntervalCount*dayInSeconds+9n);   
                         
                         // imitate exists role
                         await mockCommunity.connect(owner).setRoles(alice.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);
@@ -2104,7 +2246,7 @@ describe("Staking contract tests", function () {
                             });
                             it("without approve before even if passed time", async () => {
                                 // pass some mtime
-                                await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                                await time.increase(lockupIntervalCount*dayInSeconds+9n);    
                                 await expect(
                                     CommunityCoin.connect(alice)[`redeem(uint256)`](shares)
                                 ).to.be.revertedWith('MissingRole').withArgs(alice.address, REDEEM_ROLE);
@@ -2119,7 +2261,7 @@ describe("Staking contract tests", function () {
                             it("with approve before even if passed time", async () => {
                                 await CommunityCoin.connect(alice).approve(CommunityCoin.target, shares);
                                 // pass some mtime
-                                await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                                await time.increase(lockupIntervalCount*dayInSeconds+9n);    
 
                                 await expect(
                                     CommunityCoin.connect(alice)[`redeem(uint256)`](shares)
@@ -2174,7 +2316,7 @@ describe("Staking contract tests", function () {
 
                             it("without approve before even if passed time", async () => {
                                 // pass some mtime
-                                await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                                await time.increase(lockupIntervalCount*dayInSeconds+9n);    
                                 await expect(
                                     CommunityCoin.connect(alice)[`redeem(uint256)`](shares)
                                 ).to.be.revertedWith('AmountExceedsAllowance').withArgs(alice.address, shares);
@@ -2195,7 +2337,7 @@ describe("Staking contract tests", function () {
                     
                     beforeEach("before each callback", async() => {
                         // pass some mtime
-                        await time.increase(lockupIntervalCount*dayInSeconds+9);    
+                        await time.increase(lockupIntervalCount*dayInSeconds+9n);    
                         
                         // imitate exists role
                         await mockCommunity.connect(owner).setRoles(alice.address, [0x99,0x98,0x97,0x96,REDEEM_ROLE]);

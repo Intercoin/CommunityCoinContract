@@ -5,7 +5,7 @@ import "../interfaces/ITaxes.sol";
 //import "hardhat/console.sol";
 
 contract MockTaxes is ITaxes {
-    uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+    uint64 internal constant FRACTION = 10000; // fractions are expressed as portions of this
 
     bool internal hTransferFlag;
     uint256 internal hFractionAmount;
