@@ -23,8 +23,6 @@ import "./interfaces/IStructs.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/IPresale.sol";
 
-import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
-
 import "@intercoin/releasemanager/contracts/CostManagerBase.sol";
 import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
 import "@intercoin/releasemanager/contracts/interfaces/IReleaseManager.sol";
@@ -125,7 +123,9 @@ contract CommunityStakingPool is Initializable,
         address stakingToken_,
         address popularToken_,
         IStructs.StructAddrUint256[] memory donations_,
-        uint64 rewardsRateFraction_
+        uint64 rewardsRateFraction_,
+        address uniswapRouter_,
+        address uniswapRouterFactory_
     ) external override initializer {
 
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
@@ -142,16 +142,11 @@ contract CommunityStakingPool is Initializable,
 
         __ReentrancyGuard_init();
 
-        setupExternalAddresses();
-    }
+        uniswapRouter = uniswapRouter_;
+        uniswapRouterFactory = uniswapRouterFactory_;
 
-    function setupExternalAddresses() internal virtual {
-        //attach deployed lib with uniswap addresses
-        ILiquidityLib liquidityLib = ILiquidityLib(0x1eA4C4613a4DfdAEEB95A261d11520c90D5d6252);
-        // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
-                                                             
         UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
+
     }
 
     // left when will be implemented

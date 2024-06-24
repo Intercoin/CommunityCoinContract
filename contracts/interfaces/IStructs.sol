@@ -23,7 +23,13 @@ interface IStructs {
         // means totalReserves = SUM(pools.totalSupply)
         uint256 totalReserves;
     }
-
+    struct StructGroup {
+        uint64 duration;
+        uint64 bonusTokenFraction;
+        uint64 rewardsRateFraction;
+        uint64 numerator;
+        uint64 denominator;
+    }
     enum InstanceType{ USUAL, ERC20, NONE }
 
 }

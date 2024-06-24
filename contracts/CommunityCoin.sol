@@ -56,6 +56,8 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@intercoin/community/contracts/interfaces/ICommunity.sol";
 import "@intercoin/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 
+import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
+
 import "./libs/PoolStakesLib.sol";
 
 //import "hardhat/console.sol";
@@ -135,6 +137,9 @@ contract CommunityCoin is
     mapping(address => UserData) internal users;
 
     address public linkedContract;
+    address public uniswapRouter;
+    address public uniswapRouterFactory;
+
     bool flagHookTransferReentrant;
     bool flagBurnUnstakeRedeem;
     modifier proceedBurnUnstakeRedeem() {
@@ -167,6 +172,7 @@ contract CommunityCoin is
      *      factorySettings.costManager address
      *      factorySettings.producedBy address that produced instance by factory
      *      factorySettings.linkedContract erc20/erc777 token's address
+     *      factorySettings.liquidityLib liquidityLib address(see intercoin/liquidity pkg)
      * @custom:calledby StakingFactory contract
      * @custom:shortd initializing contract. called by StakingFactory contract
      */
@@ -212,8 +218,9 @@ contract CommunityCoin is
 
         _accountForOperation(OPERATION_INITIALIZE << OPERATION_SHIFT_BITS, uint256(uint160(factorySettings.producedBy)), 0);
 
-        
-
+        ILiquidityLib liquidityLib = ILiquidityLib(factorySettings.liquidityLib);
+        // setup swap addresses
+        (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
 
     }
 
@@ -429,15 +436,18 @@ contract CommunityCoin is
                 revert ShouldBeFullDonations();
             }
         }
+        IStructs.StructGroup memory structGroup = IStructs.StructGroup(
+            duration,
+            bonusTokenFraction,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        );
         return _produce(
                 reserveToken,
-                duration,
-                bonusTokenFraction,
                 popularToken,
                 donations,
-                rewardsRateFraction,
-                numerator,
-                denominator
+                structGroup
             );
     }
 
@@ -653,29 +663,23 @@ contract CommunityCoin is
 
     function _produce(
         address reserveToken,
-        uint64 duration,
-        uint64 bonusTokenFraction,
         address popularToken,
         IStructs.StructAddrUint256[] memory donations,
-        uint64 rewardsRateFraction,
-        uint64 numerator,
-        uint64 denominator
+        IStructs.StructGroup memory structGroup
     ) internal returns (address instance) {
         instance = instanceManagment.produce(
             reserveToken,
-            duration,
-            bonusTokenFraction,
             popularToken,
             donations,
-            rewardsRateFraction,
-            numerator,
-            denominator
+            structGroup,
+            uniswapRouter,
+            uniswapRouterFactory
         );
         emit InstanceCreated(reserveToken, instance);
 
         _accountForOperation(
             OPERATION_PRODUCE_ERC20 << OPERATION_SHIFT_BITS,
-            (duration << (256 - 64)) + (bonusTokenFraction << (256 - 128)) + (numerator << (256 - 192)) + (denominator),
+            (structGroup.duration << (256 - 64)) + (structGroup.bonusTokenFraction << (256 - 128)) + (structGroup.numerator << (256 - 192)) + (structGroup.denominator),
             0
         );
     }

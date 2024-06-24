@@ -99,29 +99,28 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         address instance = getInstance[reserveToken][duration];
         return _instanceInfos[instance];
     }
-
+    
     function produce(
         address reserveToken,
-        uint64 duration,
-        uint64 bonusTokenFraction,
         address popularToken,
         IStructs.StructAddrUint256[] memory donations,
-        uint64 rewardsRateFraction,
-        uint64 numerator,
-        uint64 denominator
+        IStructs.StructGroup memory structGroup,
+        address uniswapRouter,
+        address uniswapRouterFactory
     ) external returns (address instance) {
         require(msg.sender == creator);
 
-        _createInstanceValidate(reserveToken, duration, donations);
+        _createInstanceValidate(reserveToken, structGroup.duration, donations);
 
         address instanceCreated = _createInstance(
             reserveToken,
-            duration,
-            bonusTokenFraction,
             popularToken,
-            rewardsRateFraction,
-            numerator,
-            denominator
+            // duration,
+            // bonusTokenFraction,
+            // rewardsRateFraction,
+            // numerator,
+            // denominator
+            structGroup
         );
 
         if (instanceCreated == address(0)) {
@@ -138,7 +137,9 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             reserveToken,
             popularToken,
             donations,
-            rewardsRateFraction
+            structGroup.rewardsRateFraction,
+            uniswapRouter,
+            uniswapRouterFactory
         );
         // }
 
@@ -172,16 +173,17 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
     function _createInstance(
         address reserveToken,
-        uint64 duration,
-        uint64 bonusTokenFraction,
         address popularToken,
-        uint64 rewardsRateFraction,
-        uint64 numerator,
-        uint64 denominator
+        // uint64 duration,
+        // uint64 bonusTokenFraction,
+        // uint64 rewardsRateFraction,
+        // uint64 numerator,
+        // uint64 denominator
+        IStructs.StructGroup memory structGroup
     ) internal returns (address instance) {
         instance = implementation.clone();
 
-        getInstance[reserveToken][duration] = instance;
+        getInstance[reserveToken][structGroup.duration] = instance;
 
         _instanceIndexes[instance] = _instances.length;
         _instances.push(instance);
@@ -191,13 +193,13 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         _instanceCreators[instance] = msg.sender; // real sender or trusted forwarder need to store?
         _instanceInfos[instance] = InstanceInfo(
             reserveToken,
-            duration,
+            structGroup.duration,
             true,
-            bonusTokenFraction,
+            structGroup.bonusTokenFraction,
             popularToken,
-            rewardsRateFraction,
-            numerator,
-            denominator
+            structGroup.rewardsRateFraction,
+            structGroup.numerator,
+            structGroup.denominator
         );
         if (typeProducedByFactory == InstanceType.NONE) {
             typeProducedByFactory = InstanceType.ERC20;

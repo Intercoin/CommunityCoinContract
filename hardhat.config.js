@@ -24,6 +24,7 @@ module.exports = {
     },
     hardhat: {
       allowUnlimitedContractSize: false,
+      chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
       forking: {
         //url: mainnetURL,
         // blockNumber: 14667052

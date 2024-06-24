@@ -21,11 +21,6 @@ const ONE_ETH = ethers.parseEther('1');
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 
-// make hardcode for bsc. the same in MockCommunityStakingPool
-const UNISWAP_ROUTER_FACTORY_ADDRESS = '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73';
-const UNISWAP_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
-
-
 
 // function convertToHex(str) {
 //     var hex = '';
@@ -181,11 +176,15 @@ describe("Staking contract tests", function () {
 
         const NO_COSTMANAGER = ZERO_ADDRESS;
         
+        var libData = await ethers.getContractFactory("@intercoin/liquidity/contracts/LiquidityLib.sol:LiquidityLib");    
+        const liquidityLib = await libData.deploy();
+
         CommunityCoinFactory  = await CommunityCoinFactoryF.deploy(
             implementationCommunityCoin.target, 
             implementationCommunityStakingPoolFactory.target, 
             implementationCommunityStakingPool.target, 
             erc20.target, // as linkedContract
+            liquidityLib.target,
             NO_COSTMANAGER,
             releaseManager.target
         );
@@ -229,6 +228,17 @@ describe("Staking contract tests", function () {
 
         const MockTaxesF = await ethers.getContractFactory("MockTaxes");
         const taxHook = await MockTaxesF.deploy();
+
+        const badPresale1F = await ethers.getContractFactory("MockPresaleBad1"); //empty contract
+        const badPresale2F = await ethers.getContractFactory("MockPresaleBad2"); //with only none payable fallback method
+        const badPresale3F = await ethers.getContractFactory("MockPresaleBad3"); //with only payable fallback method
+        const badPresale4F = await ethers.getContractFactory("MockPresaleBad4"); //with payable fallback method and endTime
+        const goodPresaleF = await ethers.getContractFactory("MockPresaleGood");
+        const badPresale1 = await badPresale1F.deploy();
+        const badPresale2 = await badPresale2F.deploy();
+        const badPresale3 = await badPresale3F.deploy();
+        const badPresale4 = await badPresale4F.deploy();
+        const goodPresale = await goodPresaleF.deploy();
 
         return {
             owner, 
@@ -281,6 +291,12 @@ describe("Staking contract tests", function () {
             erc20Reward,
             fakeUSDT,
             fakeMiddle,
+
+            badPresale1,
+            badPresale2,
+            badPresale3,
+            badPresale4,
+            goodPresale,
 
             releaseManager,
             implementationCommunityCoin,
@@ -1578,47 +1594,46 @@ describe("Staking contract tests", function () {
         }); 
 
     });
-/* 
+
     describe("ERC20 pool tests", function () { 
-        var communityStakingPoolERC20; 
-        
-        before("deploying", async() => {
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
+     
+        it("should produce", async() => {
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+            const {
+                communityStakingPoolWithoutRewardsHook,
+            } = res;
+            expect(communityStakingPoolWithoutRewardsHook.target).not.to.be.eq(ZERO_ADDRESS); 
         });
 
-        beforeEach("deploying", async() => { 
-            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.target,
+        it("shouldn't receive ether", async() => {
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+            const {
+                owner,
+                communityStakingPoolWithoutRewardsHook,
+            } = res;
+
+            await expect(
+                owner.sendTransaction({
+                    to: communityStakingPoolWithoutRewardsHook.target,
+                    value: ethers.parseEther("1"), // Sends exactly 1.0 ether
+                })
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "Denied"); 
+        });
+        
+        it("shouldnt create another pair with equal tokens", async() => {
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+            const {
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
                 NO_DONATIONS,
                 rewardsRateFraction,
                 numerator,
-                denominator
-            );
+                denominator,
+                CommunityCoin,
+                erc20
+            } = res;
 
-            const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
-            const [erc20tokenAddress, instance] = event.args;
-            
-            communityStakingPoolERC20 = await ethers.getContractAt("CommunityStakingPool",instance);
-        });
-        it("should produce", async() => {
-            expect(communityStakingPoolerc20.target).not.to.be.eq(ZERO_ADDRESS); 
-        });
-
-        it("shouldn't receive ether", async() => {
-            await expect(
-                owner.sendTransaction({
-                    to: communityStakingPoolerc20.target,
-                    value: ethers.utils.parseEther("1.0"), // Sends exactly 1.0 ether
-                })
-            ).not.to.be.revertedWith("DENIED()"); 
-        });
-        
-        it("shouldnt create another pair with equal tokens", async() => {
             await expect(CommunityCoin["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
                 erc20.target,
                 lockupIntervalCount,
@@ -1631,231 +1646,368 @@ describe("Staking contract tests", function () {
             )).to.be.revertedWith("CommunityCoin: PAIR_ALREADY_EXISTS");
         });
 
-        
         it("just stake", async () => {
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+            const {
+                bob,
+                charlie,
+                communityStakingPoolWithoutRewardsHook,
+                CommunityCoin,
+                erc20,
+                numerator,
+                denominator
+            } = res;
 
-            await erc20.mint(bob.address, ONE_ETH.mul(ONE));
-            await erc20.connect(bob).approve(communityStakingPoolerc20.target, ONE_ETH.mul(ONE));
+            const amount = ethers.parseEther('1');
+            await erc20.mint(bob.address, amount);
+            await erc20.connect(bob).approve(communityStakingPoolWithoutRewardsHook.target, amount);
 
             let charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
-            let bobLptokensBefore = await erc20.balanceOf(communityStakingPoolerc20.target);
+            let bobLptokensBefore = await erc20.balanceOf(communityStakingPoolWithoutRewardsHook.target);
 
-            await communityStakingPoolERC20.connect(bob).stake(ONE_ETH.mul(ONE), charlie.address);
+            await communityStakingPoolWithoutRewardsHook.connect(bob).stake(amount, charlie.address);
 
             let walletTokens = await CommunityCoin.balanceOf(charlie.address);
-            let lptokens = await erc20.balanceOf(communityStakingPoolerc20.target);
+            let lptokens = await erc20.balanceOf(communityStakingPoolWithoutRewardsHook.target);
             
             // custom situation when  uniswapLP tokens equal sharesLP tokens.  can be happens in the first stake
-            expect(BigNumber.from(lptokens)).not.to.be.eq(ZERO);
-            expect(lptokens.mul(numerator).div(denominator)).to.be.eq(walletTokens);
+            expect(lptokens).not.to.be.eq(0n);
+            expect(lptokens * numerator / denominator).to.be.eq(walletTokens);
 
             expect(charlieWalletTokensBefore).not.to.be.eq(walletTokens);
-            expect(ZERO).not.to.be.eq(walletTokens);
+            expect(0n).not.to.be.eq(walletTokens);
 
             expect(bobLptokensBefore).not.to.be.eq(lptokens);
         
         }); 
 
         it("shouldnt buy and stake through paying token if havent uniswap pair", async () => {
-            await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
-            await erc20Paying.connect(bob).approve(communityStakingPoolerc20.target, ONE_ETH.mul(ONE));
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+            const {
+                bob,
+                charlie,
+                communityStakingPoolWithoutRewardsHook,
+                CommunityCoin,
+                erc20Paying
+            } = res;
+            const amount = ethers.parseEther('1');
+
+            await erc20Paying.mint(bob.address, amount);
+            await erc20Paying.connect(bob).approve(communityStakingPoolWithoutRewardsHook.target, amount);
             
-            await expect(communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address)).to.be.revertedWith("NoUniswapV2Pair");
+            await expect(communityStakingPoolWithoutRewardsHook.connect(bob).buyAndStake(erc20Paying.target, amount, charlie.address)).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "NoUniswapV2Pair");
         }); 
 
         it("shouldnt buy in presale and stake if presale contract doesn't contain buy method", async () => {
-            const badPresale1F = await ethers.getContractFactory("MockPresaleBad1"); //empty contract
-            const badPresale2F = await ethers.getContractFactory("MockPresaleBad2"); //with only none payable fallback method
-            const badPresale3F = await ethers.getContractFactory("MockPresaleBad3"); //with only payable fallback method
-            const badPresale4F = await ethers.getContractFactory("MockPresaleBad4"); //with payable fallback method and endTime
-            const badPresale1 = await badPresale1F.deploy();
-            const badPresale2 = await badPresale2F.deploy();
-            const badPresale3 = await badPresale3F.deploy();
-            const badPresale4 = await badPresale4F.deploy();
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+            const {
+                bob,
+                charlie,
+                communityStakingPoolWithoutRewardsHook,
+                releaseManager,
+                badPresale1,
+                badPresale2,
+                badPresale3,
+                badPresale4
+            } = res;
+
+            // badPresale1 //empty contract
+            // badPresale2 //with only none payable fallback method
+            // badPresale3 //with only payable fallback method
+            // badPresale4 //with payable fallback method and endTime
             
             // any contract should be registered in ecosystem. it will be the first error
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale1.address, charlie.address)
-            ).to.be.revertedWith("NotInIntercoinEcosystem");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale1.target, charlie.address)
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "NotInIntercoinEcosystem");
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale2.address, charlie.address)
-            ).to.be.revertedWith("NotInIntercoinEcosystem");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale2.target, charlie.address)
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "NotInIntercoinEcosystem");
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale3.address, charlie.address)
-            ).to.be.revertedWith("NotInIntercoinEcosystem");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale3.target, charlie.address)
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "NotInIntercoinEcosystem");
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address)
-            ).to.be.revertedWith("NotInIntercoinEcosystem");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale4.target, charlie.address)
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "NotInIntercoinEcosystem");
 
             // overwise we will check buy and fallback method
 
-            await releaseManager.customRegisterInstance(badPresale1.address, bob.address);
-            await releaseManager.customRegisterInstance(badPresale2.address, bob.address);
-            await releaseManager.customRegisterInstance(badPresale3.address, bob.address);
-            await releaseManager.customRegisterInstance(badPresale4.address, bob.address);
+            await releaseManager.customRegisterInstance(badPresale1.target, bob.address);
+            await releaseManager.customRegisterInstance(badPresale2.target, bob.address);
+            await releaseManager.customRegisterInstance(badPresale3.target, bob.address);
+            await releaseManager.customRegisterInstance(badPresale4.target, bob.address);
 
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale1.address, charlie.address)
-            ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale1.target, charlie.address)
+            //).to.be.revertedWith("function selector was not recognized and there's no fallback function");
+            ).to.be.revertedWithoutReason;
+
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale2.address, charlie.address)
-            ).to.be.revertedWith("function returned an unexpected amount of data");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale2.target, charlie.address)
+            //).to.be.revertedWith("function returned an unexpected amount of data");
+            ).to.be.revertedWithoutReason;
+
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale3.address, charlie.address)
-            ).to.be.revertedWith("function returned an unexpected amount of data");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale3.target, charlie.address)
+            //).to.be.revertedWith("function returned an unexpected amount of data");
+            ).to.be.revertedWithoutReason;
+
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address)
-            ).to.be.revertedWith("EndTimeAlreadyPassed");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale4.target, charlie.address)
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, 'EndTimeAlreadyPassed');
 
 
             // the same with some native coins
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale1.address, charlie.address, {value: ONE_ETH.mul(ONE)})
-            ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale1.target, charlie.address, {value: ethers.parseEther('1')})
+            // ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
+            ).to.be.revertedWithoutReason;
+
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale2.address, charlie.address, {value: ONE_ETH.mul(ONE)})
-            ).to.be.revertedWith('function returned an unexpected amount of data');
-            //).to.be.revertedWith(`fallback function is not payable and was called with value ${ONE_ETH.mul(ONE)}`);
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale2.target, charlie.address, {value: ethers.parseEther('1')})
+            //).to.be.revertedWith('function returned an unexpected amount of data');
+            ).to.be.revertedWithoutReason;
             
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale3.address, charlie.address, {value: ONE_ETH.mul(ONE)})
-            ).to.be.revertedWith('function returned an unexpected amount of data');
-            //).to.be.revertedWith("InsufficientAmount");
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale3.target, charlie.address, {value: ethers.parseEther('1')})
+            //).to.be.revertedWith('function returned an unexpected amount of data');
+            ).to.be.revertedWithoutReason;
 
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address, {value: ONE_ETH.mul(ONE)})
-            ).to.be.revertedWith('EndTimeAlreadyPassed');
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale4.target, charlie.address, {value: ethers.parseEther('1')})
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, 'EndTimeAlreadyPassed');
 
-            await badPresale4.setEndTime(9999999999);
-
-            await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address)
-            ).to.be.revertedWith("InsufficientAmount");
-            await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(badPresale4.address, charlie.address, {value: ONE_ETH.mul(ONE)})
-            ).to.be.revertedWith("InsufficientAmount");
-
-        }); 
-        it("shouldnt buy in presale and stake if presale contract is not in intercoin ecosystem", async () => {
-            const goodPresaleF = await ethers.getContractFactory("MockPresaleGood");
-            const goodPresale = await goodPresaleF.deploy();
-            await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(goodPresale.address, charlie.address)
-            ).to.be.revertedWith("NotInIntercoinEcosystem");
-            
-            await goodPresale.setTokenAddress(erc20.target);
-            await erc20.mint(goodPresale.address, ONE_ETH.mul(ONE));
-            await releaseManager.customRegisterInstance(goodPresale.address, bob.address); // just trick with WRONG factory and custom registratation
+            await badPresale4.setEndTime(9999999999n);
 
             await expect(
-                communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(goodPresale.address, charlie.address)
-            ).to.be.revertedWith("EndTimeAlreadyPassed");
-
-            await goodPresale.setEndTime(9999999999);
-            
-            var charlieBalanceBefore = await CommunityCoin.balanceOf(charlie.address);
-            var poolBalanceBefore = await erc20.balanceOf(communityStakingPoolerc20.target);
-            await communityStakingPoolERC20.connect(bob).buyInPresaleAndStake(goodPresale.address, charlie.address, {value: ONE_ETH.mul(ONE)})
-            var charlieBalanceAfter = await CommunityCoin.balanceOf(charlie.address);
-            var poolBalanceAfter = await erc20.balanceOf(communityStakingPoolerc20.target);
-
-            expect(charlieBalanceAfter.sub(charlieBalanceBefore)).to.be.eq(ONE_ETH.mul(ONE));
-            expect(poolBalanceAfter.sub(poolBalanceBefore)).to.be.eq(ONE_ETH.mul(ONE));
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale4.target, charlie.address)
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "InsufficientAmount");
+            await expect(
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(badPresale4.target, charlie.address, {value: ethers.parseEther('1')})
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "InsufficientAmount");
 
         }); 
         
-        //customRegisterInstance
-         
-        describe("buy and stake", function() {
-            var uniswapRouterFactoryInstance;
-            var uniswapRouterInstance;
+        it("shouldnt buy in presale and stake if presale contract is not in intercoin ecosystem", async () => {
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+            const {
+                bob,
+                charlie,
+                communityStakingPoolWithoutRewardsHook,
+                CommunityCoin,
+                erc20,
+                releaseManager,
+                goodPresale
+            } = res;
 
-            var charlieWalletTokensBefore, charlieWalletTokensAfter;
-
-            beforeEach("deploying", async() => {
-                //////////////////////////////////////////////////////////////////
-                uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
-                uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
-
-                await uniswapRouterFactoryInstance.createPair(erc20.target, erc20Paying.address);
+            await expect(
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(goodPresale.target, charlie.address)
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "NotInIntercoinEcosystem");
             
-                let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20.target, erc20Paying.address);
+            await goodPresale.setTokenAddress(erc20.target);
+            await erc20.mint(goodPresale.target, ethers.parseEther('1'));
+            await releaseManager.customRegisterInstance(goodPresale.target, bob.address); // just trick with WRONG factory and custom registratation
 
-                pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
+            await expect(
+                communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(goodPresale.target, charlie.address)
+            ).to.be.revertedWithCustomError(communityStakingPoolWithoutRewardsHook, "EndTimeAlreadyPassed");
 
-                await erc20.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
-                await erc20Paying.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
-                await erc20.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
-                await erc20Paying.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+            await goodPresale.setEndTime(9999999999n);
+            
+            var charlieBalanceBefore = await CommunityCoin.balanceOf(charlie.address);
+            var poolBalanceBefore = await erc20.balanceOf(communityStakingPoolWithoutRewardsHook.target);
+            await communityStakingPoolWithoutRewardsHook.connect(bob).buyInPresaleAndStake(goodPresale.target, charlie.address, {value: ethers.parseEther('1')})
+            var charlieBalanceAfter = await CommunityCoin.balanceOf(charlie.address);
+            var poolBalanceAfter = await erc20.balanceOf(communityStakingPoolWithoutRewardsHook.target);
+
+            expect(charlieBalanceAfter - charlieBalanceBefore).to.be.eq(ethers.parseEther('1'));
+            expect(poolBalanceAfter - poolBalanceBefore).to.be.eq(ethers.parseEther('1'));
+
+        }); 
+  
+        describe("buy and stake", function() {
+            // var uniswapRouterFactoryInstance;
+            // var uniswapRouterInstance;
+
+            async function deployWithUniswap() {
+                const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+                const {
+                    bob,
+                    charlie,
+                    lockupIntervalCount,
+                    dayInSeconds,
+                    liquidityHolder,
+                    communityStakingPoolWithoutRewardsHook,
+                    CommunityCoin,
+                    erc20Paying,
+                    erc20
+                } = res;
+
+                const UNISWAP_ROUTER_FACTORY_ADDRESS = await CommunityCoin.uniswapRouterFactory();
+                const UNISWAP_ROUTER = await CommunityCoin.uniswapRouter();
+
+                const uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
+                const uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+                await uniswapRouterFactoryInstance.createPair(erc20.target, erc20Paying.target);
+
+                let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20.target, erc20Paying.target);
+
+                const pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
+
+                const amount7 = ethers.parseEther('7');
+                const amount1 = ethers.parseEther('1');
+
+                await erc20.mint(liquidityHolder.address, amount7);
+                await erc20Paying.mint(liquidityHolder.address, amount7);
+                await erc20.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount7);
+                await erc20Paying.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount7);
 
                 const ts = await time.latest();
-                const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+                const timeUntil = BigInt(ts)+lockupIntervalCount*dayInSeconds;
 
                 await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
                     erc20.target,
-                    erc20Paying.address,
-                    ONE_ETH.mul(SEVEN),
-                    ONE_ETH.mul(SEVEN),
+                    erc20Paying.target,
+                    amount7,
+                    amount7,
                     0,
                     0,
                     liquidityHolder.address,
                     timeUntil
                 );
 
-                charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
-                
-                await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
+                await erc20Paying.mint(bob.address, amount1);
                 //////////////////////////////////////////////////////////////////
 
-                charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
-                bobWalletTokensBefore = await CommunityCoin.balanceOf(bob.address);
+                const charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
+                //const bobWalletTokensBefore = await CommunityCoin.balanceOf(bob.address);
 
-                await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
-                await erc20Paying.connect(bob).approve(communityStakingPoolerc20.target, ONE_ETH.mul(ONE));
+                await erc20Paying.mint(bob.address, amount1);
+                await erc20Paying.connect(bob).approve(communityStakingPoolWithoutRewardsHook.target, amount1);
 
-                await communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address);
+                await communityStakingPoolWithoutRewardsHook.connect(bob).buyAndStake(erc20Paying.target, amount1, charlie.address);
 
-                charlieWalletTokensAfter = await CommunityCoin.balanceOf(charlie.address);
+                const charlieWalletTokensAfter = await CommunityCoin.balanceOf(charlie.address);
                 
-            })
+                return {
+                    ...res,
+                    ...{
+                        charlieWalletTokensBefore, 
+                        charlieWalletTokensAfter
+                    }
+                };
+            }
+
+            // beforeEach("deploying", async() => {
+            //     //////////////////////////////////////////////////////////////////
+            //     uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
+            //     uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+            //     await uniswapRouterFactoryInstance.createPair(erc20.target, erc20Paying.address);
+            
+            //     let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20.target, erc20Paying.address);
+
+            //     pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
+
+            //     await erc20.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            //     await erc20Paying.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
+            //     await erc20.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+            //     await erc20Paying.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
+
+            //     const ts = await time.latest();
+            //     const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
+
+            //     await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+            //         erc20.target,
+            //         erc20Paying.address,
+            //         ONE_ETH.mul(SEVEN),
+            //         ONE_ETH.mul(SEVEN),
+            //         0,
+            //         0,
+            //         liquidityHolder.address,
+            //         timeUntil
+            //     );
+
+            //     charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
+                
+            //     await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
+            //     //////////////////////////////////////////////////////////////////
+
+            //     charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
+            //     bobWalletTokensBefore = await CommunityCoin.balanceOf(bob.address);
+
+            //     await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
+            //     await erc20Paying.connect(bob).approve(communityStakingPoolerc20.target, ONE_ETH.mul(ONE));
+
+            //     await communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address);
+
+            //     charlieWalletTokensAfter = await CommunityCoin.balanceOf(charlie.address);
+                
+            // })
 
             it("should buyAndStake", async () => {
-
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    charlieWalletTokensBefore,
+                    charlieWalletTokensAfter
+                } = res;
                 expect(charlieWalletTokensAfter).to.be.gt(charlieWalletTokensBefore);
-                expect(charlieWalletTokensAfter).not.to.be.eq(ZERO);
+                expect(charlieWalletTokensAfter).not.to.be.eq(0n);
             
             }); 
 
             it("shouldnt unstake if not unlocked yet", async () => {
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    charlie,
+                    charlieWalletTokensAfter,
+                    CommunityCoin
+                } = res;
+
                 // even if approve before
                 await CommunityCoin.connect(charlie).approve(CommunityCoin.target, charlieWalletTokensAfter);
                  
-                await expect(CommunityCoin.connect(charlie).unstake(charlieWalletTokensAfter)).to.be.revertedWith('StakeNotUnlockedYet').withArgs(charlie.address, charlieWalletTokensAfter, 0);
+                await expect(CommunityCoin.connect(charlie).unstake(charlieWalletTokensAfter)).to.be.revertedWithCustomError(CommunityCoin, 'StakeNotUnlockedYet').withArgs(charlie.address, charlieWalletTokensAfter, 0);
             });  
 
             it("shouldnt redeem if sender haven't redeem role", async () => {
-                
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    charlie,
+                    charlieWalletTokensAfter,
+                    REDEEM_ROLE,
+                    CommunityCoin
+                } = res;
+
                 // even if approve before
                 
                 await CommunityCoin.connect(charlie).approve(CommunityCoin.target, charlieWalletTokensAfter);
                 
                 await expect(
                     CommunityCoin.connect(charlie)['redeem(uint256)'](charlieWalletTokensAfter)
-                ).to.be.revertedWith('MissingRole').withArgs(
+                ).to.be.revertedWithCustomError(CommunityCoin, 'MissingRole').withArgs(
                     charlie.address, REDEEM_ROLE
                 );
                 
             }); 
 
             it("should transfer wallet tokens after stake", async() => {
-            
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    alice,
+                    charlie,
+                    charlieWalletTokensAfter,
+                    CommunityCoin
+                } = res;
+
                 let charlieLockedListAfter, charlieBonusesListAfter;
 
                 let charlieLockedBalanceAfter = await CommunityCoin.connect(charlie).viewLockedWalletTokens(charlie.address);
                 [charlieLockedListAfter, charlieBonusesListAfter] = await CommunityCoin.connect(charlie).viewLockedWalletTokensList(charlie.address);
 
                 let aliceLockedBalanceAfter = await CommunityCoin.connect(charlie).viewLockedWalletTokens(alice.address);
-                expect(aliceLockedBalanceAfter).to.be.eq(ZERO);
+                expect(aliceLockedBalanceAfter).to.be.eq(0n);
                 expect(charlieLockedBalanceAfter).to.be.eq(charlieWalletTokensAfter);
                 expect(charlieLockedBalanceAfter).to.be.eq(charlieLockedListAfter[0][0]);
 
@@ -1866,15 +2018,30 @@ describe("Staking contract tests", function () {
                 let charlieLockedBalanceAfterCharlieTransfer = await CommunityCoin.connect(charlie).viewLockedWalletTokens(charlie.address);
                 let aliceLockedBalanceAfterCharlieTransfer = await CommunityCoin.connect(charlie).viewLockedWalletTokens(alice.address);
 
-                expect(charlieSharesAfterTransfer).to.be.eq(ZERO);
+                expect(charlieSharesAfterTransfer).to.be.eq(0n);
                 expect(charlieWalletTokensAfter).to.be.eq(aliceSharesAfterCharlieTransfer);
-                expect(charlieLockedBalanceAfterCharlieTransfer).to.be.eq(ZERO);
-                expect(aliceLockedBalanceAfterCharlieTransfer).to.be.eq(ZERO);
+                expect(charlieLockedBalanceAfterCharlieTransfer).to.be.eq(0n);
+                expect(aliceLockedBalanceAfterCharlieTransfer).to.be.eq(0n);
                 
                 
             });
 
             it("should redeem", async () => {
+
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    owner,
+                    alice,
+                    charlie,
+                    REDEEM_ROLE,
+                    lockupIntervalCount,
+                    dayInSeconds,
+                    charlieWalletTokensAfter,
+                    CommunityCoin,
+                    mockCommunity,
+                    erc20
+                } = res;
+
                 // pass some mtime
                 await time.increase(lockupIntervalCount*dayInSeconds+9n);    
 
@@ -1898,9 +2065,10 @@ describe("Staking contract tests", function () {
 
 
         });
+        
 
     });
-
+/*
     describe(`Instance tests with external community`, function () {
         var uniswapRouterFactoryInstance;
         var uniswapRouterInstance;

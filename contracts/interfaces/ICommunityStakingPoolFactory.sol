@@ -23,7 +23,14 @@ interface ICommunityStakingPoolFactory {
     function instancesByIndex(uint index) external view returns (address instance);
     function instances() external view returns (address[] memory instances);
     function instancesCount() external view returns (uint);
-    function produce(address reserveToken, uint64 duration, uint64 bonusTokenFraction, address popularToken, IStructs.StructAddrUint256[] memory donations, uint64 rewardsRateFraction, uint64 numerator, uint64 denominator) external returns (address instance);
+    function produce(
+        address reserveToken, 
+        address popularToken,
+        IStructs.StructAddrUint256[] memory donations, 
+        IStructs.StructGroup memory structGroup,
+        address uniswapRouter, 
+        address uniswapRouterFactory
+    ) external returns (address instance);
     function getInstanceInfoByPoolAddress(address addr) external view returns(InstanceInfo memory);
 
 }

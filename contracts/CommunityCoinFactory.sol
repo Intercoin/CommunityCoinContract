@@ -98,6 +98,8 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     address public immutable stakingPoolImplementation;
 
     address public linkedContract;
+    address public liquidityLib;
+    
     address[] public instances;
 
     error EmptyAddress();
@@ -114,6 +116,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      *  then stakingToken should be not equal != linkedContract_.
      *  Overwise donations.amount should be 100% (at single address or in summary)
      *  in most cases it would be a "reservedToken" or "staking token"
+     * @param liquidityLib_ liquidityLib address(see intercoin/liquidity pkg)
      * @param costManager_ address of costmanager
      * @param releaseManager_ address of releaseManager
      */
@@ -122,6 +125,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address linkedContract_,
+        address liquidityLib_,
         address costManager_,
         address releaseManager_
     ) 
@@ -142,6 +146,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
         linkedContract = linkedContract_;
+        liquidityLib = liquidityLib_;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -170,6 +175,8 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      * @return instance address of created instance pool `CommunityCoin`
      * @custom:shortd creation instance
      */
+
+     
     function produce(
         string calldata tokenName,
         string calldata tokenSymbol,
@@ -209,6 +216,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
             costManager,
             _msgSender(),
             linkedContract,
+            liquidityLib,
             whitelistedTokens
         );
 
