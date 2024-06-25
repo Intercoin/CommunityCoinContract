@@ -143,6 +143,8 @@ describe("Staking contract tests", function () {
         erc20TradedToken = await ERC20Factory.deploy("ERC20 Traded Token", "ERC20-TRD");
         erc20ReservedToken = await ERC20Factory.deploy("ERC20 Reserved Token", "ERC20-RSRV");
         erc20Reward = await ERC20Factory.deploy("ERC20 Token Reward", "ERC20-R");
+        fakeUSDT = await ERC20Factory.deploy("FAKE USDT Token", "FUSDT");
+        fakeMiddle = await ERC20Factory.deploy("FAKE Middle Token", "FMT");
 
         implementationCommunityCoin = await CommunityCoinF.deploy();
         implementationCommunityStakingPoolFactory = await CommunityStakingPoolFactoryF.deploy();
@@ -375,13 +377,216 @@ describe("Staking contract tests", function () {
         const event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
         const [erc20token, instance] = event.args;
         
-        const communityStakingPoolWithoutRewardsHook = await ethers.getContractAt("CommunityStakingPool",instance);
+        const communityStakingPoolWithoutRewardsHook = await ethers.getContractAt("MockCommunityStakingPool",instance);
         
         return {
             ...res,
             ...{communityStakingPoolWithoutRewardsHook}
         }
+    }
 
+    async function deployWithUniswap() {
+        const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+        const {
+            bob,
+            charlie,
+            lockupIntervalCount,
+            dayInSeconds,
+            liquidityHolder,
+            communityStakingPoolWithoutRewardsHook,
+            CommunityCoin,
+            erc20Paying,
+            erc20,
+            erc20ReservedToken, 
+            erc20TradedToken,
+            fakeUSDT,
+            fakeMiddle
+        } = res;
+
+        const UNISWAP_ROUTER_FACTORY_ADDRESS = await CommunityCoin.uniswapRouterFactory();
+        const UNISWAP_ROUTER = await CommunityCoin.uniswapRouter();
+
+        const uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
+        const uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
+
+        await uniswapRouterFactoryInstance.createPair(erc20.target, erc20Paying.target);
+        await uniswapRouterFactoryInstance.createPair(erc20ReservedToken.target, erc20TradedToken.target);
+
+        
+        var pairAddress = await uniswapRouterFactoryInstance.getPair(erc20.target, erc20Paying.target);
+        const pair_erc20_erc20Paying = await ethers.getContractAt("ERC20Mintable",pairAddress);
+
+        var pairAddress = await uniswapRouterFactoryInstance.getPair(erc20ReservedToken.target, erc20TradedToken.target);
+        const pair_Reserved_Traded = await ethers.getContractAt("ERC20Mintable",pairAddress);
+
+        const amount7 = ethers.parseEther('7');
+        const amount1 = ethers.parseEther('1');
+        const amount100 = ethers.parseEther('100');
+        const amount200 = ethers.parseEther('200');
+        const amount600 = ethers.parseEther('200');
+
+        const ts = await time.latest();
+        const timeUntil = BigInt(ts)+lockupIntervalCount*dayInSeconds;
+
+        // add liquidity erc20:erc20Paying = 7:7
+        await erc20.mint(liquidityHolder.address, amount7);
+        await erc20Paying.mint(liquidityHolder.address, amount7);
+        await erc20.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount7);
+        await erc20Paying.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount7);
+        await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+            erc20.target,
+            erc20Paying.target,
+            amount7,
+            amount7,
+            0,
+            0,
+            liquidityHolder.address,
+            timeUntil
+        );
+
+        // add liquidity erc20ReservedToken:erc20TradedToken = 7:7
+        await erc20ReservedToken.mint(liquidityHolder.address, amount7);
+        await erc20TradedToken.mint(liquidityHolder.address, amount7);
+        await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount7);
+        await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount7);
+        await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+            erc20ReservedToken.target,
+            erc20TradedToken.target,
+            amount7,
+            amount7,
+            0,
+            0,
+            liquidityHolder.address,
+            timeUntil
+        );
+
+        // add liquidity fakeUSDT:erc20TradedToken = 100:100
+        await fakeUSDT.mint(liquidityHolder.address, amount100);
+        await erc20ReservedToken.mint(liquidityHolder.address, amount100);
+        await erc20TradedToken.mint(liquidityHolder.address, amount100);
+        await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount100);
+        await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount100);
+        await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+            fakeUSDT.target,
+            erc20TradedToken.target,
+            amount100,
+            amount100,
+            0,
+            0,
+            liquidityHolder.address,
+            timeUntil
+        );
+        
+        // add liquidity fakeUSDT:erc20ReservedToken = 100:100
+        await fakeUSDT.mint(liquidityHolder.address, amount100);
+        await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount100);
+        await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount100);
+        await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+            fakeUSDT.target,
+            erc20ReservedToken.target,
+            amount100,
+            amount100,
+            0,
+            0,
+            liquidityHolder.address,
+            timeUntil
+        );
+        
+        // add liquidity fakeMiddle:erc20ReservedToken = 200:100
+        await fakeMiddle.mint(liquidityHolder.address, amount200);
+        await erc20ReservedToken.mint(liquidityHolder.address, amount100);
+        await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount200);
+        await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount100);
+        await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+            fakeMiddle.target,
+            erc20ReservedToken.target,
+            amount200,
+            amount100,
+            0,
+            0,
+            liquidityHolder.address,
+            timeUntil
+        );
+
+        // add liquidity fakeMiddle:erc20TradedToken = 200:100
+        await fakeMiddle.mint(liquidityHolder.address, amount200);
+        await erc20TradedToken.mint(liquidityHolder.address, amount100);
+        await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount200);
+        await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount100);
+        await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+            fakeMiddle.target,
+            erc20TradedToken.target,
+            amount200,
+            amount100,
+            0,
+            0,
+            liquidityHolder.address,
+            timeUntil
+        );
+
+        // add liquidity fakeMiddle:fakeUSDT = 600:100
+        await fakeMiddle.mint(liquidityHolder.address, amount600);
+        await fakeUSDT.mint(liquidityHolder.address, amount100);
+        await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount600);
+        await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount100);
+        await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
+            fakeMiddle.target,
+            fakeUSDT.target,
+            amount600,
+            amount100,
+            0,
+            0,
+            liquidityHolder.address,
+            timeUntil
+        );
+        //--------------------------------------------------
+
+
+        await erc20Paying.mint(bob.address, amount1);
+        //////////////////////////////////////////////////////////////////
+
+        const charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
+        //const bobWalletTokensBefore = await CommunityCoin.balanceOf(bob.address);
+
+        await erc20Paying.mint(bob.address, amount1);
+        await erc20Paying.connect(bob).approve(communityStakingPoolWithoutRewardsHook.target, amount1);
+
+        await communityStakingPoolWithoutRewardsHook.connect(bob).buyAndStake(erc20Paying.target, amount1, charlie.address);
+
+        const charlieWalletTokensAfter = await CommunityCoin.balanceOf(charlie.address);
+        
+        return {
+            ...res,
+            ...{
+                charlieWalletTokensBefore, 
+                charlieWalletTokensAfter,
+                pair_erc20_erc20Paying,
+                pair_Reserved_Traded
+            }
+        };
+    }
+
+    async function deployTariffAndConsumingTests() {
+        const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
+        const {
+            bob,
+            lockupIntervalCount,
+            dayInSeconds,
+            erc20,
+            communityStakingPoolWithoutRewardsHook,
+            CommunityCoin
+        } = res;
+        ///---------
+        await erc20.mint(bob.address, ethers.parseEther('1'));
+        await erc20.connect(bob).approve(communityStakingPoolWithoutRewardsHook.target, ethers.parseEther('1'));
+        await communityStakingPoolWithoutRewardsHook.connect(bob).stake(ethers.parseEther('1'), bob.address);
+        const shares = await CommunityCoin.balanceOf(bob.address);
+        // pass some mtime
+        await time.increase(lockupIntervalCount*dayInSeconds+9n);    
+        ///---------
+        return {...res, ...{
+            shares
+        }};
     }
 
     it("The new community coin owner is not the sender, but rather the one pointed to in the parameters as instanceOwner.", async() => {
@@ -768,45 +973,9 @@ describe("Staking contract tests", function () {
     });
 
     describe("tariff tests", function () {
-        async function deployTariffTests() {
-            const res = await loadFixture(deploy);
-            const {
-                owner,
-                lockupIntervalCount,
-                NO_BONUS_FRACTIONS,
-                NO_POPULAR_TOKEN,
-                NO_DONATIONS,
-                rewardsRateFraction,
-                numerator,
-                denominator,
-                erc20,
-                CommunityCoin
-            } = res;
-
-             let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.target,
-                lockupIntervalCount,
-                NO_BONUS_FRACTIONS,
-                NO_POPULAR_TOKEN,
-                NO_DONATIONS,
-                rewardsRateFraction,
-                numerator,
-                denominator
-            );
-
-            const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
-            const [erc20token, instance] = event.args;
-
-            const communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
-
-            return {...res, ...{
-                communityStakingPool
-            }};
-        }
         
         it("shouldn't set tariff by owner or anyone except tariffrole memeber", async () => {
-            const res = await loadFixture(deployTariffTests);
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
             const {
                 owner,
                 bob,
@@ -821,7 +990,7 @@ describe("Staking contract tests", function () {
         }); 
 
         it("should set tariff(redeem / unstake)", async () => {
-            const res = await loadFixture(deployTariffTests);
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
             const {
                 owner,
                 charlie,
@@ -835,7 +1004,7 @@ describe("Staking contract tests", function () {
         });
 
         it("shouldn't exсeed max tariff(redeem / unstake)", async () => {
-            const res = await loadFixture(deployTariffTests);
+            const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
             const {
                 owner,
                 charlie,
@@ -855,36 +1024,7 @@ describe("Staking contract tests", function () {
         });
 
         describe("should consume by correct tariff", function () {
-            async function deployTariffAndConsumingTests() {
-                const res = await loadFixture(deployTariffTests);
-                const {
-                    bob,
-                    charlie,
-
-                    lockupIntervalCount,
-                    dayInSeconds,
-
-                    erc20,
-                    communityStakingPool,
-
-
-                    TARIFF_ROLE,
-                    mockCommunity,
-                    CommunityCoin
-                } = res;
-                ///---------
-                await erc20.mint(bob.address, ethers.parseEther('1'));
-                await erc20.connect(bob).approve(communityStakingPool.target, ethers.parseEther('1'));
-                await communityStakingPool.connect(bob).stake(ethers.parseEther('1'), bob.address);
-                const shares = await CommunityCoin.balanceOf(bob.address);
-                // pass some mtime
-                await time.increase(lockupIntervalCount*dayInSeconds+9n);    
-                ///---------
-                return {...res, ...{
-                    shares
-                }};
-
-            }
+            
             it(" - when unstake", async () => {
 
                 let bobTokensWithoutTariff, bobTokensWithTariff;
@@ -900,7 +1040,7 @@ describe("Staking contract tests", function () {
                     FRACTION,
 
                     erc20,
-                    communityStakingPool,
+                    communityStakingPoolWithoutRewardsHook,
                     mockCommunity,
                     CommunityCoin
                 } = res;
@@ -934,7 +1074,7 @@ describe("Staking contract tests", function () {
                     FRACTION,
                     
                     erc20,
-                    communityStakingPool,
+                    communityStakingPoolWithoutRewardsHook,
                     mockCommunity,
                     CommunityCoin
                 } = res2;
@@ -948,13 +1088,13 @@ describe("Staking contract tests", function () {
                 await CommunityCoin.connect(bob).approve(CommunityCoin.target, shares);
 
                 const userUnstakeableBefore = await CommunityCoin.getUnstakeableMap(bob.address);
-                const instanceUnstakeableBefore = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPool.target, bob.address);
+                const instanceUnstakeableBefore = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPoolWithoutRewardsHook.target, bob.address);
 
                 await CommunityCoin.connect(bob)["unstake(uint256)"](shares);
 
                 let userUnstakeableAfter = await CommunityCoin.getUnstakeableMap(bob.address);
                 //let instanceStakedAfter = await CommunityCoin.getInstanceStakedMap(communityStakingPool.target);
-                let instanceUnstakeableAfter = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPool.target, bob.address);
+                let instanceUnstakeableAfter = await CommunityCoin.getInstanceUnstakeableMap(communityStakingPoolWithoutRewardsHook.target, bob.address);
 
                 let bobCommunityCoinTokenAfter2 = await CommunityCoin.balanceOf(bob.address);
                 
@@ -1829,123 +1969,6 @@ describe("Staking contract tests", function () {
             // var uniswapRouterFactoryInstance;
             // var uniswapRouterInstance;
 
-            async function deployWithUniswap() {
-                const res = await loadFixture(deployStakingPoolWithoutRewardsHook);
-                const {
-                    bob,
-                    charlie,
-                    lockupIntervalCount,
-                    dayInSeconds,
-                    liquidityHolder,
-                    communityStakingPoolWithoutRewardsHook,
-                    CommunityCoin,
-                    erc20Paying,
-                    erc20
-                } = res;
-
-                const UNISWAP_ROUTER_FACTORY_ADDRESS = await CommunityCoin.uniswapRouterFactory();
-                const UNISWAP_ROUTER = await CommunityCoin.uniswapRouter();
-
-                const uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
-                const uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
-
-                await uniswapRouterFactoryInstance.createPair(erc20.target, erc20Paying.target);
-
-                let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20.target, erc20Paying.target);
-
-                const pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
-
-                const amount7 = ethers.parseEther('7');
-                const amount1 = ethers.parseEther('1');
-
-                await erc20.mint(liquidityHolder.address, amount7);
-                await erc20Paying.mint(liquidityHolder.address, amount7);
-                await erc20.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount7);
-                await erc20Paying.connect(liquidityHolder).approve(uniswapRouterInstance.target, amount7);
-
-                const ts = await time.latest();
-                const timeUntil = BigInt(ts)+lockupIntervalCount*dayInSeconds;
-
-                await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
-                    erc20.target,
-                    erc20Paying.target,
-                    amount7,
-                    amount7,
-                    0,
-                    0,
-                    liquidityHolder.address,
-                    timeUntil
-                );
-
-                await erc20Paying.mint(bob.address, amount1);
-                //////////////////////////////////////////////////////////////////
-
-                const charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
-                //const bobWalletTokensBefore = await CommunityCoin.balanceOf(bob.address);
-
-                await erc20Paying.mint(bob.address, amount1);
-                await erc20Paying.connect(bob).approve(communityStakingPoolWithoutRewardsHook.target, amount1);
-
-                await communityStakingPoolWithoutRewardsHook.connect(bob).buyAndStake(erc20Paying.target, amount1, charlie.address);
-
-                const charlieWalletTokensAfter = await CommunityCoin.balanceOf(charlie.address);
-                
-                return {
-                    ...res,
-                    ...{
-                        charlieWalletTokensBefore, 
-                        charlieWalletTokensAfter
-                    }
-                };
-            }
-
-            // beforeEach("deploying", async() => {
-            //     //////////////////////////////////////////////////////////////////
-            //     uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
-            //     uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
-
-            //     await uniswapRouterFactoryInstance.createPair(erc20.target, erc20Paying.address);
-            
-            //     let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20.target, erc20Paying.address);
-
-            //     pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
-
-            //     await erc20.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
-            //     await erc20Paying.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
-            //     await erc20.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
-            //     await erc20Paying.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
-
-            //     const ts = await time.latest();
-            //     const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
-
-            //     await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
-            //         erc20.target,
-            //         erc20Paying.address,
-            //         ONE_ETH.mul(SEVEN),
-            //         ONE_ETH.mul(SEVEN),
-            //         0,
-            //         0,
-            //         liquidityHolder.address,
-            //         timeUntil
-            //     );
-
-            //     charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
-                
-            //     await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
-            //     //////////////////////////////////////////////////////////////////
-
-            //     charlieWalletTokensBefore = await CommunityCoin.balanceOf(charlie.address);
-            //     bobWalletTokensBefore = await CommunityCoin.balanceOf(bob.address);
-
-            //     await erc20Paying.mint(bob.address, ONE_ETH.mul(ONE));
-            //     await erc20Paying.connect(bob).approve(communityStakingPoolerc20.target, ONE_ETH.mul(ONE));
-
-            //     await communityStakingPoolERC20.connect(bob).buyAndStake(erc20Paying.address, ONE_ETH.mul(ONE), charlie.address);
-
-            //     charlieWalletTokensAfter = await CommunityCoin.balanceOf(charlie.address);
-                
-            // })
-
             it("should buyAndStake", async () => {
                 const res = await loadFixture(deployWithUniswap);
                 const {
@@ -2066,155 +2089,30 @@ describe("Staking contract tests", function () {
 
         });
         
-
     });
-/*
+
     describe(`Instance tests with external community`, function () {
-        var uniswapRouterFactoryInstance;
-        var uniswapRouterInstance;
-        var communityStakingPool;
-        var pairInstance;
         
-        before("deploying", async() => {
-            // restore snapshot
-            await ethers.provider.send('evm_revert', [snapId]);
-        });
-
-        beforeEach("deploying", async() => {
-
-            uniswapRouterFactoryInstance = await ethers.getContractAt("IUniswapV2Factory",UNISWAP_ROUTER_FACTORY_ADDRESS);
-            uniswapRouterInstance = await ethers.getContractAt("IUniswapV2Router02", UNISWAP_ROUTER);
-
-            await uniswapRouterFactoryInstance.createPair(erc20ReservedToken.address, erc20TradedToken.address);
-        
-            let pairAddress = await uniswapRouterFactoryInstance.getPair(erc20ReservedToken.address, erc20TradedToken.address);
-
-            pairInstance = await ethers.getContractAt("ERC20Mintable",pairAddress);
-
-            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
-            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(SEVEN));
-            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
-            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(SEVEN));
-
-            const ts = await time.latest();
-            const timeUntil = parseInt(ts)+parseInt(lockupIntervalCount*dayInSeconds);
-
-            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
-                erc20ReservedToken.address,
-                erc20TradedToken.address,
-                ONE_ETH.mul(SEVEN),
-                ONE_ETH.mul(SEVEN),
-                0,
-                0,
-                liquidityHolder.address,
-                timeUntil
-            );
-
-            // add liquidity into erc20ReservedToken::USDT and erc20TradedToken::USDT
-            fakeUSDT = await ERC20Factory.deploy("FAKE USDT Token", "FUSDT");
-            await fakeUSDT.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED).mul(TWO));
-            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
-            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
-
-            await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
-            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
-            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
-                fakeUSDT.address,
-                erc20TradedToken.address,
-                ONE_ETH.mul(HUNDRED),
-                ONE_ETH.mul(HUNDRED),
-                0,
-                0,
-                liquidityHolder.address,
-                timeUntil
-            );
-
-            await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
-            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
-            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
-                fakeUSDT.address,
-                erc20ReservedToken.address,
-                ONE_ETH.mul(HUNDRED),
-                ONE_ETH.mul(HUNDRED),
-                0,
-                0,
-                liquidityHolder.address,
-                timeUntil
-            );
-            // add liquidity into erc20ReservedToken::middleToken, erc20TradedToken::middleToken and middleToken::USDT
-            fakeMiddle = await ERC20Factory.deploy("FAKE Middle Token", "FMT");
-
-            await fakeMiddle.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED).mul(TEN));
-            await erc20ReservedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
-            await erc20TradedToken.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
-            await fakeUSDT.mint(liquidityHolder.address, ONE_ETH.mul(HUNDRED));
-
-            //erc20ReservedToken::middleToken
-            await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED).mul(TWO));
-            await erc20ReservedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
-            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
-                fakeMiddle.address,
-                erc20ReservedToken.address,
-                ONE_ETH.mul(HUNDRED).mul(TWO),
-                ONE_ETH.mul(HUNDRED),
-                0,
-                0,
-                liquidityHolder.address,
-                timeUntil
-            );
-
-            //erc20TradedToken::middleToken
-            await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED).mul(TWO));
-            await erc20TradedToken.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
-            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
-                fakeMiddle.address,
-                erc20TradedToken.address,
-                ONE_ETH.mul(HUNDRED).mul(TWO),
-                ONE_ETH.mul(HUNDRED),
-                0,
-                0,
-                liquidityHolder.address,
-                timeUntil
-            );
-
-            // middleToken::USDT
-            await fakeMiddle.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED).mul(SIX));
-            await fakeUSDT.connect(liquidityHolder).approve(uniswapRouterInstance.address, ONE_ETH.mul(HUNDRED));
-            await uniswapRouterInstance.connect(liquidityHolder).addLiquidity(
-                fakeMiddle.address,
-                fakeUSDT.address,
-                ONE_ETH.mul(HUNDRED).mul(SIX),
-                ONE_ETH.mul(HUNDRED),
-                0,
-                0,
-                liquidityHolder.address,
-                timeUntil
-            );
-
-            //--------------------------------------------------
-            let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
-                erc20.target,
+        // var communityStakingPool; // communityStakingPoolWithoutRewardsHook
+        // var pairInstance; // pair_Reserved_Traded
+ 
+        it("shouldnt create another pair with equal tokens", async() => {
+            const res = await loadFixture(deployWithUniswap);
+            const {
+                owner,
                 lockupIntervalCount,
                 NO_BONUS_FRACTIONS,
                 NO_POPULAR_TOKEN,
                 NO_DONATIONS,
                 rewardsRateFraction,
                 numerator,
-                denominator
-            );
+                denominator,
+                CommunityCoin,
+                erc20,
+                charlieWalletTokensBefore,
+                charlieWalletTokensAfter
+            } = res;
 
-
-            const rc = await tx.wait(); // 0ms, as tx is already confirmed
-            const event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
-            const [erc20token, instance] = event.args;
-           
-            communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
-            //console.log("before each №2");
-
-            
-        });
-
-        it("shouldnt create another pair with equal tokens", async() => {
             await expect(CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
                 erc20.target,
                 lockupIntervalCount,
@@ -2229,10 +2127,23 @@ describe("Staking contract tests", function () {
         
         describe("TrustedForwarder", function () {
             it("should be empty after init", async() => {
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    bob,
+                    CommunityCoin
+                } = res;
                 expect(await CommunityCoin.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
             });
 
             it("should be setup by owner", async() => {
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    owner,
+                    alice,
+                    bob,
+                    CommunityCoin
+                } = res;
+
                 await expect(CommunityCoin.connect(bob).setTrustedForwarder(alice.address)).to.be.revertedWith("Ownable: caller is not the owner");
                 expect(await CommunityCoin.connect(bob).isTrustedForwarder(ZERO_ADDRESS)).to.be.true;
                 await CommunityCoin.connect(owner).setTrustedForwarder(alice.address);
@@ -2240,6 +2151,14 @@ describe("Staking contract tests", function () {
             });
             
             it("should drop trusted forward if trusted forward become owner ", async() => {
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    owner,
+                    alice,
+                    bob,
+                    CommunityCoin
+                } = res;
+
                 await CommunityCoin.connect(owner).setTrustedForwarder(alice.address);
                 expect(await CommunityCoin.connect(bob).isTrustedForwarder(alice.address)).to.be.true;
                 await CommunityCoin.connect(owner).transferOwnership(alice.address);
@@ -2247,29 +2166,48 @@ describe("Staking contract tests", function () {
             });
 
             it("shouldnt become owner and trusted forwarder", async() => {
-                await expect(CommunityCoin.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWith('TrustedForwarderCanNotBeOwner').withArgs(owner.address);
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    owner,
+                    CommunityCoin
+                } = res;
+
+                await expect(CommunityCoin.connect(owner).setTrustedForwarder(owner.address)).to.be.revertedWithCustomError(CommunityCoin, 'TrustedForwarderCanNotBeOwner').withArgs(owner.address);
             });
             
             it("shouldnt transferOwnership if sender is trusted forwarder", async() => {
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    owner,
+                    bob,
+                    trustedForwarder,
+                    CommunityCoin
+                } = res;
+
                 await CommunityCoin.connect(owner).setTrustedForwarder(trustedForwarder.address);
 
-                const dataTx = await CommunityCoin.connect(trustedForwarder).populateTransaction['transferOwnership(address)'](bob.address);
+                const dataTx = await CommunityCoin.connect(trustedForwarder).transferOwnership.populateTransaction(bob.address);
                 dataTx.data = dataTx.data.concat((owner.address).substring(2));
-                await expect(trustedForwarder.sendTransaction(dataTx)).to.be.revertedWith("DeniedForTrustedForwarder");
+                await expect(trustedForwarder.sendTransaction(dataTx)).to.be.revertedWithCustomError(CommunityCoin, "DeniedForTrustedForwarder");
+
 
             });
             
         });
 
         describe("factory tests", function() {
-            var instanceManagementInstance;
-            beforeEach("before each callback", async() => {
-                let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
-                instanceManagementInstance = await ethers.getContractAt("CommunityStakingPoolFactory",instanceManagementAddr);
-                
-            });
+
             it("should return instance info", async () => {
-                
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    bob,
+                    lockupIntervalCount,
+                    erc20,
+                    CommunityCoin
+                } = res;
+                let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
+                const instanceManagementInstance = await ethers.getContractAt("CommunityStakingPoolFactory",instanceManagementAddr);
+
                 let data = await instanceManagementInstance.connect(bob).getInstanceInfo(erc20.target, lockupIntervalCount);
                 
                 expect(data.reserveToken).to.be.eq(erc20.target);
@@ -2278,9 +2216,18 @@ describe("Staking contract tests", function () {
             }); 
             
             it("should return all instances info", async () => {
-                
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    bob,
+                    lockupIntervalCount,
+                    NO_BONUS_FRACTIONS,
+                    erc20,
+                    CommunityCoin
+                } = res;
+                let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
+                const instanceManagementInstance = await ethers.getContractAt("CommunityStakingPoolFactory",instanceManagementAddr);
+
                 let data = await instanceManagementInstance.connect(bob).getInstancesInfo();
-                
                 
                 expect(data[0].reserveToken).to.be.eq(erc20.target);
                 expect(data[0].duration).to.be.eq(lockupIntervalCount);
@@ -2289,18 +2236,34 @@ describe("Staking contract tests", function () {
             }); 
             
             it("should return correct instance length", async () => {
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    bob,
+                    CommunityCoin
+                } = res;
+                let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
+                const instanceManagementInstance = await ethers.getContractAt("CommunityStakingPoolFactory",instanceManagementAddr);
+
                 let data = await instanceManagementInstance.connect(bob).instancesCount();
-                expect(data).to.be.eq(ONE);
+                expect(data).to.be.eq(1n);
             }); 
 
             it("should return correct instance by index", async () => {
+                const res = await loadFixture(deployWithUniswap);
+                const {
+                    bob,
+                    CommunityCoin,
+                    communityStakingPoolWithoutRewardsHook
+                } = res;
+                let instanceManagementAddr = await CommunityCoin.connect(bob).instanceManagment();
+                const instanceManagementInstance = await ethers.getContractAt("CommunityStakingPoolFactory",instanceManagementAddr);
+
                 let instance = await instanceManagementInstance.connect(bob).instancesByIndex(0);
-                expect(instance).to.be.eq(communityStakingPool.target);
+                expect(instance).to.be.eq(communityStakingPoolWithoutRewardsHook.target);
             }); 
         }); 
-
-        
-        describe("unstake/redeem/redeem-and-remove-liquidity tests", function () {
+/*
+        describe.only("unstake/redeem/redeem-and-remove-liquidity tests", function () {
             var shares;
             beforeEach("before each callback", async() => {
                 await erc20.mint(bob.address, ONE_ETH.mul(ONE));
@@ -2715,8 +2678,7 @@ describe("Staking contract tests", function () {
             
         
         });      
-
-    });
 */
+    });
 
 });
