@@ -12,5 +12,5 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 * @notice stupid way for generate artifacts for contracts which will used only for tests
 */
 contract MockJustImport {
-    
+   
 }

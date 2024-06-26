@@ -51,6 +51,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     mapping(address => InstanceInfo) public _instanceInfos;
 
     error InstanceCreationFailed();
+    error ShouldBeFullDonations();
     error InvalidDonationAddress();
     error ZeroDuration();
     
@@ -103,14 +104,15 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function produce(
         address reserveToken,
         address popularToken,
-        IStructs.StructAddrUint256[] memory donations,
-        IStructs.StructGroup memory structGroup,
+        IStructs.StructAddrUint256[] calldata donations,
+        IStructs.StructGroup calldata structGroup,
+        IStructs.FactorySettings calldata factorySettings,
         address uniswapRouter,
         address uniswapRouterFactory
     ) external returns (address instance) {
         require(msg.sender == creator);
 
-        _createInstanceValidate(reserveToken, structGroup.duration, donations);
+        _createInstanceValidate(reserveToken, structGroup.duration, donations, factorySettings);
 
         address instanceCreated = _createInstance(
             reserveToken,
@@ -150,7 +152,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     function _createInstanceValidate(
         address reserveToken,
         uint64 duration,
-        IStructs.StructAddrUint256[] memory donations
+        IStructs.StructAddrUint256[] calldata donations,
+        IStructs.FactorySettings calldata factorySettings
     ) internal view {
         if (duration == 0) {
             revert ZeroDuration();
@@ -162,13 +165,24 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             "CommunityCoin: INVALID_INSTANCE_TYPE"
         );
 
+        
+        uint256 totalDonationsAmount = 0;
         for(uint256 i = 0; i < donations.length; i++) {
+
             //simple unsafe checking isContract 
             if (donations[i].account.code.length > 0) {
                 revert InvalidDonationAddress();
             }
-            
+
+            totalDonationsAmount += donations[i].amount;
         }
+
+        if (reserveToken != factorySettings.linkedContract) {
+            if (totalDonationsAmount != FRACTION) {
+                revert ShouldBeFullDonations();
+            }
+        }
+
     }
 
     function _createInstance(
@@ -179,7 +193,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         // uint64 rewardsRateFraction,
         // uint64 numerator,
         // uint64 denominator
-        IStructs.StructGroup memory structGroup
+        IStructs.StructGroup calldata structGroup
     ) internal returns (address instance) {
         instance = implementation.clone();
 

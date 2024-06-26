@@ -210,7 +210,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
 
         emit InstanceCreated(instance, instances.length);
 
-        ICommunityCoin.FactorySettings memory factorySettings = ICommunityCoin.FactorySettings(
+        IStructs.FactorySettings memory factorySettings = IStructs.FactorySettings(
             stakingPoolImplementation,
             coinInstancesClone,
             costManager,

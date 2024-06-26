@@ -8,6 +8,17 @@ interface IStructs {
         uint256 amount;
     }
 
+    // CommunityCoin 
+    struct FactorySettings{
+        address poolImpl;
+        address stakingPoolFactory;
+        address costManager;
+        address producedBy;
+        address linkedContract;
+        address liquidityLib;
+        address[] whitelistedTokens;
+    }
+
     struct CommunitySettings {
         uint256 invitedByFraction;
         address addr;

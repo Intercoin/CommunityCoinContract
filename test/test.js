@@ -206,14 +206,14 @@ describe("Staking contract tests", function () {
         // without hook
         tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [ZERO_ADDRESS], discountSensitivity, COMMUNITY_SETTINGS, owner.address, [erc20.target, erc20Paying.target, erc777.target]);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
-        event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
+        event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoin = await ethers.getContractAt("MockCommunityCoin",instance);
 
         // with hook
         tx = await CommunityCoinFactory.connect(owner).produce(walletTokenName, walletTokenSymbol, [rewardsHook.target], discountSensitivity, COMMUNITY_SETTINGS, owner.address, [erc20.target, erc20Paying.target, erc777.target]);
         rc = await tx.wait(); // 0ms, as tx is already confirmed
-        event = rc.logs.find(obj => obj.fragment.name === 'InstanceCreated');
+        event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
         [instance, instancesCount] = event.args;
         CommunityCoinWithRewardsHook = await ethers.getContractAt("CommunityCoin",instance);
 
@@ -904,7 +904,8 @@ describe("Staking contract tests", function () {
 
             erc20Paying,
             erc777,
-            CommunityCoin
+            CommunityCoin,
+            implementationCommunityStakingPoolFactory
         } = res;
 
         const DONATIONS = [[david.address, FRACTION*50n/100n], [frank.address, FRACTION*25n/100n]];
@@ -922,7 +923,7 @@ describe("Staking contract tests", function () {
                 numerator,
                 denominator
             )
-        ).to.be.revertedWithCustomError(CommunityCoin, 'ShouldBeFullDonations');
+        ).to.be.revertedWithCustomError(implementationCommunityStakingPoolFactory, 'ShouldBeFullDonations');
 
 
         await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
@@ -935,6 +936,7 @@ describe("Staking contract tests", function () {
             numerator,
             denominator
         );
+
         await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
             erc777.target,
             lockupIntervalCount,

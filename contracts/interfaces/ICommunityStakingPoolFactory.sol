@@ -26,8 +26,9 @@ interface ICommunityStakingPoolFactory {
     function produce(
         address reserveToken, 
         address popularToken,
-        IStructs.StructAddrUint256[] memory donations, 
-        IStructs.StructGroup memory structGroup,
+        IStructs.StructAddrUint256[] calldata donations, 
+        IStructs.StructGroup calldata structGroup,
+        IStructs.FactorySettings calldata factorySettings,
         address uniswapRouter, 
         address uniswapRouterFactory
     ) external returns (address instance);

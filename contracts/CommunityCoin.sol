@@ -94,6 +94,7 @@ contract CommunityCoin is
     address public donationRewardsHook; // donation hook rewards
 
     ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
+    IStructs.FactorySettings factorySettings;
 
     uint256 internal discountSensitivity;
 
@@ -153,7 +154,6 @@ contract CommunityCoin is
     event MaxTaxExceeded();
     event MaxBoostExceeded();
     
-    error ShouldBeFullDonations();
     error TokenNotInWhitelist();
     
 
@@ -166,13 +166,13 @@ contract CommunityCoin is
      
      * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**4 by default)
      * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
-     * @param factorySettings struct to packed variables belong to factory
-     *      factorySettings.poolImpl address of StakingPool implementation. usual it's `${tradedToken}c`
-     *      factorySettings.stakingPoolFactory address of contract that managed and cloned pools
-     *      factorySettings.costManager address
-     *      factorySettings.producedBy address that produced instance by factory
-     *      factorySettings.linkedContract erc20/erc777 token's address
-     *      factorySettings.liquidityLib liquidityLib address(see intercoin/liquidity pkg)
+     * @param factorySettings_ struct to packed variables belong to factory
+     *      factorySettings_.poolImpl address of StakingPool implementation. usual it's `${tradedToken}c`
+     *      factorySettings_.stakingPoolFactory address of contract that managed and cloned pools
+     *      factorySettings_.costManager address
+     *      factorySettings_.producedBy address that produced instance by factory
+     *      factorySettings_.linkedContract erc20/erc777 token's address
+     *      factorySettings_.liquidityLib liquidityLib address(see intercoin/liquidity pkg)
      * @custom:calledby StakingFactory contract
      * @custom:shortd initializing contract. called by StakingFactory contract
      */
@@ -182,16 +182,15 @@ contract CommunityCoin is
         address[] calldata hooks_,
         uint256 discountSensitivity_,
         IStructs.CommunitySettings calldata communitySettings,
-        FactorySettings calldata factorySettings
+        IStructs.FactorySettings calldata factorySettings_
     ) external virtual override initializer {
         __CostManagerHelper_init(_msgSender());
         _setCostManager(factorySettings.costManager);
-
         __Ownable_init();
-
         __ERC777_init(tokenName, tokenSymbol, (new address[](0)));
-
         __ReentrancyGuard_init();
+
+        factorySettings = factorySettings_;
 
         instanceManagment = ICommunityStakingPoolFactory(factorySettings.stakingPoolFactory); //new ICommunityStakingPoolFactory(impl);
         instanceManagment.initialize(factorySettings.poolImpl);
@@ -212,6 +211,7 @@ contract CommunityCoin is
         discountSensitivity = discountSensitivity_;
 
         __RolesManagement_init(communitySettings);
+
 
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
@@ -427,15 +427,7 @@ contract CommunityCoin is
         if (whitelistedTokens[reserveToken] == false) {
             revert TokenNotInWhitelist();
         }
-        if (reserveToken != linkedContract) {
-            uint256 totalDonationsAmount = 0;
-            for(uint256 i = 0; i < donations.length; i++) {
-                totalDonationsAmount += donations[i].amount;
-            }
-            if (totalDonationsAmount != FRACTION) {
-                revert ShouldBeFullDonations();
-            }
-        }
+
         IStructs.StructGroup memory structGroup = IStructs.StructGroup(
             duration,
             bonusTokenFraction,
@@ -444,11 +436,11 @@ contract CommunityCoin is
             denominator
         );
         return _produce(
-                reserveToken,
-                popularToken,
-                donations,
-                structGroup
-            );
+            reserveToken,
+            popularToken,
+            donations,
+            structGroup
+        );
     }
 
     /**
@@ -672,6 +664,7 @@ contract CommunityCoin is
             popularToken,
             donations,
             structGroup,
+            factorySettings,
             uniswapRouter,
             uniswapRouterFactory
         );
