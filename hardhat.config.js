@@ -1,18 +1,8 @@
-require('dotenv').config()
 
-require("@nomiclabs/hardhat-ethers")
-require('hardhat-deploy')
-require("@nomiclabs/hardhat-waffle")
-require("@nomiclabs/hardhat-web3")
-require("@nomiclabs/hardhat-etherscan")
-
-require("hardhat-gas-reporter")
-require("hardhat-docgen")
-require("@hardhat-docgen/core")
-//require("@hardhat-docgen/markdown")
-require("./docgen-custom-markdown")
-require("solidity-coverage")
-require('hardhat-contract-sizer'); //npx hardhat size-contracts
+require('dotenv').config();
+require("@nomicfoundation/hardhat-toolbox");
+// require("solidity-coverage")
+// require('hardhat-contract-sizer'); //npx hardhat size-contracts
 
 const kovanURL = `https://eth-kovan.alchemyapi.io/v2/${process.env.ALCHEMY_KOVAN}`
 const goerliURL = `https://eth-goerli.alchemyapi.io/v2/${process.env.ALCHEMY_GOERLI}`
@@ -34,6 +24,7 @@ module.exports = {
     },
     hardhat: {
       allowUnlimitedContractSize: false,
+      chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
       forking: {
         //url: mainnetURL,
         // blockNumber: 14667052

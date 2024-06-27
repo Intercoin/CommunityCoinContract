@@ -23,8 +23,6 @@ import "./interfaces/IStructs.sol";
 import "./interfaces/ICommunityStakingPool.sol";
 import "./interfaces/IPresale.sol";
 
-import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
-
 import "@intercoin/releasemanager/contracts/CostManagerBase.sol";
 import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
 import "@intercoin/releasemanager/contracts/interfaces/IReleaseManager.sol";
@@ -45,7 +43,9 @@ contract CommunityStakingPool is Initializable,
      */
     address public stakingToken;
 
-    uint64 public constant FRACTION = 100000;
+    uint64 public constant FRACTION = 10000;
+
+    address public constant MAGIC_ADDRESS = 0x1000000000000000000000000000000000000000;
 
     /**
      * @custom:shortd rate of rewards that can be used on external tokens like RewardsContract (multiplied by `FRACTION`)
@@ -113,7 +113,7 @@ contract CommunityStakingPool is Initializable,
     /**
      * @notice initialize method. Called once by the factory at time of deployment
      * @param stakingProducedBy_ address of Community Coin token.
-     * @param stakingToken_ address of token that can be staked
+     * @param stakingToken_ address of token that can be staked. it's reserve token from CommunityCoin
      * @param popularToken_ address of the other token in the main liquidity pool against which stakingToken is traded
      * @param donations_ array of tuples donations. address,uint256. if array empty when coins will obtain sender, overwise donation[i].account  will obtain proportionally by ration donation[i].amount
      * @custom:shortd initialize method. Called once by the factory at time of deployment
@@ -123,7 +123,9 @@ contract CommunityStakingPool is Initializable,
         address stakingToken_,
         address popularToken_,
         IStructs.StructAddrUint256[] memory donations_,
-        uint64 rewardsRateFraction_
+        uint64 rewardsRateFraction_,
+        address uniswapRouter_,
+        address uniswapRouterFactory_
     ) external override initializer {
 
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
@@ -140,16 +142,11 @@ contract CommunityStakingPool is Initializable,
 
         __ReentrancyGuard_init();
 
-        setupExternalAddresses();
-    }
+        uniswapRouter = uniswapRouter_;
+        uniswapRouterFactory = uniswapRouterFactory_;
 
-    function setupExternalAddresses() internal virtual {
-        //attach deployed lib with uniswap addresses
-        ILiquidityLib liquidityLib = ILiquidityLib(0x1eA4C4613a4DfdAEEB95A261d11520c90D5d6252);
-        // setup swap addresses
-        (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
-                                                             
         UniswapV2Router02 = IUniswapV2Router02(uniswapRouter);
+
     }
 
     // left when will be implemented
@@ -347,28 +344,41 @@ contract CommunityStakingPool is Initializable,
             // }
         }
     }
-
+ 
     function _stake(
         address addr,
         uint256 amount,
         uint256 priceBeforeStake
     ) internal virtual {
-        uint256 left = amount;
+
+        uint256 toDonate;
+        uint256 toLiquidity;
+
         if (donations.length != 0) {
             uint256 tmpAmount;
             for (uint256 i = 0; i < donations.length; i++) {
                 tmpAmount = (amount * donations[i].amount) / FRACTION;
                 if (tmpAmount > 0) {
-
-                    IERC20Upgradeable(stakingToken).transfer(donations[i].account, tmpAmount);
-
+                    if (donations[i].account == MAGIC_ADDRESS) {
+                        //liquidity section
+                        toLiquidity += tmpAmount;
+                    } else {
+                        //donate section
+                        IERC20Upgradeable(stakingToken).transfer(donations[i].account, tmpAmount);
+                        toDonate += tmpAmount;
+                    }
                     emit Donated(addr, donations[i].account, tmpAmount);
-                    left -= tmpAmount;
                 }
             }
         }
 
-        ICommunityCoin(stakingProducedBy).issueCommunityCoins(addr, left, priceBeforeStake, amount-left);
+        ICommunityCoin(stakingProducedBy).issueCommunityCoins(
+            addr, 
+            amount - toDonate - toLiquidity, 
+            priceBeforeStake, 
+            toDonate,
+            toLiquidity
+        );
     }
 
     ////////////////////////////////////////////////////////////////////////

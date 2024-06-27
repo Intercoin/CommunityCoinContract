@@ -56,6 +56,8 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@intercoin/community/contracts/interfaces/ICommunity.sol";
 import "@intercoin/releasemanager/contracts/CostManagerHelperERC2771Support.sol";
 
+import "@intercoin/liquidity/contracts/interfaces/ILiquidityLib.sol";
+
 import "./libs/PoolStakesLib.sol";
 
 //import "hardhat/console.sol";
@@ -74,14 +76,14 @@ contract CommunityCoin is
 
     uint64 internal constant LOCKUP_INTERVAL = 1 days;//24 * 60 * 60; // day in seconds
     uint64 internal constant LOCKUP_BONUS_INTERVAL = 52000 weeks;//1000 * 365 * 24 * 60 * 60; // 1000 years in seconds
-    uint64 public constant FRACTION = 100000; // fractions are expressed as portions of this
+    uint64 public constant FRACTION = 10000; // fractions are expressed as portions of this
 
-    uint64 public constant MAX_REDEEM_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
-    uint64 public constant MAX_UNSTAKE_TARIFF = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 public constant MAX_REDEEM_TARIFF = 1000; //10%*FRACTION = 0.1 * 10000 = 1000
+    uint64 public constant MAX_UNSTAKE_TARIFF = 1000; //10%*FRACTION = 0.1 * 10000 = 1000
 
     // max constants used in BeforeTransfer
-    uint64 public constant MAX_TAX = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
-    uint64 public constant MAX_BOOST = 10000; //10%*FRACTION = 0.1 * 100000 = 10000
+    uint64 public constant MAX_TAX = 1000; //10%*FRACTION = 0.1 * 10000 = 1000
+    uint64 public constant MAX_BOOST = 1000; //10%*FRACTION = 0.1 * 10000 = 1000
 
     address public taxHook;
 
@@ -92,6 +94,7 @@ contract CommunityCoin is
     address public donationRewardsHook; // donation hook rewards
 
     ICommunityStakingPoolFactory public instanceManagment; // ICommunityStakingPoolFactory
+    IStructs.FactorySettings factorySettings;
 
     uint256 internal discountSensitivity;
 
@@ -135,6 +138,9 @@ contract CommunityCoin is
     mapping(address => UserData) internal users;
 
     address public linkedContract;
+    address public uniswapRouter;
+    address public uniswapRouterFactory;
+
     bool flagHookTransferReentrant;
     bool flagBurnUnstakeRedeem;
     modifier proceedBurnUnstakeRedeem() {
@@ -148,7 +154,6 @@ contract CommunityCoin is
     event MaxTaxExceeded();
     event MaxBoostExceeded();
     
-    error ShouldBeFullDonations();
     error TokenNotInWhitelist();
     
 
@@ -159,14 +164,15 @@ contract CommunityCoin is
      
      * @param hooks_ address of contract implemented IHook interface and used to calculation bonus tokens amount
      
-     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+     * @param discountSensitivity_ discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**4 by default)
      * @param communitySettings tuple of IStructs.CommunitySettings. fractionBy, addressCommunity, roles, etc
-     * @param factorySettings struct to packed variables belong to factory
-     *      factorySettings.poolImpl address of StakingPool implementation. usual it's `${tradedToken}c`
-     *      factorySettings.stakingPoolFactory address of contract that managed and cloned pools
-     *      factorySettings.costManager address
-     *      factorySettings.producedBy address that produced instance by factory
-     *      factorySettings.linkedContract erc20/erc777 token's address
+     * @param factorySettings_ struct to packed variables belong to factory
+     *      factorySettings_.poolImpl address of StakingPool implementation. usual it's `${tradedToken}c`
+     *      factorySettings_.stakingPoolFactory address of contract that managed and cloned pools
+     *      factorySettings_.costManager address
+     *      factorySettings_.producedBy address that produced instance by factory
+     *      factorySettings_.linkedContract erc20/erc777 token's address
+     *      factorySettings_.liquidityLib liquidityLib address(see intercoin/liquidity pkg)
      * @custom:calledby StakingFactory contract
      * @custom:shortd initializing contract. called by StakingFactory contract
      */
@@ -176,16 +182,15 @@ contract CommunityCoin is
         address[] calldata hooks_,
         uint256 discountSensitivity_,
         IStructs.CommunitySettings calldata communitySettings,
-        FactorySettings calldata factorySettings
+        IStructs.FactorySettings calldata factorySettings_
     ) external virtual override initializer {
         __CostManagerHelper_init(_msgSender());
         _setCostManager(factorySettings.costManager);
-
         __Ownable_init();
-
         __ERC777_init(tokenName, tokenSymbol, (new address[](0)));
-
         __ReentrancyGuard_init();
+
+        factorySettings = factorySettings_;
 
         instanceManagment = ICommunityStakingPoolFactory(factorySettings.stakingPoolFactory); //new ICommunityStakingPoolFactory(impl);
         instanceManagment.initialize(factorySettings.poolImpl);
@@ -207,13 +212,15 @@ contract CommunityCoin is
 
         __RolesManagement_init(communitySettings);
 
+
         // register interfaces
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
 
         _accountForOperation(OPERATION_INITIALIZE << OPERATION_SHIFT_BITS, uint256(uint160(factorySettings.producedBy)), 0);
 
-        
-
+        ILiquidityLib liquidityLib = ILiquidityLib(factorySettings.liquidityLib);
+        // setup swap addresses
+        (uniswapRouter, uniswapRouterFactory) = liquidityLib.uniswapSettings();
 
     }
 
@@ -226,6 +233,8 @@ contract CommunityCoin is
      * @param account address of user that tokens will mint for
      * @param amount token's amount
      * @param priceBeforeStake price that was before adding liquidity in pool
+     * @param donatedAmount if positive and Donation hook was defined then just call onDonate method and that all
+     * @param liquidityAmount if positive then this amount need to be lest on pool.
      * @custom:calledby staking-pool
      * @custom:shortd distribute wallet tokens
      */
@@ -233,7 +242,8 @@ contract CommunityCoin is
         address account,
         uint256 amount,
         uint256 priceBeforeStake,
-        uint256 donatedAmount
+        uint256 donatedAmount,
+        uint256 liquidityAmount
     ) external override {
         address instance = msg.sender; //here need a msg.sender as a real sender.
 
@@ -246,88 +256,98 @@ contract CommunityCoin is
 
         // just call hook if setup before and that's all
         if (donatedAmount > 0 && donationRewardsHook != address(0)) {
-            IDonationRewards(donationRewardsHook).onDonate(instanceInfo.tokenErc20, account, donatedAmount);
+            IDonationRewards(donationRewardsHook).onDonate(instanceInfo.reserveToken, account, donatedAmount);
             return;
         }
 
+        if (liquidityAmount > 0) {
+            //forward conversion( LP -> СС)
+            liquidityAmount = (liquidityAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+            _instances[instance]._instanceStaked += liquidityAmount;
 
-        // calculate bonusAmount
-        uint256 bonusAmount = (amount * instanceInfo.bonusTokenFraction) / FRACTION;
+            total.totalUnstakeable += liquidityAmount;
+            total.totalReserves += liquidityAmount;
+        }
 
-        // calculate invitedAmount
-        address invitedBy = address(0);
-        uint256 invitedAmount = 0;
+        if (amount > 0) {
+            // calculate bonusAmount
+            uint256 bonusAmount = (amount * instanceInfo.bonusTokenFraction) / FRACTION;
 
-        if (invitedByFraction != 0) {
-            invitedBy = _invitedBy(account);
+            // calculate invitedAmount
+            address invitedBy = address(0);
+            uint256 invitedAmount = 0;
+
+            if (invitedByFraction != 0) {
+                invitedBy = _invitedBy(account);
+
+                if (invitedBy != address(0)) {
+                    //do invite comission calculation here
+                    invitedAmount = (amount * invitedByFraction) / FRACTION;
+                }
+            }
+
+            //forward conversion( LP -> СС)
+            amount = (amount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+            bonusAmount = (bonusAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+            invitedAmount = (invitedAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+
+            // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
+            // also keep in mind that user can unstake only unstakeable[account].total which saved w/o bonusTokens, but minimums and mint with it.
+            // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
+            // amount += bonusAmount;
+
+            _instances[instance]._instanceStaked += amount; // + bonusAmount + invitedAmount;
+
+            _instances[instance].unstakeable[account] += amount;
+            users[account].unstakeable += amount;
+
+            // _instances[instance].unstakeableBonuses[account] += bonusAmount;
+            // users[account].unstakeableBonuses += bonusAmount;
+            _insertBonus(instance, account, bonusAmount);
+
+            total.totalUnstakeable += amount;
+            total.totalReserves += amount;
 
             if (invitedBy != address(0)) {
-                //do invite comission calculation here
-                invitedAmount = (amount * invitedByFraction) / FRACTION;
+                // _instances[instance].unstakeableBonuses[invitedBy] += invitedAmount;
+                // users[invitedBy].unstakeableBonuses += invitedAmount;
+                _insertBonus(instance, invitedBy, invitedAmount);
             }
-        }
 
-        //forward conversion( LP -> СС)
-        amount = (amount * (instanceInfo.numerator)) / (instanceInfo.denominator);
-        bonusAmount = (bonusAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
-        invitedAmount = (invitedAmount * (instanceInfo.numerator)) / (instanceInfo.denominator);
+            // mint main part + bonus (@dev here bonus can be zero )
+            _mint(account, (amount + bonusAmount), "", "");
+            emit Staked(account, (amount + bonusAmount), priceBeforeStake);
+            // locked main
+            //users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
+            MinimumsLib._minimumsAdd(users[account].tokensLocked, amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
 
-        // means extra tokens should not to include into unstakeable and totalUnstakeable, but part of them will be increase totalRedeemable
-        // also keep in mind that user can unstake only unstakeable[account].total which saved w/o bonusTokens, but minimums and mint with it.
-        // it's provide to use such tokens like transfer but prevent unstake bonus in 1to1 after minimums expiring
-        // amount += bonusAmount;
-
-        _instances[instance]._instanceStaked += amount; // + bonusAmount + invitedAmount;
-
-        _instances[instance].unstakeable[account] += amount;
-        users[account].unstakeable += amount;
-
-        // _instances[instance].unstakeableBonuses[account] += bonusAmount;
-        // users[account].unstakeableBonuses += bonusAmount;
-        _insertBonus(instance, account, bonusAmount);
-
-        total.totalUnstakeable += amount;
-        total.totalReserves += amount;
-
-        if (invitedBy != address(0)) {
-            // _instances[instance].unstakeableBonuses[invitedBy] += invitedAmount;
-            // users[invitedBy].unstakeableBonuses += invitedAmount;
-            _insertBonus(instance, invitedBy, invitedAmount);
-        }
-
-        // mint main part + bonus (@dev here bonus can be zero )
-        _mint(account, (amount + bonusAmount), "", "");
-        emit Staked(account, (amount + bonusAmount), priceBeforeStake);
-        // locked main
-        //users[account].tokensLocked._minimumsAdd(amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
-        MinimumsLib._minimumsAdd(users[account].tokensLocked, amount, instanceInfo.duration, LOCKUP_INTERVAL, false);
-
-        _accountForOperation(
-            OPERATION_ISSUE_COMMUNITY_COINS << OPERATION_SHIFT_BITS,
-            uint256(uint160(account)),
-            amount + bonusAmount
-        );
-
-        // locked main
-        if (bonusAmount > 0) {
-            //users[account].tokensBonus._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
-            MinimumsLib._minimumsAdd(users[account].tokensBonus, bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
             _accountForOperation(
-                OPERATION_ISSUE_COMMUNITY_COINS_BONUS << OPERATION_SHIFT_BITS,
+                OPERATION_ISSUE_COMMUNITY_COINS << OPERATION_SHIFT_BITS,
                 uint256(uint160(account)),
-                bonusAmount
+                amount + bonusAmount
             );
-        }
 
-        if (invitedBy != address(0)) {
-            _mint(invitedBy, invitedAmount, "", "");
-            //users[invitedBy].tokensBonus._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
-            MinimumsLib._minimumsAdd(users[invitedBy].tokensBonus, invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
-            _accountForOperation(
-                OPERATION_ISSUE_COMMUNITY_COINS_BY_INVITE << OPERATION_SHIFT_BITS,
-                uint256(uint160(invitedBy)),
-                invitedAmount
-            );
+            // locked main
+            if (bonusAmount > 0) {
+                //users[account].tokensBonus._minimumsAdd(bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+                MinimumsLib._minimumsAdd(users[account].tokensBonus, bonusAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+                _accountForOperation(
+                    OPERATION_ISSUE_COMMUNITY_COINS_BONUS << OPERATION_SHIFT_BITS,
+                    uint256(uint160(account)),
+                    bonusAmount
+                );
+            }
+
+            if (invitedBy != address(0)) {
+                _mint(invitedBy, invitedAmount, "", "");
+                //users[invitedBy].tokensBonus._minimumsAdd(invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+                MinimumsLib._minimumsAdd(users[invitedBy].tokensBonus, invitedAmount, 1, LOCKUP_BONUS_INTERVAL, false);
+                _accountForOperation(
+                    OPERATION_ISSUE_COMMUNITY_COINS_BY_INVITE << OPERATION_SHIFT_BITS,
+                    uint256(uint160(invitedBy)),
+                    invitedAmount
+                );
+            }
         }
     }
 
@@ -384,18 +404,18 @@ contract CommunityCoin is
 
     /**
      * @notice function for creation erc20 instance pool.
-     * @param tokenErc20 address of erc20 token.
+     * @param reserveToken address of erc20 token.
      * @param duration duration represented in amount of `LOCKUP_INTERVAL`
      * @param bonusTokenFraction fraction of bonus tokens multiplied by {CommunityStakingPool::FRACTION} that additionally distributed when user stakes
      * @param donations array of tuples donations. address,uint256. 
         if array empty when coins will obtain sender, 
         overwise donation[i].account  will obtain proportionally by ration donation[i].amount
-        addresses should be EOA
+        addresses should be EOA 
      * @return instance address of created instance pool `CommunityStakingPoolErc20`
      * @custom:shortd creation erc20 instance with simple options
      */
     function produce(
-        address tokenErc20,
+        address reserveToken,
         uint64 duration,
         uint64 bonusTokenFraction,
         address popularToken,
@@ -404,28 +424,23 @@ contract CommunityCoin is
         uint64 numerator,
         uint64 denominator
     ) public onlyOwner returns (address instance) {
-        if (whitelistedTokens[tokenErc20] == false) {
+        if (whitelistedTokens[reserveToken] == false) {
             revert TokenNotInWhitelist();
         }
-        if (tokenErc20 != linkedContract) {
-            uint256 totalDonationsAmount = 0;
-            for(uint256 i = 0; i < donations.length; i++) {
-                totalDonationsAmount += donations[i].amount;
-            }
-            if (totalDonationsAmount != FRACTION) {
-                revert ShouldBeFullDonations();
-            }
-        }
+
+        IStructs.StructGroup memory structGroup = IStructs.StructGroup(
+            duration,
+            bonusTokenFraction,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        );
         return _produce(
-                tokenErc20,
-                duration,
-                bonusTokenFraction,
-                popularToken,
-                donations,
-                rewardsRateFraction,
-                numerator,
-                denominator
-            );
+            reserveToken,
+            popularToken,
+            donations,
+            structGroup
+        );
     }
 
     /**
@@ -639,30 +654,25 @@ contract CommunityCoin is
     }
 
     function _produce(
-        address tokenErc20,
-        uint64 duration,
-        uint64 bonusTokenFraction,
+        address reserveToken,
         address popularToken,
         IStructs.StructAddrUint256[] memory donations,
-        uint64 rewardsRateFraction,
-        uint64 numerator,
-        uint64 denominator
+        IStructs.StructGroup memory structGroup
     ) internal returns (address instance) {
         instance = instanceManagment.produce(
-            tokenErc20,
-            duration,
-            bonusTokenFraction,
+            reserveToken,
             popularToken,
             donations,
-            rewardsRateFraction,
-            numerator,
-            denominator
+            structGroup,
+            factorySettings,
+            uniswapRouter,
+            uniswapRouterFactory
         );
-        emit InstanceCreated(tokenErc20, instance);
+        emit InstanceCreated(reserveToken, instance);
 
         _accountForOperation(
             OPERATION_PRODUCE_ERC20 << OPERATION_SHIFT_BITS,
-            (duration << (256 - 64)) + (bonusTokenFraction << (256 - 128)) + (numerator << (256 - 192)) + (denominator),
+            (structGroup.duration << (256 - 64)) + (structGroup.bonusTokenFraction << (256 - 128)) + (structGroup.numerator << (256 - 192)) + (structGroup.denominator),
             0
         );
     }

@@ -98,6 +98,8 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
     address public immutable stakingPoolImplementation;
 
     address public linkedContract;
+    address public liquidityLib;
+    
     address[] public instances;
 
     error EmptyAddress();
@@ -113,6 +115,8 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      *  when user will create pool in "communityCoin.produce" and specify donation.amount
      *  then stakingToken should be not equal != linkedContract_.
      *  Overwise donations.amount should be 100% (at single address or in summary)
+     *  in most cases it would be a "reservedToken" or "staking token"
+     * @param liquidityLib_ liquidityLib address(see intercoin/liquidity pkg)
      * @param costManager_ address of costmanager
      * @param releaseManager_ address of releaseManager
      */
@@ -121,6 +125,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
         address communityStakingPoolFactoryImpl,
         address stakingPoolImpl,
         address linkedContract_,
+        address liquidityLib_,
         address costManager_,
         address releaseManager_
     ) 
@@ -141,6 +146,7 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
         communityStakingPoolFactoryImplementation = communityStakingPoolFactoryImpl;
         stakingPoolImplementation = stakingPoolImpl;
         linkedContract = linkedContract_;
+        liquidityLib = liquidityLib_;
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -164,11 +170,13 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
      * @param tokenName internal token name 
      * @param tokenSymbol internal token symbol.
      * @param hooks addresses of contract implemented IHook interface and used to calculation bonus tokens amount
-     * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**5 by default)
+     * @param discountSensitivity discountSensitivity value that manage amount tokens in redeem process. multiplied by `FRACTION`(10**4 by default)
      * @param communitySettings tuple of community settings (address of contract and roles(redeem,circulate,tariff))
      * @return instance address of created instance pool `CommunityCoin`
      * @custom:shortd creation instance
      */
+
+     
     function produce(
         string calldata tokenName,
         string calldata tokenSymbol,
@@ -202,12 +210,13 @@ contract CommunityCoinFactory is Ownable, CostManagerFactoryHelper, ReleaseManag
 
         emit InstanceCreated(instance, instances.length);
 
-        ICommunityCoin.FactorySettings memory factorySettings = ICommunityCoin.FactorySettings(
+        IStructs.FactorySettings memory factorySettings = IStructs.FactorySettings(
             stakingPoolImplementation,
             coinInstancesClone,
             costManager,
             _msgSender(),
             linkedContract,
+            liquidityLib,
             whitelistedTokens
         );
 

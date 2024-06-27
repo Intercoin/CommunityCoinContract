@@ -34,7 +34,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol"
 contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFactory, IStructs {
     using ClonesUpgradeable for address;
 
-    uint64 internal constant FRACTION = 100000; // fractions are expressed as portions of this
+    uint64 internal constant FRACTION = 10000; // fractions are expressed as portions of this
 
     mapping(address => mapping(uint256 => address)) public override getInstance;
 
@@ -51,6 +51,7 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     mapping(address => InstanceInfo) public _instanceInfos;
 
     error InstanceCreationFailed();
+    error ShouldBeFullDonations();
     error InvalidDonationAddress();
     error ZeroDuration();
     
@@ -93,35 +94,35 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     }
 
     function getInstanceInfo(
-        address tokenErc20,
+        address reserveToken,
         uint64 duration
     ) public view returns (InstanceInfo memory) {
-        address instance = getInstance[tokenErc20][duration];
+        address instance = getInstance[reserveToken][duration];
         return _instanceInfos[instance];
     }
-
+    
     function produce(
-        address tokenErc20,
-        uint64 duration,
-        uint64 bonusTokenFraction,
+        address reserveToken,
         address popularToken,
-        IStructs.StructAddrUint256[] memory donations,
-        uint64 rewardsRateFraction,
-        uint64 numerator,
-        uint64 denominator
+        IStructs.StructAddrUint256[] calldata donations,
+        IStructs.StructGroup calldata structGroup,
+        IStructs.FactorySettings calldata factorySettings,
+        address uniswapRouter,
+        address uniswapRouterFactory
     ) external returns (address instance) {
         require(msg.sender == creator);
 
-        _createInstanceValidate(tokenErc20, duration, donations);
+        _createInstanceValidate(reserveToken, structGroup.duration, donations, factorySettings);
 
         address instanceCreated = _createInstance(
-            tokenErc20,
-            duration,
-            bonusTokenFraction,
+            reserveToken,
             popularToken,
-            rewardsRateFraction,
-            numerator,
-            denominator
+            // duration,
+            // bonusTokenFraction,
+            // rewardsRateFraction,
+            // numerator,
+            // denominator
+            structGroup
         );
 
         if (instanceCreated == address(0)) {
@@ -135,10 +136,12 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
         // } else {
         ICommunityStakingPool(instanceCreated).initialize(
             creator,
-            tokenErc20,
+            reserveToken,
             popularToken,
             donations,
-            rewardsRateFraction
+            structGroup.rewardsRateFraction,
+            uniswapRouter,
+            uniswapRouterFactory
         );
         // }
 
@@ -147,41 +150,54 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     }
 
     function _createInstanceValidate(
-        address tokenErc20,
+        address reserveToken,
         uint64 duration,
-        IStructs.StructAddrUint256[] memory donations
+        IStructs.StructAddrUint256[] calldata donations,
+        IStructs.FactorySettings calldata factorySettings
     ) internal view {
         if (duration == 0) {
             revert ZeroDuration();
         }
-        address instance = getInstance[tokenErc20][duration];
+        address instance = getInstance[reserveToken][duration];
         require(instance == address(0), "CommunityCoin: PAIR_ALREADY_EXISTS");
         require(
             typeProducedByFactory == InstanceType.NONE || typeProducedByFactory == InstanceType.ERC20,
             "CommunityCoin: INVALID_INSTANCE_TYPE"
         );
 
+        
+        uint256 totalDonationsAmount = 0;
         for(uint256 i = 0; i < donations.length; i++) {
+
             //simple unsafe checking isContract 
             if (donations[i].account.code.length > 0) {
                 revert InvalidDonationAddress();
             }
-            
+
+            totalDonationsAmount += donations[i].amount;
         }
+
+        if (reserveToken != factorySettings.linkedContract) {
+            if (totalDonationsAmount != FRACTION) {
+                revert ShouldBeFullDonations();
+            }
+        }
+
     }
 
     function _createInstance(
-        address tokenErc20,
-        uint64 duration,
-        uint64 bonusTokenFraction,
+        address reserveToken,
         address popularToken,
-        uint64 rewardsRateFraction,
-        uint64 numerator,
-        uint64 denominator
+        // uint64 duration,
+        // uint64 bonusTokenFraction,
+        // uint64 rewardsRateFraction,
+        // uint64 numerator,
+        // uint64 denominator
+        IStructs.StructGroup calldata structGroup
     ) internal returns (address instance) {
         instance = implementation.clone();
 
-        getInstance[tokenErc20][duration] = instance;
+        getInstance[reserveToken][structGroup.duration] = instance;
 
         _instanceIndexes[instance] = _instances.length;
         _instances.push(instance);
@@ -190,18 +206,18 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
         _instanceCreators[instance] = msg.sender; // real sender or trusted forwarder need to store?
         _instanceInfos[instance] = InstanceInfo(
-            tokenErc20,
-            duration,
+            reserveToken,
+            structGroup.duration,
             true,
-            bonusTokenFraction,
+            structGroup.bonusTokenFraction,
             popularToken,
-            rewardsRateFraction,
-            numerator,
-            denominator
+            structGroup.rewardsRateFraction,
+            structGroup.numerator,
+            structGroup.denominator
         );
         if (typeProducedByFactory == InstanceType.NONE) {
             typeProducedByFactory = InstanceType.ERC20;
         }
-        emit InstanceCreated(tokenErc20, instance, _instances.length);
+        emit InstanceCreated(reserveToken, instance, _instances.length);
     }
 }

@@ -9,7 +9,9 @@ interface ICommunityStakingPool {
         address token_,
         address popularToken_,
         IStructs.StructAddrUint256[] memory donations_,
-        uint64 rewardsRateFraction_
+        uint64 rewardsRateFraction_,
+        address uniswapRouter_,
+        address uniswapRouterFactory_
     ) external;
 
     function redeem(address account, uint256 amount) external returns(uint256 affectedAmount, uint64 rewardsRateFraction);

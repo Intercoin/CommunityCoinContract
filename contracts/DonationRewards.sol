@@ -72,7 +72,7 @@ contract DonationRewards is Initializable, ContextUpgradeable, OwnableUpgradeabl
 
 
     bytes32 internal constant BONUS_CALLER = keccak256("BONUS_CALLER");
-    uint64 constant FRACTION = 100000;
+    uint64 constant FRACTION = 10000;
     
     struct CommunityRoles {
         uint8 roleindex;
