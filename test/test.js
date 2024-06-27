@@ -20,6 +20,7 @@ const ONE_ETH = ethers.parseEther('1');
 //const TOTALSUPPLY = ethers.utils.parseEther('1000000000');    
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD';
+const MAGIC_ADDRESS = '0x1000000000000000000000000000000000000000';
 
 
 // function convertToHex(str) {
@@ -777,6 +778,99 @@ describe("Staking contract tests", function () {
 
         expect(oldInvitedByFraction).to.be.eq(INVITEDBY_FRACTION);
         expect(newInvitedByFraction).to.be.eq(toSetInvitedByFraction);
+    });
+
+    it("donate tests: (donations:50%(david) and 25%(magic address). left for sender)", async () => {
+        const res = await loadFixture(deploy);
+        const {
+            owner,
+            bob,
+            david,
+            frank,
+            FRACTION,
+            lockupIntervalCount,
+            dayInSeconds,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            rewardsRateFraction,
+            numerator,
+            denominator,
+
+            erc20,
+            CommunityCoin
+        } = res;
+        
+        const DONATIONS = [[david.address, FRACTION*50n/100n], [MAGIC_ADDRESS, FRACTION*25n/100n]];
+
+        let tx = await CommunityCoin.connect(owner)["produce(address,uint64,uint64,address,(address,uint256)[],uint64,uint64,uint64)"](
+            erc20.target,
+            lockupIntervalCount,
+            NO_BONUS_FRACTIONS,
+            NO_POPULAR_TOKEN,
+            DONATIONS,
+            rewardsRateFraction,
+            numerator,
+            denominator
+        );
+
+        const rc = await tx.wait(); // 0ms, as tx is already confirmed
+        const event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
+        const [erc20token, instance] = event.args;
+        
+        const communityStakingPool = await ethers.getContractAt("MockCommunityStakingPool",instance);
+
+        const shares = ethers.parseEther('1');
+        await erc20.mint(bob.address, shares);
+        await erc20.connect(bob).approve(communityStakingPool.target, shares);
+
+        const bobCommunityCoinTokensBefore = await CommunityCoin.balanceOf(bob.address);
+        const davidERC20TokensBefore = await erc20.balanceOf(david.address);
+        const communityStakingPoolERC20TokensBefore = await erc20.balanceOf(communityStakingPool.target);
+
+        await communityStakingPool.connect(bob).stake(shares, bob.address);
+        
+        const bobCommunityCoinTokensAfter = await CommunityCoin.balanceOf(bob.address);
+        const davidERC20TokensAfter = await erc20.balanceOf(david.address);
+        const communityStakingPoolERC20TokensAfter = await erc20.balanceOf(communityStakingPool.target);
+
+        // donates 50% and 25% and left for Bob
+        expect(
+            bobCommunityCoinTokensAfter - bobCommunityCoinTokensBefore
+        ).to.be.eq(
+            shares * (FRACTION*25n/100n) / (FRACTION)
+        );
+        expect(
+            davidERC20TokensAfter - davidERC20TokensBefore
+        ).to.be.eq(
+            shares * (FRACTION*50n/100n) / (FRACTION)
+        );
+        
+        // on pool left 25% bob shares and 25% left from magic address
+        expect(
+            communityStakingPoolERC20TokensAfter - communityStakingPoolERC20TokensBefore
+        ).to.be.eq(
+            shares * (FRACTION*(25n+25n)/100n) / (FRACTION)
+        );
+
+        // pass some mtime
+        await time.increase(lockupIntervalCount*dayInSeconds+9n); 
+
+        // bob unstake
+        const bobShares = await CommunityCoin.balanceOf(bob.address);
+        await CommunityCoin.connect(bob).approve(CommunityCoin.target, bobShares);
+        await CommunityCoin.connect(bob)["unstake(uint256)"](bobShares);
+
+        let bobCommunityCoinTokensAfterUnstake = await erc20.balanceOf(communityStakingPool.target);
+                        
+                     //   expect(bobERC20TokenAfter).gt(bobERC20TokenBefore);
+        // 25% left on pool
+        expect(
+            bobCommunityCoinTokensAfterUnstake - communityStakingPoolERC20TokensBefore
+        ).to.be.eq(
+            shares * (FRACTION*25n/100n) / (FRACTION)
+        );
+
+
     });
 
     it("donate tests: (donations:50% and 25%. left for sender)", async () => {
