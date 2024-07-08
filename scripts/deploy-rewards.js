@@ -42,12 +42,19 @@ async function main() {
 	}
 	//----------------
 
-	const [deployer] = await ethers.getSigners();
+	
+	var signers = await ethers.getSigners();
+	var deployer_rewards;
+    if (signers.length == 1) {
+        deployer_rewards = signers[0];
+    } else {
+        [,,,deployer_rewards] = signers;
+    }
 	
 	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 	console.log(
 		"Deploying contracts with the account:",
-		deployer.address
+		deployer_rewards.address
 	);
 
 	// var options = {
@@ -55,7 +62,7 @@ async function main() {
 	// 	gasLimit: 10e6
 	// };
 
-	console.log("Account balance:", (await deployer.getBalance()).toString());
+	console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
 
 
   	const RewardsFactoryF = await ethers.getContractFactory("RewardsFactory");
@@ -67,9 +74,9 @@ async function main() {
     let _params = [data_object.rewards];
 	let params = [..._params, options];
 	
-	this.factory = await RewardsFactoryF.connect(deployer).deploy(...params);
+	this.factory = await RewardsFactoryF.connect(deployer_rewards).deploy(...params);
 
-	console.log("RewardsFactory deployed at:", this.factory.address);
+	console.log("RewardsFactory deployed at:", this.factory.target);
 	console.log("with params:", [..._params]);
     
 }

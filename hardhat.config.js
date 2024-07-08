@@ -24,64 +24,47 @@ module.exports = {
     },
     hardhat: {
       allowUnlimitedContractSize: false,
-      chainId: 0x38,  // sync with url or getting uniswap settings will reject transactions
-      forking: {
-        //url: mainnetURL,
-        // blockNumber: 14667052
-        //---------------------------
+      chainId: 137,  // sync with url or getting uniswap settings will reject transactions
+      forking: {url: maticURL}
+      // @dev 
+      // 1. there are no way to override chainid. in EVM on assembly section we will have 0x7a69 (local ganache id) whatever you write here or use any RPC urls
+      // so if set url for BSC to be sure that libLiquidity supports
+      // 2. set hardcoded "latest" block number on node. Else got an error "ProviderError: missing trie node" and happens only in BSC
+      //-------------------------
         
-        url: bscURL
-        
-        // @dev 
-        // 1. there are no way to override chainid. in EVM on assembly section we will have 0x7a69 (local ganache id) whatever you write here or use any RPC urls
-        // so if set url for BSC to be sure that libLiquidity supports
-        // 2. set hardcoded "latest" block number on node. Else got an error "ProviderError: missing trie node" and happens only in BSC
-        //-------------------------
-        
-      }
-    },
-    kovan: {
-      url: kovanURL,
-      chainId: 42,
-      gas: 12000000,
-      accounts: [process.env.private_key],
-      saveDeployments: true
-    },
-    goerli: {
-      url: goerliURL,
-      chainId: 5,
-      gasPrice: 1000,
-      accounts: [process.env.private_key],
-      saveDeployments: true
-    },
-    rinkeby: {
-      url: rinkebyURL,
-      chainId: 4,
-      //gasPrice: "auto",
-      accounts: [process.env.private_key],
-      saveDeployments: true
+      
     },
     bsc: {
       url: bscURL,
       chainId: 56,
       //gasPrice: "auto",
-      accounts: [process.env.private_key],
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_communitycoin,
+        process.env.private_key_rewards
+      ],
       saveDeployments: true
     },
-    matic: {
+    polygon: {
       url: maticURL,
       chainId: 137,
       //gasPrice: "auto",
-      accounts: [process.env.private_key],
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_communitycoin,
+        process.env.private_key_rewards
+      ],
       saveDeployments: true
     },
-    mumbai: {
-      url: mumbaiURL,
-      chainId: 80001,
-      gasPrice: "auto",
-      accounts: [process.env.private_key],
-      saveDeployments: true
-    },
+    // mumbai: {
+    //   url: mumbaiURL,
+    //   chainId: 80001,
+    //   gasPrice: "auto",
+    //   accounts: [process.env.private_key],
+    //   saveDeployments: true
+    // },
     mainnet: {
       url: mainnetURL,
       chainId: 1,
@@ -102,9 +85,12 @@ module.exports = {
     currency: "USD"
   },
   etherscan: {
-    //apiKey: process.env.MATIC_API_KEY
-    //apiKey: process.env.ETHERSCAN_API_KEY
-    apiKey: process.env.BSCSCAN_API_KEY
+    apiKey: {
+      polygon: process.env.MATIC_API_KEY,
+      mainnet: process.env.ETHERSCAN_API_KEY,
+      bsc: process.env.BSCSCAN_API_KEY
+    }
+    
     
   },
   solidity: {

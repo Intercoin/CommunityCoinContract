@@ -48,21 +48,31 @@ async function main() {
 		throw("Arguments file: wrong addresses");
 	}
     
-	const [deployer] = await ethers.getSigners();
+	var signers = await ethers.getSigners();
+	var deployer_communitycoin;
+    if (signers.length == 1) {
+        deployer_communitycoin = signers[0];
+    } else {
+        [,,deployer_communitycoin] = signers;
+    }
+	
 	
 	const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+	const linkedContract = '0x1111cCCBd70ff1eE6fa49BC411b75D16dC321111';
+	const liquidityLib = '0x1eA4C4613a4DfdAEEB95A261d11520c90D5d6252';
   	// const discountSensitivity = 0;
 
 	var options = {
 		//gasPrice: ethers.utils.parseUnits('150', 'gwei'), 
-		gasLimit: 5e6
+		//gasLimit: 5e6
 	};
 	let _params = [
 		data_object.communityCoin,
 		data_object.communityStakingPoolFactory,
 		data_object.communityStakingPool,
-		//  REPLACE THIS. linkedContract CANNOT BE EMPTY
-		ZERO_ADDRESS, // linkedContract_,
+		// linkedContract CANNOT BE EMPTY
+		linkedContract, // ZERO_ADDRESS, // linkedContract_,
+		liquidityLib,
 		///////////////////////////////////////
 		ZERO_ADDRESS, // costmanager
 		data_object.releaseManager
@@ -72,17 +82,26 @@ async function main() {
 		options
 	]
 
-	console.log("Deploying contracts with the account:",deployer.address);
-	console.log("Account balance:", (await deployer.getBalance()).toString());
-
+	console.log("Deploying contracts with the account:",deployer_communitycoin.address);
+	console.log("Account balance:", (await ethers.provider.getBalance(deployer_communitycoin.address)).toString());
+	console.log(_params);  
   	const CommunityCoinFactoryF = await ethers.getContractFactory("CommunityCoinFactory");
+	  
+	this.factory = await CommunityCoinFactoryF.connect(deployer_communitycoin).deploy(...params);
+	
+	this.factory.waitForDeployment();
 
-	this.factory = await CommunityCoinFactoryF.connect(deployer).deploy(...params);
-
-	console.log("Factory deployed at:", this.factory.address);
+	console.log("Factory deployed at:", this.factory.target);
 	console.log("with params:", [..._params]);
 
 	console.log("registered with release manager:", data_object.releaseManager);
+
+	console.log("Starting verifying:");
+	await hre.run("verify:verify", {
+		address: this.factory.target, 
+		constructorArguments: _params
+	});
+	
 }
 
 main()

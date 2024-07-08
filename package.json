@@ -1,6 +1,6 @@
 {
   "name": "@intercoin/staking",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Contracts to let people stake various tokens and use the trust that was built up in Intercoin's factory code.",
   "main": "index.js",
   "scripts": {
