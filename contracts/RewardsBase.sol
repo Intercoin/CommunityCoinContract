@@ -16,12 +16,13 @@ abstract contract RewardsBase is TrustedForwarder, SalesBase{
         uint256[] memory _amountRaised,
         uint64 _endTs,
         uint256[] memory _thresholds,
-        uint256[] memory _bonuses
+        uint256[] memory _bonuses,
+        address costManager,
+        address producedBy
     ) internal onlyInitializing {
 
-        //need to call __SalesBase__init directly but not need a release manager functionality. 
- 
-        _setCostManager(address(0)); // no cost manager
+        __CostManagerHelper_init(msg.sender, costManager);
+
         __TrustedForwarder_init(); // check need?
 
         __Ownable_init();

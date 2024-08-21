@@ -65,6 +65,8 @@ contract CommunityStakingPool is Initializable,
     address internal uniswapRouterFactory;
     address popularToken;
 
+    address internal addressCommunityCoinFactory;
+
     IUniswapV2Router02 internal UniswapV2Router02;
 
     //bytes32 private constant TOKENS_SENDER_INTERFACE_HASH = keccak256("ERC777TokensSender");
@@ -125,13 +127,15 @@ contract CommunityStakingPool is Initializable,
         IStructs.StructAddrUint256[] memory donations_,
         uint64 rewardsRateFraction_,
         address uniswapRouter_,
-        address uniswapRouterFactory_
+        address uniswapRouterFactory_,
+        address communityCoinFactory_
     ) external override initializer {
 
         stakingProducedBy = stakingProducedBy_; //it's should ne community coin token
         stakingToken = stakingToken_;
         popularToken = popularToken_;
         rewardsRateFraction = rewardsRateFraction_;
+        addressCommunityCoinFactory = communityCoinFactory_;
 
         //donations = donations_;
         // UnimplementedFeatureError: Copying of type struct IStructs.StructAddrUint256 memory[] memory to storage not yet supported.
@@ -239,7 +243,9 @@ contract CommunityStakingPool is Initializable,
     ) public payable nonReentrant {
         //additionally need to check PresaleContract. it should be in our ecosystem
         // stakingProducedBy is a communityCoin
-        address addressCommunityCoinFactory = CostManagerBase(stakingProducedBy).deployer();
+        //address addressCommunityCoinFactory = CostManagerBase(stakingProducedBy).getDeployer();
+        //21.08. upd
+        // passing addressCommunityCoinFactory  with chain CCoin->CStakingPoolFactory->CStakingPool we save gas without calling one request
         address addressReleaseManager = ReleaseManagerHelper(addressCommunityCoinFactory).releaseManager();
         bool boolIsPresaleCorrect = IReleaseManager(addressReleaseManager).checkInstance(presaleAddress);
         if (boolIsPresaleCorrect != true) {

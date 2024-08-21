@@ -12,6 +12,9 @@ const mainnetURL = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_M
 const maticURL = `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MATIC}`
 const mumbaiURL = 'https://matic-mumbai.chainstacklabs.com';
 
+const baseURL = 'https://mainnet.base.org';
+const optimismURL = 'https://optimism.llamarpc.com';
+
 module.exports = {
   networks: {
     local: {
@@ -24,15 +27,15 @@ module.exports = {
     },
     hardhat: {
       allowUnlimitedContractSize: false,
-      chainId: 137,  // sync with url or getting uniswap settings will reject transactions
-      forking: {url: maticURL}
+      // chainId: 137,  // sync with url or getting uniswap settings will reject transactions
+      // forking: {url: maticURL}
       // @dev 
       // 1. there are no way to override chainid. in EVM on assembly section we will have 0x7a69 (local ganache id) whatever you write here or use any RPC urls
       // so if set url for BSC to be sure that libLiquidity supports
       // 2. set hardcoded "latest" block number on node. Else got an error "ProviderError: missing trie node" and happens only in BSC
       //-------------------------
-        
-      
+      chainId: 1,
+      forking: {url: mainnetURL}
     },
     bsc: {
       url: bscURL,
@@ -41,6 +44,7 @@ module.exports = {
       accounts: [
         process.env.private_key,
         process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
         process.env.private_key_communitycoin,
         process.env.private_key_rewards
       ],
@@ -53,6 +57,7 @@ module.exports = {
       accounts: [
         process.env.private_key,
         process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
         process.env.private_key_communitycoin,
         process.env.private_key_rewards
       ],
@@ -68,8 +73,38 @@ module.exports = {
     mainnet: {
       url: mainnetURL,
       chainId: 1,
-      gasPrice: 20000000000,
-      accounts: [process.env.private_key],
+      //gasPrice: 3_000000000,
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
+        process.env.private_key_communitycoin,
+        process.env.private_key_rewards
+      ],
+      saveDeployments: true
+    },
+    base: {
+      url: baseURL,
+      chainId: 8453,
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
+        process.env.private_key_communitycoin,
+        process.env.private_key_rewards
+      ],
+      saveDeployments: true
+    },
+    optimisticEthereum: {
+      url: optimismURL,
+      chainId: 10,
+      accounts: [
+        process.env.private_key,
+        process.env.private_key_auxiliary,
+        process.env.private_key_releasemanager,
+        process.env.private_key_communitycoin,
+        process.env.private_key_rewards
+      ],
       saveDeployments: true
     }
   },
@@ -87,8 +122,10 @@ module.exports = {
   etherscan: {
     apiKey: {
       polygon: process.env.MATIC_API_KEY,
+      bsc: process.env.BSCSCAN_API_KEY,
       mainnet: process.env.ETHERSCAN_API_KEY,
-      bsc: process.env.BSCSCAN_API_KEY
+      optimisticEthereum: process.env.OPTIMISM_API_KEY,
+      base: process.env.BASE_API_KEY
     }
     
     

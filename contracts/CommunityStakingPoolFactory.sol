@@ -42,6 +42,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
 
     address public creator;
 
+    address internal communityCoinFactory;
+
     address[] private _instances;
     InstanceType[] private _instanceTypes;
     InstanceType internal typeProducedByFactory;
@@ -56,10 +58,11 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
     error ZeroDuration();
     
 
-    function initialize(address impl) external initializer {
+    function initialize(address impl,address communityCoinFactory_) external initializer {
         
         implementation = impl;
         creator = msg.sender;
+        communityCoinFactory = communityCoinFactory_;
 
         typeProducedByFactory = InstanceType.NONE;
     }
@@ -141,7 +144,8 @@ contract CommunityStakingPoolFactory is Initializable, ICommunityStakingPoolFact
             donations,
             structGroup.rewardsRateFraction,
             uniswapRouter,
-            uniswapRouterFactory
+            uniswapRouterFactory,
+            communityCoinFactory
         );
         // }
 

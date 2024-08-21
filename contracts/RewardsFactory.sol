@@ -5,6 +5,9 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IRewards.sol";
 
+import "@intercoin/releasemanager/contracts/CostManagerFactoryHelper.sol";
+import "@intercoin/releasemanager/contracts/ReleaseManagerHelper.sol";
+
 /**
 ****************
 FACTORY CONTRACT
@@ -72,7 +75,7 @@ ARBITRATION
 
 All disputes related to this agreement shall be governed by and interpreted in accordance with the laws of New York, without regard to principles of conflict of laws. The parties to this agreement will submit all disputes arising under this agreement to arbitration in New York City, New York before a single arbitrator of the American Arbitration Association (“AAA”). The arbitrator shall be selected by application of the rules of the AAA, or by mutual agreement of the parties, except that such arbitrator shall be an attorney admitted to practice law New York. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section. No party to this agreement will challenge the jurisdiction or venue provisions as provided in this section.
 **/
-contract RewardsFactory is Ownable {
+contract RewardsFactory is Ownable, CostManagerFactoryHelper, ReleaseManagerHelper {
     using Clones for address;
 
     /**
@@ -90,7 +93,14 @@ contract RewardsFactory is Ownable {
     /**
      * @param rewardsImpl address of Rewards implementation
      */
-    constructor(address rewardsImpl) {
+    constructor(
+        address rewardsImpl,
+        address costManager_,
+        address releaseManager_
+    ) 
+        CostManagerFactoryHelper(costManager_) 
+        ReleaseManagerHelper(releaseManager_)
+    {
         rewardsImplementation = rewardsImpl;
     }
 
@@ -139,8 +149,6 @@ contract RewardsFactory is Ownable {
 
         emit InstanceCreated(instance, instances.length);
 
-        
-        
         IRewards(instance).initialize(
             _sellingToken,
             _timestamps,
@@ -148,11 +156,15 @@ contract RewardsFactory is Ownable {
             _amountRaised,
             _endTs,
             _thresholds,
-            _bonuses
+            _bonuses,
+            costManager, 
+            msg.sender
         );
 
         Ownable(instance).transferOwnership(_msgSender());
 
+        // register instance in release manager
+        registerInstance(instance);
     }
 
     ////////////////////////////////////////////////////////////////////////

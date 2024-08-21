@@ -21,9 +21,11 @@ contract Rewards is RewardsBase, IHook, IRewards {
         uint256[] memory _amountRaised,
         uint64 _endTs,
         uint256[] memory _thresholds,
-        uint256[] memory _bonuses
+        uint256[] memory _bonuses,
+        address costManager,
+        address producedBy
     ) external initializer {
-        __Rewards_init(_sellingToken, _timestamps, _prices, _amountRaised, _endTs, _thresholds, _bonuses);
+        __Rewards_init(_sellingToken, _timestamps, _prices, _amountRaised, _endTs, _thresholds, _bonuses, costManager, producedBy);
     }
 
     modifier onlyCaller() {

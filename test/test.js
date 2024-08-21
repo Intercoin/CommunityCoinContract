@@ -121,6 +121,7 @@ describe("Staking contract tests", function () {
         const CommunityStakingPoolF = await ethers.getContractFactory("MockCommunityStakingPool");
         const CommunityStakingPoolFactoryF = await ethers.getContractFactory("CommunityStakingPoolFactory");
 
+        const RewardsFactoryF = await ethers.getContractFactory("RewardsFactory");
         const RewardsF = await ethers.getContractFactory("Rewards");
         const MockCommunityF = await ethers.getContractFactory("MockCommunity");
         ERC20Factory = await ethers.getContractFactory("ERC20Mintable");
@@ -150,14 +151,33 @@ describe("Staking contract tests", function () {
         implementationCommunityCoin = await CommunityCoinF.deploy();
         implementationCommunityStakingPoolFactory = await CommunityStakingPoolFactoryF.deploy();
         implementationCommunityStakingPool = await CommunityStakingPoolF.deploy();
-
-        rewardsHook = await RewardsF.deploy();
-
+        //----
+        //rewardsHook = await RewardsF.deploy();
+        
+        const NO_COSTMANAGER = ZERO_ADDRESS;
         const PRICE_REWARDS = PRICE_DENOM;
         const amoutnRaisedVal = ethers.parseEther('1000000000');//THOUSAND.mul(THOUSAND).mul(THOUSAND).mul(ONE_ETH);
         let timeLatest = await time.latest();
 
-        await rewardsHook.connect(owner).initialize(
+        const implementationRewardsFactory = await RewardsF.deploy();
+        const RewardsFactory = await RewardsFactoryF.deploy(
+            implementationRewardsFactory.target,
+            NO_COSTMANAGER,
+            releaseManager.target
+        );
+        
+        await releaseManager.connect(owner).newRelease(
+            [RewardsFactory.target], 
+            [
+                [
+                    23n,//uint8 factoryIndex; 
+                    23n,//uint16 releaseTag; 
+                    "0x53696c766572000000000000000000000000000000000000"//bytes24 factoryChangeNotes;
+                ]
+            ]
+        );
+
+        tx = await RewardsFactory.connect(owner).produce(
             erc20Reward.target,                    //address sellingToken,
             [timeLatest],                //uint256[] memory timestamps,
             [PRICE_REWARDS],                        // uint256[] memory _prices,
@@ -165,8 +185,27 @@ describe("Staking contract tests", function () {
             (timeLatest + timeLatest),  //make a huge ts //uint64 _endTs,
             [ethers.parseEther("0.00001")],   // uint256[] memory thresholds,
             [rewardsTenPercentBonus]   // 10%       // uint256[] memory bonuses
-        )
-
+        );
+        rc = await tx.wait(); // 0ms, as tx is already confirmed
+        event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
+        [instance, instancesCount] = event.args;
+        rewardsHook = await ethers.getContractAt("Rewards",instance);
+        //--
+        tx = await RewardsFactory.connect(owner).produce(
+            frank.address, //address sellingToken,
+            [], //uint256[] memory timestamps,
+            [], //uint256[] memory prices,
+            [], //uint256[] memory _amountRaised,
+            999999999, //uint64 _endTs,
+            [], //uint256[] memory thresholds,
+            [], //uint256[] memory bonuses
+        );
+        rc = await tx.wait(); // 0ms, as tx is already confirmed
+        event = rc.logs.find(obj => obj.fragment && obj.fragment.name === 'InstanceCreated');
+        [instance, instancesCount] = event.args;
+        rewards = await ethers.getContractAt("Rewards",instance);
+        
+        //----------------
         mockCommunity = await MockCommunityF.deploy();
 
         const COMMUNITY_SETTINGS = [
@@ -177,7 +216,7 @@ describe("Staking contract tests", function () {
             TARIFF_ROLE
         ];
 
-        const NO_COSTMANAGER = ZERO_ADDRESS;
+        
         
         var libData = await ethers.getContractFactory("@intercoin/liquidity/contracts/LiquidityLib.sol:LiquidityLib");    
         const liquidityLib = await libData.deploy();
@@ -196,8 +235,8 @@ describe("Staking contract tests", function () {
         const factoriesList = [CommunityCoinFactory.target];
         const factoryInfo = [
             [
-                1n,//uint8 factoryIndex; 
-                1n,//uint16 releaseTag; 
+                3n,//uint8 factoryIndex; 
+                3n,//uint16 releaseTag; 
                 "0x53696c766572000000000000000000000000000000000000"//bytes24 factoryChangeNotes;
             ]
         ]
@@ -218,16 +257,7 @@ describe("Staking contract tests", function () {
         [instance, instancesCount] = event.args;
         CommunityCoinWithRewardsHook = await ethers.getContractAt("CommunityCoin",instance);
 
-        const rewards = await RewardsF.deploy();
-        await rewards.initialize(
-            frank.address, //address sellingToken,
-            [], //uint256[] memory timestamps,
-            [], //uint256[] memory prices,
-            [], //uint256[] memory _amountRaised,
-            999999999, //uint64 _endTs,
-            [], //uint256[] memory thresholds,
-            [], //uint256[] memory bonuses
-        );
+       
 
         const MockTaxesF = await ethers.getContractFactory("MockTaxes");
         const taxHook = await MockTaxesF.deploy();
@@ -2436,7 +2466,7 @@ describe("Staking contract tests", function () {
                     // beforeEach("before each callback", async() => {
                     // });
 
-                    it("successfull ", async () => {
+                    it.only("successfull ", async () => {
                         const res = await loadFixture(deployAndStake);
                         const {
                             bob,

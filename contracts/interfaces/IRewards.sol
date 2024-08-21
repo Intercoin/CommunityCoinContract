@@ -10,7 +10,9 @@ interface IRewards is IHook {
         uint256[] memory _amountRaised,
         uint64 _endTs,
         uint256[] memory _thresholds,
-        uint256[] memory _bonuses
+        uint256[] memory _bonuses,
+        address costManager,
+        address producedBy
     ) external;
 
     function onClaim(address account) external;

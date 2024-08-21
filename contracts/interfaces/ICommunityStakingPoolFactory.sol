@@ -18,7 +18,7 @@ interface ICommunityStakingPoolFactory {
 
     event InstanceCreated(address indexed erc20, address instance, uint instancesCount);
 
-    function initialize(address impl) external;
+    function initialize(address impl,address communityCoinFactory) external;
     function getInstance(address reserveToken, uint256 lockupIntervalCount) external view returns (address instance);
     function instancesByIndex(uint index) external view returns (address instance);
     function instances() external view returns (address[] memory instances);

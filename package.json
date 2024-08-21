@@ -1,6 +1,6 @@
 {
   "name": "@intercoin/staking",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Contracts to let people stake various tokens and use the trust that was built up in Intercoin's factory code.",
   "main": "index.js",
   "scripts": {
@@ -21,8 +21,8 @@
     "@intercoin/liquidity": "^1.0.0",
     "@intercoin/minimums": "^0.0.1-beta",
     "@intercoin/nonfungibletokencontract": "^1.0.0",
-    "@intercoin/releasemanager": "^2.0.0",
-    "@intercoin/sales": "^1.0.0",
+    "@intercoin/releasemanager": "^2.2.1",
+    "@intercoin/sales": "^1.2.3",
     "@intercoin/trustedforwarder": "^1.0.1",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "^4.1.0",

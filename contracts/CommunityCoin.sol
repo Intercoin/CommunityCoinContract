@@ -184,8 +184,7 @@ contract CommunityCoin is
         IStructs.CommunitySettings calldata communitySettings,
         IStructs.FactorySettings calldata factorySettings_
     ) external virtual override initializer {
-        __CostManagerHelper_init(_msgSender());
-        _setCostManager(factorySettings.costManager);
+        __CostManagerHelper_init(_msgSender(), factorySettings.costManager);
         __Ownable_init();
         __ERC777_init(tokenName, tokenSymbol, (new address[](0)));
         __ReentrancyGuard_init();
@@ -193,7 +192,7 @@ contract CommunityCoin is
         factorySettings = factorySettings_;
 
         instanceManagment = ICommunityStakingPoolFactory(factorySettings.stakingPoolFactory); //new ICommunityStakingPoolFactory(impl);
-        instanceManagment.initialize(factorySettings.poolImpl);
+        instanceManagment.initialize(factorySettings.poolImpl, getDeployer()); // here deployer it is CommunityCoinFactory | in fact, here, just msgSender()
 
         hooks = hooks_;
         for(uint256 i = 0; i < hooks_.length; i++) {

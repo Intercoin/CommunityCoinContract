@@ -32,6 +32,12 @@ function write_data(_message) {
     });
 }
 
+function sleep(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+}
+
 async function main() {
 	var data = await get_data();
 
@@ -43,19 +49,34 @@ async function main() {
         data_object = data_object_root[hre.network.name];
     }
 	//----------------
+	const networkName = hre.network.name;
 	var signers = await ethers.getSigners();
-	var deployer;
+	var deployer,
+        deployer_auxiliary,
+        deployer_releasemanager,
+        deployer_communitycoin,
+        deployer_rewards;
     if (signers.length == 1) {
-        deployer = signers[0];
+		deployer = signers[0];
+        deployer_auxiliary = signers[0];
+        deployer_releasemanager = signers[0];
+        deployer_communitycoin = signers[0];
+        deployer_rewards = signers[0];
     } else {
-        [,deployer] = signers;
+        [
+			deployer,
+			deployer_auxiliary,
+			deployer_releasemanager,
+			deployer_communitycoin,
+			deployer_rewards
+		] = signers;
     }
 
 	
     const RELEASE_MANAGER = hre.network.name == 'mumbai'? process.env.RELEASE_MANAGER_MUMBAI : process.env.RELEASE_MANAGER;
 	console.log(
 		"Deploying contracts with the account:",
-		deployer.address
+		deployer_auxiliary.address
 	);
 
 	// var options = {
@@ -63,10 +84,10 @@ async function main() {
 	// 	gasLimit: 10e6
 	// };
 
-	console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
+	console.log("Account balance:", (await ethers.provider.getBalance(deployer_auxiliary.address)).toString());
 
 	const PoolStakesLibF = await ethers.getContractFactory("PoolStakesLib");
-	let poolStakesLib = await PoolStakesLibF.connect(deployer).deploy();
+	let poolStakesLib = await PoolStakesLibF.connect(deployer_auxiliary).deploy();
 
 	const CommunityCoinF = await ethers.getContractFactory("CommunityCoin", {
 		libraries: {
@@ -76,24 +97,24 @@ async function main() {
 
   	const CommunityStakingPoolFactoryF = await ethers.getContractFactory("CommunityStakingPoolFactory");
   	const CommunityStakingPoolF = await ethers.getContractFactory("CommunityStakingPool");
-	const RewardsF = await ethers.getContractFactory("Rewards");
+	//const RewardsF = await ethers.getContractFactory("Rewards");
 
-	let communityCoin         		= await CommunityCoinF.connect(deployer).deploy();
-	let communityStakingPoolFactory = await CommunityStakingPoolFactoryF.connect(deployer).deploy();
-	let communityStakingPool    	= await CommunityStakingPoolF.connect(deployer).deploy();
-	let rewards         			= await RewardsF.connect(deployer).deploy();
-	//let communityRolesManagement    = await CommunityRolesManagementF.connect(deployer).deploy();
+	let communityCoin         		= await CommunityCoinF.connect(deployer_auxiliary).deploy();
+	let communityStakingPoolFactory = await CommunityStakingPoolFactoryF.connect(deployer_auxiliary).deploy();
+	let communityStakingPool    	= await CommunityStakingPoolF.connect(deployer_auxiliary).deploy();
+	//let rewards         			= await RewardsF.connect(deployer_auxiliary).deploy();
+	//let communityRolesManagement    = await CommunityRolesManagementF.connect(deployer_auxiliary).deploy();
 	await poolStakesLib.waitForDeployment();
 	await communityCoin.waitForDeployment();
 	await communityStakingPoolFactory.waitForDeployment();
 	await communityStakingPool.waitForDeployment();
-	await rewards.waitForDeployment();
+	//await rewards.waitForDeployment();
 	
 	console.log("Implementations:");
 	console.log("  communityCoin deployed at:               ", communityCoin.target);
 	console.log("  communityStakingPoolFactory deployed at: ", communityStakingPoolFactory.target);
 	console.log("  communityStakingPool deployed at:        ", communityStakingPool.target);
-	console.log("  rewards deployed at:                     ", rewards.target);
+	//console.log("  rewards deployed at:                     ", rewards.target);
 	console.log("Libraries:");
 	console.log("  poolStakesLib deployed at:    ", poolStakesLib.target);
     
@@ -102,7 +123,7 @@ async function main() {
 	data_object.communityStakingPool		= communityStakingPool.target;
 	data_object.poolStakesLib				= poolStakesLib.target;
 	data_object.releaseManager              = RELEASE_MANAGER;
-	data_object.rewards						= rewards.target;
+	//data_object.rewards						= rewards.target;
 
 
 	//---
@@ -115,17 +136,99 @@ async function main() {
     await write_data(data_to_write);
 
 	
-	console.log("Starting verifying:");
-	await hre.run("verify:verify", {
-		address: communityCoin.target, 
-		constructorArguments: [],
-		libraries: {"contracts/libs/PoolStakesLib.sol:PoolStakesLib": poolStakesLib.target}
-	});
-	await hre.run("verify:verify", {address: communityStakingPoolFactory.target, constructorArguments: []});
-	await hre.run("verify:verify", {address: communityStakingPool.target, constructorArguments: []});
-	await hre.run("verify:verify", {address: poolStakesLib.target, constructorArguments: []});
-	await hre.run("verify:verify", {address: rewards.target, constructorArguments: []});
-	console.log("done:");
+	if (networkName == 'hardhat') {
+        console.log("skipping verifying for  'hardhat' network");
+    } else {
+		console.log("Starting verifying:");
+		var attempt;
+		var loopExit;    
+
+		//communityCoin------------------------------------------------------------------------
+		attempt = 0;
+        loopExit = false;
+        while (!loopExit && attempt < 3) {
+            try {
+                console.log('Attempt #',attempt+1);
+                console.log('waiting 5 sec');
+                await sleep(5000);
+                
+				await hre.run("verify:verify", {address: communityCoin.target, constructorArguments: []});
+				
+                loopExit = true;
+                console.log('successfull');
+            } catch (error) {
+                attempt++;
+            }
+        }
+        if (!loopExit) {
+            console.log('verifying failed');
+        }
+		//communityStakingPoolFactory------------------------------------------------------------------------
+		attempt = 0;
+        loopExit = false;
+        while (!loopExit && attempt < 3) {
+            try {
+                console.log('Attempt #',attempt+1);
+                console.log('waiting 5 sec');
+                await sleep(5000);
+                
+                await hre.run("verify:verify", {address: communityStakingPoolFactory.target, constructorArguments: []});
+				
+                loopExit = true;
+                console.log('successfull');
+            } catch (error) {
+                attempt++;
+            }
+        }
+        if (!loopExit) {
+            console.log('verifying failed');
+        }
+		//communityStakingPool------------------------------------------------------------------------
+		attempt = 0;
+        loopExit = false;
+        while (!loopExit && attempt < 3) {
+            try {
+                console.log('Attempt #',attempt+1);
+                console.log('waiting 5 sec');
+                await sleep(5000);
+                
+                await hre.run("verify:verify", {address: communityStakingPool.target, constructorArguments: []});
+				
+                loopExit = true;
+                console.log('successfull');
+            } catch (error) {
+                attempt++;
+            }
+        }
+        if (!loopExit) {
+            console.log('verifying failed');
+        }
+		//PoolStakesLib------------------------------------------------------------------------
+		attempt = 0;
+        loopExit = false;
+        while (!loopExit && attempt < 3) {
+            try {
+                console.log('Attempt #',attempt+1);
+                console.log('waiting 5 sec');
+                await sleep(5000);
+                
+                await hre.run("verify:verify", {
+					address: poolStakesLib.target, 
+					constructorArguments: [],
+					libraries: {"contracts/libs/PoolStakesLib.sol:PoolStakesLib": poolStakesLib.target}
+				});
+				
+                loopExit = true;
+                console.log('successfull');
+            } catch (error) {
+                attempt++;
+            }
+        }
+        if (!loopExit) {
+            console.log('verifying failed');
+        }
+		//------------------------------------------------------------------------
+    }
 }
 
 main()
